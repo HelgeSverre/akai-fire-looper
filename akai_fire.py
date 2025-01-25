@@ -153,6 +153,13 @@ class AkaiFire:
     RECTANGLE_LED_HIGH_RED = 0x03
     RECTANGLE_LED_HIGH_GREEN = 0x04
 
+    # todo    temporary
+    FIELD_BASE = 0x10  # Base flag, must be set for valid combinations
+    FIELD_CHANNEL = 0x01
+    FIELD_MIXER = 0x02
+    FIELD_USER1 = 0x04
+    FIELD_USER2 = 0x08
+
     # Constants for Control Bank LED States
     CONTROL_BANK_ALL_OFF = 0x10
     CONTROL_BANK_ALL_ON = 0x1F
