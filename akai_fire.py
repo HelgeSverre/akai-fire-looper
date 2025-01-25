@@ -31,7 +31,7 @@ class AkaiFireBitmap:
             rb = BITMUTATE[int(x % 7)][y]
             index = int((x // 7) * 8 + (rb // 7))
             if color > 0:
-                self.bitmap[index] |= (1 << (rb % 7))
+                self.bitmap[index] |= 1 << (rb % 7)
             else:
                 self.bitmap[index] &= ~(1 << (rb % 7))
 
@@ -46,8 +46,10 @@ class AkaiFireBitmap:
             0x0E,  # OLED Write command
             chunk_size >> 7,  # Payload length (MSB)
             chunk_size & 0x7F,  # Payload length (LSB)
-            0, 0x07,  # Start and end band
-            0, 0x7F,  # Start and end column
+            0,
+            0x07,  # Start and end band
+            0,
+            0x7F,  # Start and end column
         ]
         sysex_data.extend(self.bitmap)
         sysex_data.append(0xF7)  # End of SysEx
@@ -101,7 +103,7 @@ class AkaiFireBitmap:
         """Fill a circle."""
         for y in range(-radius, radius + 1):
             for x in range(-radius, radius + 1):
-                if x ** 2 + y ** 2 <= radius ** 2:
+                if x**2 + y**2 <= radius**2:
                     self.set_pixel(x0 + x, y0 + y, color)
 
 
@@ -159,7 +161,9 @@ class AkaiFire:
         self.input_port_index, self.output_port_index = self._find_ports()
 
         if self.output_port_index is None or self.input_port_index is None:
-            raise RuntimeError("Akai Fire MIDI ports not found. Ensure it is connected.")
+            raise RuntimeError(
+                "Akai Fire MIDI ports not found. Ensure it is connected."
+            )
 
         self.midi_out.open_port(self.output_port_index)
         self.midi_in.open_port(self.input_port_index)
@@ -213,12 +217,14 @@ class AkaiFire:
         # Construct payload for pads
         payload = []
         for index, red, green, blue in pad_colors:
-            payload.extend([
-                index & 0x3F,
-                red & 0x7F,
-                green & 0x7F,
-                blue & 0x7F,
-            ])
+            payload.extend(
+                [
+                    index & 0x3F,
+                    red & 0x7F,
+                    green & 0x7F,
+                    blue & 0x7F,
+                ]
+            )
 
         return sysex_header + [length_high, length_low] + payload + [0xF7]
 

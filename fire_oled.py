@@ -34,7 +34,7 @@ class AkaiFireBitmap:
             rb = BITMUTATE[int(x % 7)][y]
             index = int((x // 7) * 8 + (rb // 7))
             if color > 0:
-                self.bitmap[index] |= (1 << (rb % 7))
+                self.bitmap[index] |= 1 << (rb % 7)
             else:
                 self.bitmap[index] &= ~(1 << (rb % 7))
 
@@ -52,8 +52,10 @@ class AkaiFireBitmap:
             0x0E,  # OLED Write command
             chunk_size >> 7,  # Payload length (MSB)
             chunk_size & 0x7F,  # Payload length (LSB)
-            0, 0x07,  # Start and end band
-            0, 0x7F,  # Start and end column
+            0,
+            0x07,  # Start and end band
+            0,
+            0x7F,  # Start and end column
         ]
         sysex_data.extend(self.bitmap)
         sysex_data.append(0xF7)  # End of SysEx
