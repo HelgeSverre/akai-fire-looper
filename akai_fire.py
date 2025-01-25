@@ -146,6 +146,13 @@ class AkaiFire:
     LED_DULL_YELLOW = 0x01
     LED_HIGH_YELLOW = 0x02
 
+    # Rectangle LED Values
+    RECTANGLE_LED_OFF = 0x00
+    RECTANGLE_LED_DULL_RED = 0x01
+    RECTANGLE_LED_DULL_GREEN = 0x02
+    RECTANGLE_LED_HIGH_RED = 0x03
+    RECTANGLE_LED_HIGH_GREEN = 0x04
+
     # Constants for Control Bank LED States
     CONTROL_BANK_OFF = 0x00
     CONTROL_BANK_CHANNEL = 0x01
