@@ -250,7 +250,7 @@ class AkaiFire:
         sysex_message = self._create_sysex_message(pad_colors)
         self.midi_out.send_message(sysex_message)
 
-    def clear_pads(self):
+    def clear_all_pads(self):
         """Turns off all pads."""
         pad_colors = [(i, 0, 0, 0) for i in range(64)]
         self.set_multiple_pad_colors(pad_colors)

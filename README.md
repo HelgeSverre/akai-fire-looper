@@ -16,7 +16,7 @@ if __name__ == "__main__":
     fire = AkaiFire(port_name="FL STUDIO FIRE")
 
     # Clear any existing pad colors
-    fire.clear_pads()
+    fire.clear_all_pads()
 
     try:
         while True:
@@ -30,7 +30,7 @@ if __name__ == "__main__":
                         time.sleep(0.1)
     except KeyboardInterrupt:
         # Reset pads when exiting
-        fire.clear_pads()
+        fire.clear_all_pads()
         fire.close()
 ```
 
