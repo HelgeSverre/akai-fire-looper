@@ -196,7 +196,9 @@ class AkaiFire:
     def close(self):
         """Closes the MIDI input and output ports."""
         self.listening = False
-        self.listening_thread.join()
+        if self.listening_thread.is_alive():
+            self.listening_thread.join()
+
         self.midi_in.close_port()
         self.midi_out.close_port()
 

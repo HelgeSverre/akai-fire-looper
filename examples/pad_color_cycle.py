@@ -18,8 +18,10 @@ if __name__ == "__main__":
                             fire.set_pad_color(pad, r, g, b)
 
                         # Brief delay before the next color
-                        time.sleep(0.1)
+                        time.sleep(0.5)
     except KeyboardInterrupt:
+        pass
+    finally:
         # Reset pads when exiting
         fire.clear_pads()
         fire.close()
