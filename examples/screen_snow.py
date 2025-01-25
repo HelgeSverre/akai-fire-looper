@@ -9,7 +9,7 @@ bitmap = AkaiFireBitmap()
 
 
 def tv_snow(duration=10, fps=30):
-    """
+    """≤
     Generate static random pixel values (TV snow noise) on the AKAI Fire's display.
 
     Args:
@@ -38,10 +38,7 @@ def tv_snow(duration=10, fps=30):
 
 if __name__ == "__main__":
     try:
-        # You can adjust the duration and fps by passing values to `tv_snow(duration=..., fps=...)`
-        for fps in [10, 20, 30, 60]:
-            print(f"Starting TV snow animation at {fps} FPS...")
-            tv_snow(duration=3, fps=fps)
+        tv_snow(duration=3, fps=30)
     except KeyboardInterrupt:
         print("Animation interrupted by user.")
     finally:
