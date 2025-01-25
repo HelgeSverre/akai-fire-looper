@@ -486,3 +486,8 @@ class AkaiFire:
         """Send the bitmap to the Akai Fire device."""
         self.midi_out.send_message(screen.get_sysex_message())
         pass
+
+    def clear_bitmap(self):
+        """Clear the OLED display."""
+        self.send_bitmap(AkaiFireBitmap())
+        pass
