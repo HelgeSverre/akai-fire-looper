@@ -4,7 +4,7 @@ import rtmidi
 
 # Constants
 BITMAP_SIZE: int = 1171  # For OLED 128x64, calculated as ceil(128*64/7)
-BITMUTATE: list[list[int]] = [
+BITMAP_PIXEL_MAPPING: list[list[int]] = [
     [13, 0, 1, 2, 3, 4, 5, 6],
     [19, 20, 7, 8, 9, 10, 11, 12],
     [25, 26, 27, 14, 15, 16, 17, 18],
@@ -28,7 +28,7 @@ class AkaiFireBitmap:
         if 0 <= x < 128 and 0 <= y < 64:
             x = x + int(128 * (y // 8))
             y %= 8
-            rb = BITMUTATE[int(x % 7)][y]
+            rb = BITMAP_PIXEL_MAPPING[int(x % 7)][y]
             index = int((x // 7) * 8 + (rb // 7))
             if color > 0:
                 self.bitmap[index] |= 1 << (rb % 7)
