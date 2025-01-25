@@ -1,4 +1,4 @@
-# 🔥 AKAI Fire - MIDI Looper and Python Library
+# 🔥 AKAI Fire - Python Library
 
 Python library to interact with the AKAI Fire controller, a MIDI controller for FL Studio.
 
