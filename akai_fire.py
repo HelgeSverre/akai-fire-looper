@@ -3,8 +3,8 @@ import threading
 import rtmidi
 
 # Constants
-BITMAP_SIZE = 1171  # For OLED 128x64, calculated as ceil(128*64/7)
-BITMUTATE = [
+BITMAP_SIZE: int = 1171  # For OLED 128x64, calculated as ceil(128*64/7)
+BITMUTATE: list[list[int]] = [
     [13, 0, 1, 2, 3, 4, 5, 6],
     [19, 20, 7, 8, 9, 10, 11, 12],
     [25, 26, 27, 14, 15, 16, 17, 18],

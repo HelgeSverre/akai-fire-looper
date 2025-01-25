@@ -13,11 +13,12 @@ Key Features:
 """
 
 import time
+
 from akai_fire import AkaiFire, AkaiFireBitmap
 
 # Initialize AKAI Fire and bitmap objects
 fire = AkaiFire()
-fire_bitmap = AkaiFireBitmap()
+bitmap = AkaiFireBitmap()
 
 
 def main(duration=10):
@@ -38,13 +39,13 @@ def main(duration=10):
         print(f"Starting animation for {duration} seconds...")
         for frame in range(total_frames):
             # Clear the display
-            fire_bitmap.clear()
+            bitmap.clear()
 
             # Draw the ball at the current position
-            fire_bitmap.fill_circle(x, y, radius, 1)
+            bitmap.fill_circle(x, y, radius, 1)
 
             # Send the updated bitmap to the device
-            fire.send_bitmap(fire_bitmap)
+            fire.send_bitmap(bitmap)
 
             # Update ball position
             x += dx
