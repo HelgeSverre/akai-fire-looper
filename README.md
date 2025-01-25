@@ -116,13 +116,6 @@ pip install pipreqs
 pipreqs . --force
 ```
 
-### FAQs
-
-- **Why `rtmidi` instead of `mido`?**
-
-  `mido` imposes length restrictions on sysex messages, which can be problematic for certain applications. `rtmidi`
-  offers more flexibility and avoids these restrictions.
-
 ## Credits
 
 Built upon the work done by others:
