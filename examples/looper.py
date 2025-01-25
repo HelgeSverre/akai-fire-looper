@@ -259,7 +259,7 @@ class MidiLooper:
     def _init_display(self):
         """Initialize display state."""
         print("Initializing display...")
-        self.fire.clear_pads()
+        self.fire.clear_all_pads()
         self.fire.clear_all_button_leds()
         self._update_display()
 
@@ -413,7 +413,7 @@ class MidiLooper:
         finally:
             print("Cleaning up...")
             self._all_notes_off()
-            self.fire.clear_pads()
+            self.fire.clear_all_pads()
             self.fire.clear_all_button_leds()
             self.midi_in.close_port()
             self.midi_out.close_port()
