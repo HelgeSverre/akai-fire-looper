@@ -335,10 +335,23 @@ class AkaiFire:
         ]:
             self.set_button_led(button_id, self.LED_OFF)
 
-    def set_rectangle_led(self, led_number, value):
+    def clear_all_track_leds(self):
+        """Turns off all rectangular track LEDs."""
+        for led_number in range(1, 4):
+            self.clear_track_led(led_number)
+
+    def clear_track_led(self, led_number):
         """
-        Turns on/off or sets the color of a rectangular LED.
+        Turns off a rectangular LED.
         :param led_number: Rectangle LED number (1-4).
+        """
+        self.set_track_led(led_number, self.RECTANGLE_LED_OFF)
+
+    def set_track_led(self, track_number, value):
+        """
+        todo: cleanup naming
+        Turns on/off or sets the color of a rectangular LED. (The narrow LED between the solo buttons and the pads, one for each track lane 1-4)
+        :param track_number: Rectangle LED number (1-4).
         :param value: Brightness or color value:
                       - 0: Off
                       - 1: Dull red
@@ -346,11 +359,15 @@ class AkaiFire:
                       - 3: High red
                       - 4: High green
         """
-        if led_number < 1 or led_number > 4:
+        if track_number < 1 or track_number > 4:
             raise ValueError("Rectangle LED number must be between 1 and 4.")
 
-        control_change = 0x28 + (led_number - 1)  # CC 0x28 to 0x2B
+        control_change = 0x28 + (track_number - 1)  # CC 0x28 to 0x2B
         self.midi_out.send_message([0xB0, control_change, value & 0x7F])
+
+    def clear_control_bank_leds(self):
+        """Turns off all control bank LEDs."""
+        self.set_control_bank_leds(self.CONTROL_BANK_ALL_OFF)
 
     def set_control_bank_leds(self, state):
         """
