@@ -202,6 +202,16 @@ class AkaiFire:
         self.midi_in.close_port()
         self.midi_out.close_port()
 
+    def send_bitmap(self, screen):
+        """Send the bitmap to the Akai Fire device."""
+        self.midi_out.send_message(screen.get_sysex_message())
+        pass
+
+    def clear_bitmap(self):
+        """Clear the OLED display."""
+        self.send_bitmap(AkaiFireBitmap())
+        pass
+
     @staticmethod
     def _create_sysex_message(pad_colors):
         """
@@ -481,13 +491,3 @@ class AkaiFire:
                         # Trigger global listener
                         if self.global_listener:
                             self.global_listener(pad_index)
-
-    def send_bitmap(self, screen):
-        """Send the bitmap to the Akai Fire device."""
-        self.midi_out.send_message(screen.get_sysex_message())
-        pass
-
-    def clear_bitmap(self):
-        """Clear the OLED display."""
-        self.send_bitmap(AkaiFireBitmap())
-        pass
