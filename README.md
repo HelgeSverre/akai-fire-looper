@@ -122,3 +122,4 @@ Built upon the work done by others:
 
 - ["Segger - Decoding the AKAI Fire"](https://blog.segger.com/decoding-the-akai-fire-part-1/)
 - [Bitmap drawing routine](https://github.com/scjurgen/AkaiFireMapper/blob/master/akaifire.py#L61-L69)
+- Uses the [python-rtmidi](https://pypi.org/project/python-rtmidi/) library 
