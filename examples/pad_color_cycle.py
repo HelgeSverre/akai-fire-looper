@@ -27,7 +27,7 @@ def main():
     fire = AkaiFire()
 
     # Clear any existing pad colors
-    fire.clear_pads()
+    fire.clear_all_pads()
 
     try:
         print("Starting color cycling animation...")
@@ -59,7 +59,7 @@ def main():
         print("Animation interrupted by user.")
     finally:
         print("Resetting pads and closing connection...")
-        fire.clear_pads()
+        fire.clear_all_pads()
         fire.close()
 
 
