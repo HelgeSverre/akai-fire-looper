@@ -1,8 +1,8 @@
 import colorsys
 import math
-import random
 import time
 from dataclasses import dataclass
+from pprint import pprint
 from threading import Thread, Lock
 from typing import List
 
@@ -68,23 +68,12 @@ def create_pad_sysex(pad_colors):
     return sysex_header + [length_high, length_low] + payload + [0xF7]
 
 
-def create_random_droplet() -> Droplet:
-    """Create a new ambient droplet with random properties"""
-    x = random.uniform(0, 15)
-    y = random.uniform(0, 3)
-    return Droplet(
-        x=x, y=y, age=0, intensity=1.0, impact=0.5
-    )  # Lower impact for ambient drops
-
-
 def create_tap_droplet(pad_index: int, velocity: int) -> Droplet:
     """Create a droplet from a pad tap"""
     x = pad_index % 16
     y = pad_index // 16
 
     # Scale velocity to impact (32 is min velocity on Fire, max is 127)
-    # Segment into 5 "impact" levels for more interesting visuals (0.25, 0.50, 0.70, 1.5, 2.0)
-
     # Linear mapping from [32, 127] to [0.25, 2.0]
     if velocity == 127:
         scaled_impact = 2.01
@@ -94,10 +83,7 @@ def create_tap_droplet(pad_index: int, velocity: int) -> Droplet:
     print(
         f"Pad {pad_index} tapped with velocity {velocity}, creating droplet with impact {scaled_impact}"
     )
-
-    return Droplet(
-        x=x, y=y, age=0, intensity=1.0, impact=scaled_impact
-    )  # Higher impact for tapped drops
+    return Droplet(x=x, y=y, age=0, intensity=1.0, impact=scaled_impact)
 
 
 class DropletAnimation:
@@ -109,11 +95,11 @@ class DropletAnimation:
         self.midi_out.open_port(out_port)
         self.midi_in.open_port(in_port)
 
-        # Replace animation_speed with wave_frequency
-        self.wave_frequency = SmoothedValue(2.0)  # Volume encoder (0.5 to 8.0)
+        # Smoothed animation parameters
+        self.wave_frequency = SmoothedValue(1.0)  # Volume encoder (0.5 to 8.0)
         self.color_hue = SmoothedValue(0.66)  # Pan encoder (0.0 to 1.0)
-        self.radius_multiplier = SmoothedValue(2.0)  # Filter encoder (0.5 to 4.0)
-        self.age_decay = SmoothedValue(0.4)  # Resonance encoder (0.1 to 1.0)
+        self.radius_multiplier = SmoothedValue(1.0)  # Filter encoder (0.5 to 6.0)
+        self.age_decay = SmoothedValue(0.05)  # Resonance encoder (0.05 to 2.0)
 
         # Fixed animation frame rate
         self.frame_rate = 0.03  # ~30fps
@@ -176,28 +162,74 @@ class DropletAnimation:
         self.midi_out.send_message(create_pad_sysex(clear_colors))
 
     def handle_encoder_rotation(self, encoder_id: int, direction: str, velocity: int):
-        """Handle rotary encoder movements"""
-        change = velocity / 127 * (0.1 if direction == "clockwise" else -0.1) * 100
+        """Handle rotary encoder movements with improved scaling"""
+        # Increased base scaling for faster response
+        base_scaling = 0.3
 
-        if encoder_id == 0x10:  # Volume - now controls wave frequency
-            new_freq = max(0.5, min(8.0, self.wave_frequency.current + change))
+        if direction == "clockwise":
+            change = (velocity / 63) * base_scaling
+        else:
+            change = -(velocity / 63) * base_scaling
+
+        if encoder_id == 0x10:  # Volume - Wave frequency
+            # Exponential scaling for wave frequency
+            current = math.log2(self.wave_frequency.current)
+            new_freq = math.pow(2, current + change)
+            new_freq = max(0.5, min(8.0, new_freq))
             self.wave_frequency.set_target(new_freq)
-            print(f"Wave frequency target: {new_freq:.2f}")
+            print(
+                f"Wave frequency: {new_freq:.2f}Hz - Controls how many ripples appear in the wave pattern"
+            )
 
-        elif encoder_id == 0x11:  # Pan
-            new_hue = (self.color_hue.current + change) % 1.0
+        elif encoder_id == 0x11:  # Pan - Color hue
+            # Smoother hue transitions with proper wrapping
+            new_hue = self.color_hue.current + change * 5.0
+            if new_hue >= 1.0:
+                new_hue -= 1.0
+            elif new_hue < 0.0:
+                new_hue += 1.0
             self.color_hue.set_target(new_hue)
-            print(f"Color hue target: {new_hue:.3f}")
+            # Convert hue to descriptive color name
+            color_names = {
+                0.0: "Red",
+                0.08: "Orange",
+                0.17: "Yellow",
+                0.33: "Green",
+                0.5: "Cyan",
+                0.67: "Blue",
+                0.83: "Purple",
+                0.92: "Pink",
+            }
+            closest_color = min(color_names.keys(), key=lambda x: abs(x - new_hue))
+            print(f"Color: {color_names[closest_color]} (Hue: {new_hue:.3f})")
 
-        elif encoder_id == 0x12:  # Filter
-            new_radius = max(0.5, min(4.0, self.radius_multiplier.current + change * 4))
+        elif encoder_id == 0x12:  # Filter - Ripple spacing
+            new_radius = self.radius_multiplier.current + change * 4
+            new_radius = max(0.5, min(6.0, new_radius))
             self.radius_multiplier.set_target(new_radius)
-            print(f"Radius multiplier target: {new_radius:.2f}")
+            if new_radius < 1.0:
+                desc = "Very tight ripples"
+            elif new_radius < 2.0:
+                desc = "Compact ripples"
+            elif new_radius < 4.0:
+                desc = "Medium spread"
+            else:
+                desc = "Wide ripples"
+            print(f"Ripple spacing: {new_radius:.2f} - {desc}")
 
-        elif encoder_id == 0x13:  # Resonance
-            new_decay = max(0.01, min(1.0, self.age_decay.current + change))
+        elif encoder_id == 0x13:  # Resonance - Decay speed
+            new_decay = self.age_decay.current * math.exp(change)
+            new_decay = max(0.05, min(2.0, new_decay))
             self.age_decay.set_target(new_decay)
-            print(f"Age decay target: {new_decay:.3f}")
+            if new_decay < 0.2:
+                desc = "Very long trails"
+            elif new_decay < 0.5:
+                desc = "Long-lasting ripples"
+            elif new_decay < 1.0:
+                desc = "Medium decay"
+            else:
+                desc = "Quick fadeout"
+            print(f"Decay speed: {new_decay:.2f} - {desc}")
 
     def handle_solo_button(self, button_id: int, pressed: bool):
         """Handle solo button presses for debug lanes"""
@@ -251,19 +283,57 @@ class DropletAnimation:
                     velocity = value if value < 0x40 else (0x80 - value)
                     self.handle_encoder_rotation(message[1], direction, velocity)
 
+                # if stop is pressed, clear screen
+                if message[0] == 0xB0 and message[1] == 0x34 and message[2] == 127:
+                    print("------ STOP PRESSED ------")
+                    self.clear_all_leds()
+
             time.sleep(0.001)
+
+    def calculate_ripple_effect(self, distance, age, current_freq, current_decay):
+        """Calculate ripple effect with more pronounced parameters"""
+        # More pronounced frequency effect
+        wave = math.sin(distance * current_freq - age * 4)
+
+        # Sharper wave peaks
+        wave = math.pow(abs(wave), 0.7) * math.copysign(1, wave)
+
+        # Normalize and enhance contrast
+        ripple = wave * 0.5 + 0.5
+        ripple = math.pow(ripple, 0.8)  # Enhance contrast
+
+        return ripple
 
     def run(self):
         try:
-            print("Starting interactive droplet animation...")
-            print("Tap pads to create ripples!")
-            print("Use encoders to control animation:")
-            print("- Volume: Wave frequency - Controls ripple wave speed")
-            print("- Pan: Color hue - Change the color")
-            print("- Filter: Ripple radius")
-            print("- Resonance: Decay speed")
-            print("\nDebug features:")
-            print("- Press SOLO buttons to toggle constant illumination of lanes")
+            print("\n=== Akai Fire Ripple Animation ===")
+            print("\nControls:")
+            print("\n1. VOLUME KNOB - Wave Frequency")
+            print("   - LOW: Slow, undulating waves (0.5Hz)")
+            print("   - MID: Natural ripple motion (2-4Hz)")
+            print("   - HIGH: Fast, energetic patterns (8Hz)")
+
+            print("\n2. PAN KNOB - Color Selection")
+            print("   - Smoothly transition through the color spectrum")
+            print("   - Full rotation cycles through all colors")
+            print(
+                "   - Common colors: Red → Orange → Yellow → Green → Cyan → Blue → Purple → Pink"
+            )
+
+            print("\n3. FILTER KNOB - Ripple Spacing")
+            print("   - LOW: Tight, dense ripple patterns")
+            print("   - MID: Natural water-like spacing")
+            print("   - HIGH: Wide, spread out waves")
+
+            print("\n4. RESONANCE KNOB - Decay Speed")
+            print("   - LOW: Long-lasting trails (like syrup)")
+            print("   - MID: Natural water-like decay")
+            print("   - HIGH: Quick fadeout (like splashing)")
+
+            print("\nInteraction:")
+            print("- Tap pads to create ripples")
+            print("- Harder taps create stronger ripples")
+            print("- Use SOLO buttons to illuminate full lanes for debugging")
 
             input_thread = Thread(target=self.handle_midi_input, daemon=True)
             input_thread.start()
