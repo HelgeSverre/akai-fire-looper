@@ -1,18 +1,20 @@
 import time
-import rtmidi
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
+
+import rtmidi
+
 from akai_fire import AkaiFire
 
 
 @dataclass
 class Clip:
-    midi_messages: List[Tuple[float, List[int]]]  # [(timestamp, midi_message), ...]
+    midi_messages: List[Tuple[float, List[int]]]
     is_playing: bool = False
     is_recording: bool = False
     start_time: Optional[float] = None
-    length: float = 4.0  # Length in bars
-    quantize_start: bool = True  # Whether to quantize clip start to next bar
+    length: float = 4.0
+    quantize_start: bool = True
 
 
 def decode_midi_message(message: List[int]) -> str:
