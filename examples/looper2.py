@@ -54,8 +54,14 @@ class MidiLooper:
         # MIDI setup
         self.midi_in = rtmidi.MidiIn()
         self.midi_out = rtmidi.MidiOut()
+
         self.midi_inputs = self.midi_in.get_ports()
+        self.midi_outputs = self.midi_out.get_ports()
         self.selected_midi_input = 0
+        self.selected_midi_output = 0
+        self.midi_input_select_index = 0
+        self.midi_output_select_index = 0
+
         self.midi_monitor_messages = []
         self.max_monitor_messages = 20
 
@@ -65,7 +71,6 @@ class MidiLooper:
         self.active_clip = None  # (track, loop) of currently selected clip
 
         self.screen_mode = ScreenMode.MAIN
-        self.midi_select_index = 0  # For MIDI input selection
 
         # Global state
         self.global_start_time: Optional[float] = None
@@ -187,6 +192,21 @@ class MidiLooper:
         """Handle pattern button press."""
         pass  # To be implemented
 
+    def _change_midi_output(self, new_index: int):
+        """Change the active MIDI output."""
+        if new_index != self.selected_midi_output:
+            try:
+                # Close existing port
+                if self.midi_out.is_port_open():
+                    self.midi_out.close_port()
+
+                # Open new port
+                self.midi_out.open_port(new_index)
+                self.selected_midi_output = new_index
+                print(f"Switched to MIDI output: {self.midi_outputs[new_index]}")
+            except Exception as e:
+                print(f"Error changing MIDI output: {e}")
+
     def _change_midi_input(self, new_index: int):
         print(f"Changing MIDI input to: {self.midi_inputs[new_index]}")
 
@@ -205,32 +225,49 @@ class MidiLooper:
                 print(f"Error changing MIDI input: {e}")
 
     def _handle_browser(self, button_id: int, event: str):
-        """Toggle MIDI input selection screen."""
+        """Cycle through main -> input select -> output select screens."""
         if event == "press":
+            # Cycle through modes
             if self.screen_mode == ScreenMode.MAIN:
                 self.screen_mode = ScreenMode.MIDI_SELECT_INPUT
                 self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_HIGH_GREEN)
-            else:
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                self.screen_mode = ScreenMode.MIDI_SELECT_OUTPUT
+                self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_HIGH_RED)
+            else:  # MIDI_OUTPUT_SELECT or any other mode
+                self.screen_mode = ScreenMode.MAIN
+                self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_OFF)
+
+        self._update_display()
+
+    def _handle_rotary_select_press(self, button_id: int, event: str):
+        """Handle select button press to confirm MIDI port selection."""
+        if event == "press":
+            if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                self._change_midi_input(self.midi_input_select_index)
+                # Switch back to main screen after selection
+                self.screen_mode = ScreenMode.MAIN
+                self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_OFF)
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                self._change_midi_output(self.midi_output_select_index)
+                # Switch back to main screen after selection
                 self.screen_mode = ScreenMode.MAIN
                 self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_OFF)
             self._update_display()
 
     def _handle_rotary_select(self, encoder_id: int, direction: str, velocity: int):
-        """Handle MIDI input selection scrolling."""
+        """Handle MIDI port selection scrolling."""
         if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
             if direction == "clockwise":
-                self.midi_select_index = min(len(self.midi_inputs) - 1, self.midi_select_index + 1)
+                self.midi_input_select_index = min(len(self.midi_inputs) - 1, self.midi_input_select_index + 1)
             else:
-                self.midi_select_index = max(0, self.midi_select_index - 1)
-        self._update_display()
-
-    def _handle_rotary_select_press(self, button_id: int, event: str):
-        """Handle select encoder press to confirm MIDI input selection."""
-        if event == "press" and self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
-            self._change_midi_input(self.midi_select_index)
-            # Switch back to main screen after selection
-            self.screen_mode = ScreenMode.MAIN
-            self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_OFF)
+                self.midi_input_select_index = max(0, self.midi_input_select_index - 1)
+            self._update_display()
+        elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+            if direction == "clockwise":
+                self.midi_output_select_index = min(len(self.midi_outputs) - 1, self.midi_output_select_index + 1)
+            else:
+                self.midi_output_select_index = max(0, self.midi_output_select_index - 1)
             self._update_display()
 
     def _handle_bank(self, button_id: int, event: str):
@@ -252,15 +289,18 @@ class MidiLooper:
         status = message[0] & 0xF0
         channel = message[0] & 0x0F
 
+        # TODO: Program change, sysex, etc.
+
         if status == 0x90 and message[2] > 0:  # Note On
             return f"Note {message[1]} On  vel:{message[2]}"
         elif status == 0x80 or (status == 0x90 and message[2] == 0):  # Note Off
             return f"Note {message[1]} Off"
         elif status == 0xB0:  # CC
-            return f"CC{message[1]} val:{message[2]}"
+            return f"CC {message[1]}  val:{message[2]}"
         elif status == 0xE0:  # Pitch Bend
             value = (message[2] << 7) + message[1]
             return f"Pitch {value}"
+
         else:
             return f"MIDI: {' '.join(hex(b)[2:].zfill(2) for b in message)}"
 
@@ -471,7 +511,9 @@ class MidiLooper:
         self.canvas.clear()
 
         if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
-            self._draw_midi_select_screen()
+            self._draw_midi_input_select_screen()
+        elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+            self._draw_midi_output_select_screen()
         elif self.screen_mode == ScreenMode.MIDI_MONITOR:
             self._draw_midi_monitor_screen()
         else:
@@ -494,19 +536,39 @@ class MidiLooper:
         if not self.midi_monitor_messages:
             self.canvas.draw_text("Waiting for MIDI...", 2, y)
 
-    def _draw_midi_select_screen(self):
+    def _draw_midi_input_select_screen(self):
         """Draw the MIDI input selection screen."""
         # Header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-        self.canvas.draw_text("MIDI Input select", 2, 2, color=1)
+
+        self.canvas.draw_text("MIDI In (1/2)", 2, 2, color=1)
 
         # Show current and adjacent inputs
         y = 15
-        for i in range(max(0, self.midi_select_index - 1),
-                       min(len(self.midi_inputs), self.midi_select_index + 3)):
-            prefix = ">" if i == self.midi_select_index else " "
+        for i in range(max(0, self.midi_input_select_index - 1),
+                       min(len(self.midi_inputs), self.midi_input_select_index + 3)):
+            prefix = ">" if i == self.midi_input_select_index else " "
             text = f"{prefix} {self.midi_inputs[i][:20]}"
             if i == self.selected_midi_input:
+                self.canvas.fill_rect(0, y, self.canvas.WIDTH, 10, color=0)
+                self.canvas.draw_text(text, 2, y, color=1)
+            else:
+                self.canvas.draw_text(text, 2, y)
+            y += 12
+
+    def _draw_midi_output_select_screen(self):
+        """Draw the MIDI output selection screen."""
+        # Header
+        self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
+        self.canvas.draw_text("MIDI Out (2/2)", 2, 2, color=1)
+
+        # Show current and adjacent outputs
+        y = 15
+        for i in range(max(0, self.midi_output_select_index - 1),
+                       min(len(self.midi_outputs), self.midi_output_select_index + 3)):
+            prefix = ">" if i == self.midi_output_select_index else " "
+            text = f"{prefix} {self.midi_outputs[i][:20]}"
+            if i == self.selected_midi_output:
                 self.canvas.fill_rect(0, y, self.canvas.WIDTH, 10, color=0)
                 self.canvas.draw_text(text, 2, y, color=1)
             else:
