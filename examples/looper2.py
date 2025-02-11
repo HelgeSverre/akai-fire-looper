@@ -57,8 +57,13 @@ class MidiLooper:
 
         self.midi_inputs = self.midi_in.get_ports()
         self.midi_outputs = self.midi_out.get_ports()
+
         self.selected_midi_input = 0
+        self.selected_midi_input_channel = 0
+
         self.selected_midi_output = 0
+        self.selected_midi_output_channel = 0
+
         self.midi_input_select_index = 0
         self.midi_output_select_index = 0
 
@@ -150,6 +155,10 @@ class MidiLooper:
         self.fire.add_button_listener(self.fire.BUTTON_SELECT, self._handle_rotary_select_press)
         self.fire.add_button_listener(self.fire.BUTTON_BANK, self._handle_bank)
 
+        # Add grid left/right button handlers
+        self.fire.add_button_listener(self.fire.BUTTON_GRID_LEFT, self._handle_grid_left)
+        self.fire.add_button_listener(self.fire.BUTTON_GRID_RIGHT, self._handle_grid_right)
+
     def _init_display(self):
         """Initialize the display state."""
         self.fire.clear_all_pads()
@@ -191,6 +200,24 @@ class MidiLooper:
     def _handle_pattern(self, button_id: int, event: str):
         """Handle pattern button press."""
         pass  # To be implemented
+
+    def _handle_grid_left(self, button_id: int, event: str):
+        """Handle grid left button for channel selection."""
+        if event == "press":
+            if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                self.selected_midi_input_channel = (self.selected_midi_input_channel - 1) % 16
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                self.selected_midi_output_channel = (self.selected_midi_output_channel - 1) % 16
+            self._update_display()
+
+    def _handle_grid_right(self, button_id: int, event: str):
+        """Handle grid right button for channel selection."""
+        if event == "press":
+            if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                self.selected_midi_input_channel = (self.selected_midi_input_channel + 1) % 16
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                self.selected_midi_output_channel = (self.selected_midi_output_channel + 1) % 16
+            self._update_display()
 
     def _change_midi_output(self, new_index: int):
         """Change the active MIDI output."""
@@ -439,10 +466,12 @@ class MidiLooper:
                 message = self.midi_in.get_message()
                 if message:
                     midi_data, delta = message
-                    track, loop = self.record_armed_loop
-                    loop_obj = self.tracks[track].loops[loop]
-                    timestamp = elapsed % (loop_obj.length * self.bar_duration)
-                    loop_obj.midi_messages.append((timestamp, midi_data))
+                    # Only record if message is on the selected input channel
+                    if (midi_data[0] & 0x0F) == self.selected_midi_input_channel:
+                        track, loop = self.record_armed_loop
+                        loop_obj = self.tracks[track].loops[loop]
+                        timestamp = elapsed % (loop_obj.length * self.bar_duration)
+                        loop_obj.midi_messages.append((timestamp, midi_data))
 
             # Process playback
             self._process_loop_playback(current_time)
@@ -455,21 +484,24 @@ class MidiLooper:
             # Add to monitor if in monitor mode
             if self.screen_mode == ScreenMode.MIDI_MONITOR:
                 decoded = self._decode_midi_for_display(midi_data)
-                self.midi_monitor_messages.insert(0, decoded)  # Add to front
+                self.midi_monitor_messages.insert(0, decoded)
                 if len(self.midi_monitor_messages) > self.max_monitor_messages:
-                    self.midi_monitor_messages.pop()  # Remove oldest
+                    self.midi_monitor_messages.pop()
                 self._update_display()
 
-            # Normal MIDI processing
-            if self.is_recording:
-                if self.record_armed_loop:
+            # Only process if message is on the selected input channel
+            if (midi_data[0] & 0x0F) == self.selected_midi_input_channel:
+                if self.is_recording and self.record_armed_loop:
                     track, loop = self.record_armed_loop
                     loop_obj = self.tracks[track].loops[loop]
                     timestamp = current_time - self.global_start_time
                     timestamp = timestamp % (loop_obj.length * self.bar_duration)
                     loop_obj.midi_messages.append((timestamp, midi_data))
-            else:
-                self.midi_out.send_message(midi_data)
+                else:
+                    # Redirect to selected output channel
+                    status = midi_data[0] & 0xF0
+                    new_message = [status | self.selected_midi_output_channel] + list(midi_data[1:])
+                    self.midi_out.send_message(new_message)
 
     def _process_loop_playback(self, current_time: float):
         """Handle playback of all active loops."""
@@ -493,7 +525,10 @@ class MidiLooper:
                     ]
 
                     for message in messages_to_play:
-                        self.midi_out.send_message(message)
+                        # Redirect to selected output channel
+                        status = message[0] & 0xF0
+                        new_message = [status | self.selected_midi_output_channel] + list(message[1:])
+                        self.midi_out.send_message(new_message)
 
     def _handle_bar_start(self):
         """Handle actions that occur at the start of each bar."""
@@ -537,41 +572,52 @@ class MidiLooper:
             self.canvas.draw_text("Waiting for MIDI...", 2, y)
 
     def _draw_midi_input_select_screen(self):
-        """Draw the MIDI input selection screen."""
+        """Draw the MIDI input selection screen with channel."""
         # Header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-
         self.canvas.draw_text("MIDI In (1/2)", 2, 2, color=1)
 
-        # Show current and adjacent inputs
+        # Show channel
+        channel_text = f"Channel: {self.selected_midi_input_channel + 1}"
+        self.canvas.draw_text(channel_text, 80, 2, color=1)
+
+        # Show current and adjacent inputs with channel prefix
         y = 15
         for i in range(max(0, self.midi_input_select_index - 1),
                        min(len(self.midi_inputs), self.midi_input_select_index + 3)):
             prefix = ">" if i == self.midi_input_select_index else " "
-            text = f"{prefix} {self.midi_inputs[i][:20]}"
+            port_name = self.midi_inputs[i][:16]  # Truncate port name to leave room for channel
             if i == self.selected_midi_input:
+                text = f"{prefix} ch{self.selected_midi_input_channel + 1} - {port_name}"
                 self.canvas.fill_rect(0, y, self.canvas.WIDTH, 10, color=0)
                 self.canvas.draw_text(text, 2, y, color=1)
             else:
+                text = f"{prefix} {port_name}"
                 self.canvas.draw_text(text, 2, y)
             y += 12
 
     def _draw_midi_output_select_screen(self):
-        """Draw the MIDI output selection screen."""
+        """Draw the MIDI output selection screen with channel."""
         # Header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
         self.canvas.draw_text("MIDI Out (2/2)", 2, 2, color=1)
 
-        # Show current and adjacent outputs
+        # Show channel
+        channel_text = f"Ch: {self.selected_midi_output_channel + 1}"
+        self.canvas.draw_text(channel_text, 80, 2, color=1)
+
+        # Show current and adjacent outputs with channel prefix
         y = 15
         for i in range(max(0, self.midi_output_select_index - 1),
                        min(len(self.midi_outputs), self.midi_output_select_index + 3)):
             prefix = ">" if i == self.midi_output_select_index else " "
-            text = f"{prefix} {self.midi_outputs[i][:20]}"
+            port_name = self.midi_outputs[i][:16]  # Truncate port name to leave room for channel
             if i == self.selected_midi_output:
+                text = f"{prefix} ch{self.selected_midi_output_channel + 1} - {port_name}"
                 self.canvas.fill_rect(0, y, self.canvas.WIDTH, 10, color=0)
                 self.canvas.draw_text(text, 2, y, color=1)
             else:
+                text = f"{prefix} {port_name}"
                 self.canvas.draw_text(text, 2, y)
             y += 12
 
