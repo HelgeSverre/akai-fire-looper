@@ -1,7 +1,8 @@
 import random
 import time
 
-from akai_fire import AkaiFire, AkaiFireBitmap
+from akai_fire import AkaiFire
+from screen import AkaiFireBitmap
 
 # Initialize AKAI Fire and bitmap objects
 fire = AkaiFire()
