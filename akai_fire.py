@@ -2,6 +2,7 @@ import threading
 
 import rtmidi
 
+# TODO: Move into akai_fire_screen
 # Constants
 BITMAP_SIZE: int = 1171  # For OLED 128x64, calculated as ceil(128*64/7)
 BITMAP_PIXEL_MAPPING: list[list[int]] = [
