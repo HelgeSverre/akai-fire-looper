@@ -149,6 +149,15 @@ class AkaiFire:
         self.send_bitmap(AkaiFireBitmap())
         pass
 
+    def clear_all(self):
+        """Turns off all LEDs, Pads, Buttons and the Screen."""
+        self.clear_all_track_leds()
+        self.clear_all_button_leds()
+        self.clear_all_pads()
+        self.clear_bitmap()
+        self.clear_control_bank_leds()
+        self.close()
+
     @staticmethod
     def _create_sysex_message(pad_colors):
         """
