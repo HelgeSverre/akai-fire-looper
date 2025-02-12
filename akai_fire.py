@@ -518,8 +518,10 @@ class AkaiFire:
         :param value: One of the LED_* constants (e.g., LED_OFF, LED_HIGH_RED).
         """
         if button_id not in [
+
             self.BUTTON_STEP,
             self.BUTTON_NOTE,
+
             self.BUTTON_DRUM,
             self.BUTTON_PERFORM,
             self.BUTTON_SHIFT,
@@ -539,9 +541,10 @@ class AkaiFire:
             self.BUTTON_GRID_LEFT,
             self.BUTTON_GRID_RIGHT,
         ]:
-            raise ValueError("Invalid button ID.")
+            raise ValueError(f"Invalid button ID: {button_id}")
         if not (0x00 <= value <= 0x04):
-            raise ValueError("Invalid LED value. Must be between 0x00 and 0x04.")
+            raise ValueError(f"Invalid LED value ({value})")
+
         self.midi_out.send_message([0xB0, button_id, value])
 
     def clear_all_button_leds(self):
@@ -694,6 +697,18 @@ class AkaiFire:
             self.listeners[index] = callback
 
         self.start_listening()
+
+    @staticmethod
+    def pad_position(index) -> tuple:
+        """
+        Determines the column and row of a pad based on its index.
+        :param pad_index: Pad index (0-63).
+        :return:  (column, row)
+        """
+        col = index % 16
+        row = index // 16
+
+        return col, row
 
     @staticmethod
     def get_pad_column(pad_index):
