@@ -1,6 +1,8 @@
 import time
 from enum import Enum
 
+import rtmidi
+
 from akai_fire import AkaiFire
 
 
@@ -10,8 +12,34 @@ class PlayState(Enum):
     RECORDING = "recording"
 
 
+class ScreenMode(Enum):
+    MAIN = "main"
+    NOTES = "notes"
+    MIDI_MONITOR = "midi_monitor"
+    MIDI_SELECT_INPUT = "midi_select_input"
+    MIDI_SELECT_OUTPUT = "midi_select_output"
+    QUANTIZATION = "quantization_settings"
+
+
+class MenuOption:
+    def __init__(self, name, options, current_index=0):
+        self.name = name
+        self.options = options
+        self.current_index = current_index
+
+    def next_option(self):
+        self.current_index = (self.current_index + 1) % len(self.options)
+
+    def prev_option(self):
+        self.current_index = (self.current_index - 1) % len(self.options)
+
+    def get_current_option(self):
+        return self.options[self.current_index]
+
+
 class RhythmDemo:
     def __init__(self):
+
         self.fire = AkaiFire()
         self.canvas = self.fire.get_canvas()
 
@@ -20,196 +48,56 @@ class RhythmDemo:
         self.current_step = 0
         self.tempo = 120
         self.max_steps = 64
-        self.current_page = 0  # 0 to 3 for 64 steps
+        self.current_page = 0
         self.bank_leds = {
-            0: self.fire.CONTROL_BANK_CHANNEL,  # Steps 1-16
-            1: self.fire.CONTROL_BANK_MIXER,  # Steps 17-32
-            2: self.fire.CONTROL_BANK_USER1,  # Steps 33-48
-            3: self.fire.CONTROL_BANK_USER2,  # Steps 49-64
+            0: self.fire.CONTROL_BANK_CHANNEL,
+            1: self.fire.CONTROL_BANK_MIXER,
+            2: self.fire.CONTROL_BANK_USER1,
+            3: self.fire.CONTROL_BANK_USER2,
         }
-        self.pattern_length = 8  # Current pattern length
-        self.loop_mode = False  # Whether we're in loop mode
-        self.loop_start = 0  # Start of loop region when in loop mode
-        self.loop_length = 16  # New property for loop length
+        self.pattern_length = 16
+        self.loop_mode = False
+        self.loop_start = 0
+        self.loop_length = 16
 
-        # Track states (4 rows)
-        self.tracks = [
-            [False] * 64,  # Track 1 steps
-            [False] * 64,  # Track 2 steps
-            [False] * 64,  # Track 3 steps
-            [False] * 64,  # Track 4 steps
-        ]
+        # Track states
+        self.tracks = [[False] * 64 for _ in range(4)]
 
         # Visual settings
-        self.intensity = 64  # Default LED intensity
+        self.intensity = 64
         self.color_schemes = [
-            (127, 0, 0),  # Red
-            (0, 127, 0),  # Green
-            (0, 0, 127),  # Blue
-            (127, 127, 0),  # Yellow
+            (127, 0, 0),
+            (0, 127, 0),
+            (0, 0, 127),
+            (127, 127, 0),
         ]
+
+        # MIDI setup
+        self.midi_in = rtmidi.MidiIn()
+        self.midi_out = rtmidi.MidiOut()
+        self.midi_inputs = self.midi_in.get_ports()
+        self.midi_outputs = self.midi_out.get_ports()
+
+        self.midi_input_option = MenuOption("MIDI In", self.midi_inputs)
+        self.midi_output_option = MenuOption("MIDI Out", self.midi_outputs)
+
+        self.selected_midi_input = 0
+        self.selected_midi_output = 0
+
+        self.midi_monitor_messages = []
+        self.max_monitor_messages = 20
+
+        # Quantization settings
+        self.quantization_option = MenuOption(
+            "Quantization", ["Off", "1/4", "1/8", "1/16", "1/32"]
+        )
+
+        self.screen_mode = ScreenMode.MAIN
+        self.last_note = None
 
         self.setup_handlers()
         self.update_display()
         self.update_pads()
-
-    def setup_handlers(self):
-        @self.fire.on_button(self.fire.BUTTON_STOP)
-        def handle_stop(event):
-            if event == "press":
-                self.play_state = PlayState.STOPPED
-                self.current_page = 0
-                self.current_step = 0
-                self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_OFF)
-                self.fire.set_button_led(self.fire.BUTTON_STOP, self.fire.LED_OFF)
-                self.update_pads()
-                self.update_display()
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handle_play(event):
-            if event == "press":
-                if self.play_state == PlayState.STOPPED:
-                    self.play_state = PlayState.PLAYING
-                    self.fire.set_button_led(
-                        self.fire.BUTTON_PLAY, self.fire.LED_DULL_YELLOW
-                    )
-                    self.fire.set_button_led(self.fire.BUTTON_STOP, self.fire.LED_OFF)
-                else:
-                    self.play_state = PlayState.STOPPED
-                    self.current_step = 0
-                    self.current_page = 0
-                    self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_OFF)
-                    self.fire.set_button_led(
-                        self.fire.BUTTON_STOP, self.fire.LED_HIGH_RED
-                    )
-                self.update_display()
-
-        @self.fire.on_button(self.fire.BUTTON_REC)
-        def handle_rec(event):
-            if event == "press":
-                if self.play_state == PlayState.RECORDING:
-                    self.play_state = PlayState.STOPPED
-                    self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_OFF)
-                else:
-                    self.play_state = PlayState.RECORDING
-                    self.fire.set_button_led(
-                        self.fire.BUTTON_REC, self.fire.LED_HIGH_RED
-                    )
-                self.update_display()
-
-        # Tempo control with rotary
-        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
-        def handle_tempo(direction, velocity):
-            if direction == "clockwise":
-                self.tempo = min(300, self.tempo + velocity)
-            else:
-                self.tempo = max(60, self.tempo - velocity)
-            self.update_display()
-
-        # Move playhead
-        @self.fire.on_rotary_turn(self.fire.ROTARY_FILTER)
-        def handle_needle(direction, velocity):
-            if direction == "clockwise":
-                self.current_step = min(self.max_steps, self.current_step + 1)
-            else:
-                self.current_step = max(0, self.current_step - 1)
-            self.update_display()
-            self.update_pads()
-
-        # Intensity control with pan
-        @self.fire.on_rotary_turn(self.fire.ROTARY_PAN)
-        def handle_intensity(direction, velocity):
-            if direction == "clockwise":
-                self.intensity = min(127, self.intensity + velocity)
-            else:
-                self.intensity = max(1, self.intensity - velocity)
-            self.update_pads()
-
-        # Pattern length control with select knob
-        @self.fire.on_rotary_turn(self.fire.ROTARY_SELECT)
-        def handle_pattern_length(direction, velocity):
-            if self.loop_mode:
-                # In loop mode, move the loop region
-                if direction == "clockwise":
-                    self.loop_start = min(
-                        self.max_steps - self.loop_length, self.loop_start + 1
-                    )
-                else:
-                    self.loop_start = max(0, self.loop_start - 1)
-            else:
-                # Normal mode, adjust pattern length
-                if direction == "clockwise":
-                    self.pattern_length = min(self.max_steps, self.pattern_length + 1)
-                else:
-                    self.pattern_length = max(1, self.pattern_length - 1)
-            self.update_pads()
-            self.update_display()
-
-        # Pad input handler
-        @self.fire.on_pad()
-        def handle_pad(pad_index, velocity):
-            (col, row) = AkaiFire.pad_position(pad_index)
-            absolute_col = col + (self.current_page * 16)
-            self.tracks[row][absolute_col] = not self.tracks[row][absolute_col]
-            self.update_pads()
-
-        # Grid left/right buttons control loop length
-        @self.fire.on_button(self.fire.BUTTON_GRID_LEFT)
-        def handle_grid_left(event):
-            if event == "press":
-                if self.loop_mode:
-                    # Existing loop length control
-                    self.loop_length = max(1, self.loop_length - 1)
-                else:
-                    # Page control
-                    self.current_page = max(0, self.current_page - 1)
-                    self.fire.set_control_bank_leds(self.bank_leds[self.current_page])
-            self.update_pads()
-            self.update_display()
-
-        @self.fire.on_button(self.fire.BUTTON_GRID_RIGHT)
-        def handle_grid_right(event):
-            if event == "press":
-                if self.loop_mode:
-                    self.loop_length = min(self.pattern_length, self.loop_length + 1)
-                else:
-                    self.current_page = min(3, self.current_page + 1)
-                    self.fire.set_control_bank_leds(self.bank_leds[self.current_page])
-                self.update_pads()
-                self.update_display()
-
-        # Update loop mode handler
-        @self.fire.on_button(self.fire.BUTTON_SELECT)
-        def handle_loop_mode(event):
-            if event == "press":
-                self.loop_mode = not self.loop_mode
-                if self.loop_mode:
-                    self.loop_start = 0
-                    self.loop_length = self.pattern_length
-
-                # Reset loop length to full pattern
-                self.fire.set_button_led(
-                    self.fire.BUTTON_BROWSER,
-                    self.fire.LED_HIGH_GREEN if self.loop_mode else self.fire.LED_OFF,
-                )
-                # Light up grid buttons in loop mode
-                grid_led = (
-                    self.fire.LED_DULL_GREEN if self.loop_mode else self.fire.LED_OFF
-                )
-                self.fire.set_button_led(self.fire.BUTTON_GRID_LEFT, grid_led)
-                self.fire.set_button_led(self.fire.BUTTON_GRID_RIGHT, grid_led)
-                self.update_pads()
-                self.update_display()
-
-    @staticmethod
-    def blend_colors(base_color, tint_color, tint_amount):
-        """Blend two colors with a given amount"""
-        r1, g1, b1 = base_color
-        r2, g2, b2 = tint_color
-        r = int(r1 * (1 - tint_amount) + r2 * tint_amount)
-        g = int(g1 * (1 - tint_amount) + g2 * tint_amount)
-        b = int(b1 * (1 - tint_amount) + b2 * tint_amount)
-        return (r, g, b)
 
     def update_pads(self):
         """Update all pad colors based on current state"""
@@ -264,23 +152,298 @@ class RhythmDemo:
                 else:
                     self.fire.set_pad_color(pad_index, 0, 0, 0)
 
+    @staticmethod
+    def blend_colors(base_color, tint_color, tint_amount):
+        """Blend two colors with a given amount"""
+        r1, g1, b1 = base_color
+        r2, g2, b2 = tint_color
+        r = int(r1 * (1 - tint_amount) + r2 * tint_amount)
+        g = int(g1 * (1 - tint_amount) + g2 * tint_amount)
+        b = int(b1 * (1 - tint_amount) + b2 * tint_amount)
+        return r, g, b
+
+    def setup_handlers(self):
+        @self.fire.on_button(self.fire.BUTTON_STOP)
+        def handle_stop(event):
+            if event == "press":
+                self.play_state = PlayState.STOPPED
+                self.current_page = 0
+                self.current_step = 0
+                self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_OFF)
+                self.fire.set_button_led(self.fire.BUTTON_STOP, self.fire.LED_OFF)
+                self.update_pads()
+                self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_PLAY)
+        def handle_play(event):
+            if event == "press":
+                if self.play_state == PlayState.STOPPED:
+                    self.play_state = PlayState.PLAYING
+                    self.fire.set_button_led(
+                        self.fire.BUTTON_PLAY, self.fire.LED_DULL_YELLOW
+                    )
+                    self.fire.set_button_led(self.fire.BUTTON_STOP, self.fire.LED_OFF)
+                else:
+                    self.play_state = PlayState.STOPPED
+                    self.current_step = 0
+                    self.current_page = 0
+                    self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_OFF)
+                    self.fire.set_button_led(
+                        self.fire.BUTTON_STOP, self.fire.LED_HIGH_RED
+                    )
+                self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_REC)
+        def handle_rec(event):
+            if event == "press":
+                if self.play_state == PlayState.RECORDING:
+                    self.play_state = PlayState.STOPPED
+                    self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_OFF)
+                else:
+                    self.play_state = PlayState.RECORDING
+                    self.fire.set_button_led(
+                        self.fire.BUTTON_REC, self.fire.LED_HIGH_RED
+                    )
+                self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_BROWSER)
+        def handle_browser(event):
+            if event == "press":
+                if self.screen_mode == ScreenMode.MAIN:
+                    self.screen_mode = ScreenMode.MIDI_SELECT_INPUT
+                elif self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                    self.screen_mode = ScreenMode.MIDI_SELECT_OUTPUT
+                elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                    self.screen_mode = ScreenMode.QUANTIZATION
+                elif self.screen_mode == ScreenMode.QUANTIZATION:
+                    self.screen_mode = ScreenMode.MIDI_MONITOR
+                elif self.screen_mode == ScreenMode.MIDI_MONITOR:
+                    self.screen_mode = ScreenMode.MAIN
+                self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_PATTERN)
+        def handle_loop(event):
+            if event == "press":
+                self.loop_mode = not self.loop_mode
+                if self.loop_mode:
+                    self.loop_start = self.current_step
+                    self.loop_length = 8
+                    self.loop_mode = True
+                else:
+                    self.loop_mode = False
+
+                self.update_pads()
+                self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_NOTE)
+        def handle_note_mode(event):
+            if event == "press":
+                print("Switching to notes mode")
+                self.screen_mode = (
+                    ScreenMode.NOTES
+                    if self.screen_mode != ScreenMode.NOTES
+                    else ScreenMode.MAIN
+                )
+                self.update_display()
+
+        # Move playhead
+        @self.fire.on_rotary_turn(self.fire.ROTARY_FILTER)
+        def handle_needle(direction, velocity):
+            if direction == "clockwise":
+                self.current_step = min(self.max_steps, self.current_step + 1)
+            else:
+                self.current_step = max(0, self.current_step - 1)
+            self.update_display()
+            self.update_pads()
+
+        # Intensity control with pan
+        @self.fire.on_rotary_turn(self.fire.ROTARY_PAN)
+        def handle_intensity(direction, velocity):
+            if direction == "clockwise":
+                self.intensity = min(127, self.intensity + velocity)
+            else:
+                self.intensity = max(1, self.intensity - velocity)
+            self.update_pads()
+
+        @self.fire.on_rotary_turn(self.fire.ROTARY_SELECT)
+        def handle_midi_selection(direction, velocity):
+            if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                if direction == "clockwise":
+                    self.midi_input_option.next_option()
+                else:
+                    self.midi_input_option.prev_option()
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                if direction == "clockwise":
+                    self.midi_output_option.next_option()
+                else:
+                    self.midi_output_option.prev_option()
+            elif self.screen_mode == ScreenMode.QUANTIZATION:
+                if direction == "clockwise":
+                    self.quantization_option.next_option()
+                else:
+                    self.quantization_option.prev_option()
+            elif self.screen_mode == ScreenMode.MAIN:
+                if direction == "clockwise":
+                    self.pattern_length = min(64, self.pattern_length + 1)
+                else:
+                    self.pattern_length = max(1, self.pattern_length - 1)
+            self.update_pads()
+            self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_SELECT)
+        def confirm_selection(event):
+            if event == "press":
+                if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                    self._change_midi_input(self.midi_input_option.current_index)
+                    # TODO: SHOW success
+                elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                    self._change_midi_output(self.midi_output_option.current_index)
+                    # TODO: SHOW success
+                elif self.screen_mode == ScreenMode.QUANTIZATION:
+                    self.screen_mode = ScreenMode.MAIN
+                self.update_display()
+
+        # Pad input handler
+        @self.fire.on_pad()
+        def handle_pad(pad_index, velocity):
+            if self.screen_mode is not ScreenMode.NOTES:
+                (col, row) = AkaiFire.pad_position(pad_index)
+                absolute_col = col + (self.current_page * 16)
+                self.tracks[row][absolute_col] = not self.tracks[row][absolute_col]
+                self.update_pads()
+
+        @self.fire.on_pad()
+        def handle_pad(pad_index, velocity):
+            if self.screen_mode == ScreenMode.NOTES:
+                note = 36 + pad_index  # Mapping pad to MIDI note
+                print(f"Note on: {note} - {velocity}")
+                self.midi_out.send_message([0x90, note, velocity])  # Note on
+                self.last_note = note
+                self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_SELECT)
+        def handle_note_off(event):
+            if self.screen_mode == ScreenMode.NOTES and self.last_note:
+                print(f"Note off: {self.last_note} - {event}")
+                self.midi_out.send_message([0x80, self.last_note, 0])  # Note off
+                self.last_note = None
+                self.update_display()
+
+        # Grid left/right buttons control loop length
+        @self.fire.on_button(self.fire.BUTTON_GRID_LEFT)
+        def handle_grid_left(event):
+            if event == "press":
+                if self.loop_mode:
+                    # Existing loop length control
+                    self.loop_length = max(1, self.loop_length - 1)
+                else:
+                    # Page control
+                    self.current_page = max(0, self.current_page - 1)
+                    self.fire.set_control_bank_leds(self.bank_leds[self.current_page])
+            self.update_pads()
+            self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_GRID_RIGHT)
+        def handle_grid_right(event):
+            if event == "press":
+                if self.loop_mode:
+                    self.loop_length = min(self.pattern_length, self.loop_length + 1)
+                else:
+                    self.current_page = min(3, self.current_page + 1)
+                    self.fire.set_control_bank_leds(self.bank_leds[self.current_page])
+                self.update_pads()
+                self.update_display()
+
+    def _change_midi_output(self, new_index: int):
+        """Change the active MIDI output."""
+        if new_index != self.selected_midi_output:
+            try:
+                # Close existing port
+                if self.midi_out.is_port_open():
+                    self.midi_out.close_port()
+
+                # Open new port
+                self.midi_out.open_port(new_index)
+                self.selected_midi_output = new_index
+                print(f"Switched to MIDI output: {self.midi_outputs[new_index]}")
+            except Exception as e:
+                print(f"Error changing MIDI output: {e}")
+
+    def _change_midi_input(self, new_index: int):
+        print(f"Changing MIDI input to: {self.midi_inputs[new_index]}")
+
+        """Change the active MIDI input."""
+        if new_index != self.selected_midi_input:
+            try:
+                # Close existing port
+                if self.midi_in.is_port_open():
+                    self.midi_in.close_port()
+
+                # Open new port
+                self.midi_in.open_port(new_index)
+                self.selected_midi_input = new_index
+                print(f"Switched to MIDI input: {self.midi_inputs[new_index]}")
+            except Exception as e:
+                print(f"Error changing MIDI input: {e}")
+
     def update_display(self):
-        """Update OLED display"""
         self.canvas.clear()
+        if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+            self._draw_menu_screen("MIDI Input", self.midi_input_option)
+        elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+            self._draw_menu_screen("MIDI Output", self.midi_output_option)
+        elif self.screen_mode == ScreenMode.QUANTIZATION:
+            self._draw_menu_screen("Quantize", self.quantization_option)
+        elif self.screen_mode == ScreenMode.MIDI_MONITOR:
+            self._draw_midi_monitor_screen()
+        elif self.screen_mode == ScreenMode.NOTES:
+            self._draw_notes_display()
+        else:
+            self._draw_main_display()
 
-        # Draw header
+        self.fire.render_to_display()
+
+    def _draw_notes_display(self):
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-        self.canvas.draw_text(f"BPM: {self.tempo}", 2, 2, color=1)
+        self.canvas.draw_text("Notes Mode", 2, 2, color=1)
+        if self.last_note:
+            self.canvas.draw_text(
+                f"Last Note: {self.last_note}",
+                2,
+                15,
+            )
 
-        # Draw playhead position
+        else:
+            self.canvas.draw_text(
+                "Press a pad to play",
+                2,
+                15,
+            )
+
+    def _draw_midi_monitor_screen(self):
+        """Draw the MIDI monitor screen."""
+        # Header
+        self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
+        self.canvas.draw_text("MIDI Monitor", 2, 1, color=1)
+
+        # Show MIDI messages
+        y = 15
+        for i, message in enumerate(
+            self.midi_monitor_messages[:4]
+        ):  # Show last 4 messages
+            self.canvas.draw_text(message[:21], 2, y)  # Truncate to fit screen
+            y += 12
+
+        if not self.midi_monitor_messages:
+            self.canvas.draw_text("Waiting for MIDI...", 2, y)
+
+    def _draw_main_display(self):
+        self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
+        self.canvas.draw_text(f"BPM: {self.tempo}", 2, 1, color=1)
         beat = (self.current_step // 4) + 1
         tick = (self.current_step % 4) + 1
         self.canvas.draw_text(f"Beat {beat}.{tick}", 70, 2, color=1)
-
-        # Draw play state and pattern info
         self.canvas.draw_text(f"State: {self.play_state.value}", 2, 15)
-
-        # Draw pattern length and loop info
         if self.loop_mode:
             self.canvas.draw_text(
                 f"Loop: {self.loop_start + 1} to {self.loop_start + self.loop_length}",
@@ -289,12 +452,26 @@ class RhythmDemo:
             )
         else:
             self.canvas.draw_text(f"Length: {self.pattern_length} steps", 2, 28)
-
-        # Draw active steps count
         active_steps = sum(sum(1 for step in track if step) for track in self.tracks)
         self.canvas.draw_text(f"Active: {active_steps}", 2, 41)
 
-        self.fire.render_to_display()
+    def _draw_menu_screen(self, title, menu_option):
+        self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
+        self.canvas.draw_text(title, 2, 1, color=1)
+
+        y = 15
+        visible_options = 4  # Number of options to display at once
+        start_index = max(0, menu_option.current_index - visible_options // 2)
+        end_index = min(len(menu_option.options), start_index + visible_options)
+
+        if end_index - start_index < visible_options:
+            start_index = max(0, end_index - visible_options)
+
+        for i in range(start_index, end_index):
+            option = menu_option.options[i]
+            prefix = "> " if i == menu_option.current_index else "    "
+            self.canvas.draw_text(f"{prefix}{option}", 2, y, color=0)
+            y += 12
 
     def run(self):
         """Main loop"""
