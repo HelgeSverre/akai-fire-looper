@@ -1,7 +1,6 @@
 import threading
-
+import time
 import rtmidi
-
 from screen import AkaiFireBitmap
 
 
@@ -95,8 +94,16 @@ class AkaiFire:
         self.rotary_listeners = {}
         self.rotary_touch_listeners = {}
         self.button_listeners = {}
-        self.listening_thread = threading.Thread(target=self._listen, daemon=True)
+
         self.listening = False
+        self.listening_thread = None
+
+    def start_listening(self):
+        """Start the listening thread."""
+        if not self.listening:
+            self.listening = True
+            self.listening_thread = threading.Thread(target=self._listen, daemon=True)
+            self.listening_thread.start()
 
     def _find_ports(self):
         """Find the Akai Fire MIDI input and output ports."""
@@ -118,7 +125,7 @@ class AkaiFire:
     def close(self):
         """Closes the MIDI input and output ports."""
         self.listening = False
-        if self.listening_thread.is_alive():
+        if self.listening_thread and self.listening_thread.is_alive():
             self.listening_thread.join()
 
         self.midi_in.close_port()
@@ -164,6 +171,11 @@ class AkaiFire:
 
     def set_pad_color(self, index, red, green, blue):
         """Lights up a single pad with the specified RGB color."""
+        if not (0 <= index <= 63):
+            raise ValueError("Pad index must be between 0 and 63")
+        if not all(0 <= c <= 127 for c in (red, green, blue)):
+            raise ValueError("Color values must be between 0 and 127")
+
         sysex_message = self._create_sysex_message([(index, red, green, blue)])
         self.midi_out.send_message(sysex_message)
 
@@ -301,9 +313,7 @@ class AkaiFire:
             raise ValueError("Invalid rotary ID.")
         self.rotary_listeners[rotary_id] = callback
 
-        if not self.listening:
-            self.listening = True
-            self.listening_thread.start()
+        self.start_listening()
 
     def add_rotary_touch_listener(self, rotary_id, callback):
         """
@@ -355,9 +365,7 @@ class AkaiFire:
             raise ValueError("Invalid button ID.")
         self.button_listeners[button_id] = callback
 
-        if not self.listening:
-            self.listening = True
-            self.listening_thread.start()
+        self.start_listening()
 
     def add_listener(self, pad_indices, callback):
         """
@@ -368,9 +376,7 @@ class AkaiFire:
         for index in pad_indices:
             self.listeners[index] = callback
 
-        if not self.listening:
-            self.listening = True
-            self.listening_thread.start()
+        self.start_listening()
 
     def add_global_listener(self, callback):
         """
@@ -378,9 +384,7 @@ class AkaiFire:
         :param callback: Function to call when any pad is pressed.
         """
         self.global_listener = callback
-        if not self.listening:
-            self.listening = True
-            self.listening_thread.start()
+        self.start_listening()
 
     @staticmethod
     def get_pad_row(pad_index):
@@ -391,43 +395,51 @@ class AkaiFire:
         """
         return (pad_index // 16) + 1
 
+    def _process_message(self, message):
+        """Process a single MIDI message."""
+        if not message:
+            return
+
+        data, _ = message
+        status = data[0]
+        controller = data[1]
+        value = data[2]
+
+        # Handle button press/release events
+        if status in [0x90, 0x80] and controller in self.button_listeners:
+            event = "press" if status == 0x90 else "release"
+            self.button_listeners[controller](controller, event)
+
+        # Handle rotary touch events
+        if status in [0x90, 0x80] and controller in self.rotary_touch_listeners:
+            event = "touch" if status == 0x90 else "release"
+            self.rotary_touch_listeners[controller](controller, event)
+
+        # Handle rotary turn events
+        if status == 0xB0 and controller in self.rotary_listeners:
+            # Decode two's complement rotation value
+            direction = "clockwise" if value < 0x40 else "counterclockwise"
+            velocity = value if value < 0x40 else (0x80 - value)
+            self.rotary_listeners[controller](controller, direction, velocity)
+
+        # Check for note_on messages
+        if data[0] == 0x90 and data[2] > 0:  # 0x90 = note_on, velocity > 0
+            midi_note = data[1]
+            pad_index = midi_note - 54  # Map MIDI note to pad index
+
+            if 0 <= pad_index <= 63:
+                # Trigger specific pad listeners
+                if pad_index in self.listeners:
+                    self.listeners[pad_index](pad_index)
+
+                # Trigger global listener
+                if self.global_listener:
+                    self.global_listener(pad_index)
+
     def _listen(self):
         """Internal method to listen for MIDI messages."""
         while self.listening:
             message = self.midi_in.get_message()
             if message:
-                data, _ = message
-                status = data[0]
-                controller = data[1]
-                value = data[2]
-
-                # Handle button press/release events
-                if status in [0x90, 0x80] and controller in self.button_listeners:
-                    event = "press" if status == 0x90 else "release"
-                    self.button_listeners[controller](controller, event)
-
-                # Handle rotary touch events
-                if status in [0x90, 0x80] and controller in self.rotary_touch_listeners:
-                    event = "touch" if status == 0x90 else "release"
-                    self.rotary_touch_listeners[controller](controller, event)
-
-                # Handle rotary turn events
-                if status == 0xB0 and controller in self.rotary_listeners:
-                    # Decode two's complement rotation value
-                    direction = "clockwise" if value < 0x40 else "counterclockwise"
-                    velocity = value if value < 0x40 else (0x80 - value)
-                    self.rotary_listeners[controller](controller, direction, velocity)
-
-                # Check for note_on messages
-                if data[0] == 0x90 and data[2] > 0:  # 0x90 = note_on, velocity > 0
-                    midi_note = data[1]
-                    pad_index = midi_note - 54  # Map MIDI note to pad index
-
-                    if 0 <= pad_index <= 63:
-                        # Trigger specific pad listeners
-                        if pad_index in self.listeners:
-                            self.listeners[pad_index](pad_index)
-
-                        # Trigger global listener
-                        if self.global_listener:
-                            self.global_listener(pad_index)
+                self._process_message(message)
+            time.sleep(0.001)  # 1ms loop interval
