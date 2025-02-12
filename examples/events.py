@@ -1,7 +1,6 @@
 from enum import Enum
 import time
-from akai_fire import AkaiFire
-from canvas import Canvas, FireRenderer
+from akai_fire import AkaiFire, Canvas
 
 
 class DemoMode(Enum):
@@ -13,8 +12,7 @@ class DemoMode(Enum):
 class FireDemo:
     def __init__(self):
         self.fire = AkaiFire()
-        self.canvas = Canvas()
-        self.renderer = FireRenderer(self.fire)
+        self.canvas = self.fire.get_canvas()
 
         self.mode = DemoMode.PAD_COLORS
         self.current_velocity = 64
@@ -36,7 +34,7 @@ class FireDemo:
     def setup_handlers(self):
         # Mode switching
         @self.fire.on_button(self.fire.BUTTON_STEP)
-        def handle_pad_mode():
+        def handle_pad_mode(event):
             self.mode = DemoMode.PAD_COLORS
             self.fire.set_button_led(self.fire.BUTTON_STEP, self.fire.LED_HIGH_GREEN)
             self.fire.set_button_led(self.fire.BUTTON_NOTE, self.fire.LED_OFF)
@@ -44,7 +42,7 @@ class FireDemo:
             self.draw_screen()
 
         @self.fire.on_button(self.fire.BUTTON_NOTE)
-        def handle_monitor_mode():
+        def handle_monitor_mode(event):
             self.mode = DemoMode.MONITOR
             self.fire.set_button_led(self.fire.BUTTON_STEP, self.fire.LED_OFF)
             self.fire.set_button_led(self.fire.BUTTON_NOTE, self.fire.LED_HIGH_GREEN)
@@ -52,7 +50,7 @@ class FireDemo:
             self.draw_screen()
 
         @self.fire.on_button(self.fire.BUTTON_DRUM)
-        def handle_notes_mode():
+        def handle_notes_mode(event):
             self.mode = DemoMode.NOTES
             self.fire.set_button_led(self.fire.BUTTON_STEP, self.fire.LED_OFF)
             self.fire.set_button_led(self.fire.BUTTON_NOTE, self.fire.LED_OFF)
@@ -60,17 +58,17 @@ class FireDemo:
             self.draw_screen()
 
         @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handle_play():
+        def handle_play(event):
             self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_HIGH_GREEN)
             self.fire.set_button_led(self.fire.BUTTON_STOP, self.fire.LED_OFF)
 
         @self.fire.on_button(self.fire.BUTTON_STOP)
-        def handle_stop():
+        def handle_stop(event):
             self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_OFF)
             self.fire.set_button_led(self.fire.BUTTON_STOP, self.fire.LED_HIGH_RED)
 
         # Color selection with rotary
-        @self.fire.on_rotary_turn(RotaryId.VOLUME)
+        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
         def handle_color_select(direction, velocity):
             if direction == "clockwise":
                 self.current_color = (self.current_color + 1) % len(self.colors)
@@ -79,7 +77,7 @@ class FireDemo:
             self.draw_screen()
 
         # Velocity control
-        @self.fire.on_rotary_turn(RotaryId.PAN)
+        @self.fire.on_rotary_turn(self.fire.ROTARY_PAN)
         def handle_velocity(direction, velocity):
             if direction == "clockwise":
                 self.current_velocity = min(127, self.current_velocity + velocity)
@@ -89,20 +87,18 @@ class FireDemo:
 
         # Pad handlers
         @self.fire.on_pad()
-        def handle_pad(pad_index):
+        def handle_pad(pad_index, event):
             if self.mode == DemoMode.PAD_COLORS:
                 # Set pad to current color
                 r, g, b = self.colors[self.current_color]
                 self.fire.set_pad_color(pad_index, r, g, b)
             elif self.mode == DemoMode.NOTES:
                 # Light up pad while pressed
-                self.fire.set_pad_color(
-                    pad_index, self.current_velocity, self.current_velocity // 2, 0
-                )
+                self.fire.set_pad_color(pad_index, 0, 0, 0)
 
         # Clear controls
         @self.fire.on_button(self.fire.BUTTON_BROWSER)
-        def handle_clear():
+        def handle_clear(event):
             if self.mode == DemoMode.PAD_COLORS:
                 self.fire.clear_all_pads()
             elif self.mode == DemoMode.MONITOR:
@@ -133,7 +129,7 @@ class FireDemo:
             self.canvas.draw_text(f"Velocity: {self.current_velocity}", 2, 15)
             self.canvas.draw_text("Press pads to play", 2, 27)
 
-        self.renderer.render_canvas(self.canvas)
+        self.fire.render_to_display()
 
     def run(self):
         """Main loop"""
