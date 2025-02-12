@@ -38,21 +38,17 @@ if __name__ == "__main__":
 
 ### Connecting to the Device
 
-By default, the library looks for a device named "FL STUDIO FIRE". You can customize this if your device shows up differently:
+By default, the library looks for a device named "FL STUDIO FIRE". You can customize this if your device shows up
+differently:
 
 ```python
-# Default connection
-fire = AkaiFire()  # Looks for "FL STUDIO FIRE"
+# Defaults to "AKAI FIRE"
+fire = AkaiFire(port_name="MIDI Port name here")
 
-# Custom device name
-fire = AkaiFire(port_name="YOUR DEVICE NAME")
+canvas = fire.get_canvas()
+canvas.draw_text("Hello world", 10, 20)
 
-# Check available MIDI ports
-import rtmidi
-midi_in = rtmidi.MidiIn()
-midi_out = rtmidi.MidiOut()
-print("Available MIDI inputs:", midi_in.get_ports())
-print("Available MIDI outputs:", midi_out.get_ports())
+fire.render_to_display()
 ```
 
 ### Basic Device Control
@@ -82,12 +78,15 @@ from akai_fire import AkaiFire
 
 fire = AkaiFire()
 
+
 # Handle pad presses
 def on_pad_press(pad_index):
     print(f"Pad {pad_index} pressed")
     fire.set_pad_color(pad_index, 127, 0, 0)  # Light up pressed pad
 
+
 fire.add_global_listener(on_pad_press)
+
 
 # Handle button events
 def on_button_event(button_id, event):
@@ -97,11 +96,14 @@ def on_button_event(button_id, event):
     else:
         fire.set_button_led(button_id, AkaiFire.LED_OFF)
 
+
 fire.add_button_listener(AkaiFire.BUTTON_PLAY, on_button_event)
+
 
 # Handle rotary events
 def on_rotary_turn(rotary_id, direction, velocity):
     print(f"Rotary {rotary_id} turned {direction} with velocity {velocity}")
+
 
 fire.add_rotary_listener(AkaiFire.ROTARY_VOLUME, on_rotary_turn)
 
@@ -114,41 +116,46 @@ finally:
 
 ### Screen Control and Emulation
 
-The library provides two ways to work with the OLED screen:
+The library now uses a simplified Canvas approach to control the OLED screen.
 
-1. Direct device control:
+1. **Direct device control:**
+
 ```python
-from akai_fire import AkaiFire, AkaiFireBitmap
+from akai_fire import AkaiFire
 
 fire = AkaiFire()
-bitmap = AkaiFireBitmap()
+canvas = fire.new_canvas()
 
-# Draw something
-bitmap.draw_rectangle(0, 0, 128, 64, 1)
-bitmap.draw_circle(64, 32, 20, 1)
+# Draw something on the canvas
+canvas.draw_rectangle(0, 0, 128, 64)
+canvas.draw_circle(64, 32, 20)
+canvas.draw_text("Hello, World!", 10, 10)
 
 # Send to device
-fire.send_bitmap(bitmap)
+fire.render_to_display()
 ```
 
-2. Development without device (Screen Emulation):
+2. **Development without device (Screen Emulation):**
+
 ```python
-from canvas import Canvas, BMPRenderer
+from akai_fire import AkaiFire
+import os
 
-# Create canvas and BMP renderer
-canvas = Canvas()
-renderer = BMPRenderer(output_dir="_screens")
+fire = AkaiFire()
+canvas = fire.new_canvas()
 
-# Draw your content
+# Draw on the canvas
 canvas.draw_text("Testing without device", 10, 10)
 canvas.draw_rect(0, 0, 128, 64)
 canvas.fill_rect(10, 10, 20, 20)
 
-# Save as BMP file instead of sending to device
-renderer.render_canvas(canvas, "test_screen.bmp")
+# Save as BMP file
+os.makedirs("_screens", exist_ok=True)
+fire.render_to_bmp(os.path.join("_screens", "test_screen.bmp"))
 ```
 
-The BMPRenderer is particularly useful for:
+The simplified Canvas approach is particularly useful for:
+
 - Developing without physical hardware
 - Debugging screen layouts
 - Creating documentation
@@ -196,64 +203,36 @@ fire = AkaiFire(port_name="FL STUDIO FIRE")
 
 #### Screen Control
 
-The AKAI Fire has a 128x64 OLED display that can be controlled in two ways:
-
-1. Direct Bitmap Control:
-
-```python
-from akai_fire import AkaiFire, AkaiFireBitmap
-
-fire = AkaiFire()
-bitmap = AkaiFireBitmap()
-
-# Draw directly on the bitmap
-bitmap.set_pixel(x, y, color)
-bitmap.draw_horizontal_line(x, y, length, color)
-bitmap.draw_vertical_line(x, y, length, color)
-bitmap.draw_rectangle(x, y, width, height, color)
-bitmap.fill_rectangle(x, y, width, height, color)
-bitmap.draw_circle(x0, y0, radius, color)
-bitmap.fill_circle(x0, y0, radius, color)
-
-# Send to device
-fire.send_bitmap(bitmap)
-```
-
-2. High-Level Canvas API:
+The AKAI Fire has a 128x64 OLED display controlled using the simplified Canvas approach:
 
 ```python
 from akai_fire import AkaiFire
-from canvas import Canvas, FireRenderer
 
-# Create canvas and renderer
-canvas = Canvas()
-renderer = FireRenderer(fire)
+fire = AkaiFire()
+canvas = fire.new_canvas()
 
-# Draw using high-level methods
+# Drawing
 canvas.draw_text("Hello Fire", 20, 20)
 canvas.draw_rect(0, 0, 128, 64)
 canvas.fill_rect(10, 10, 20, 20)
-canvas.set_pixel(64, 32, 1)
+canvas.set_pixel(64, 32, 0)
 
 # Render to device
-renderer.render_canvas(canvas)
+fire.render_to_display()
 ```
 
-#### Screen Debugging
-
-For development without a physical device, you can render the screen content to BMP files:
+For development without a physical device, save the screen content to BMP files:
 
 ```python
-from canvas import Canvas, BMPRenderer
+import os
 
-canvas = Canvas()
-renderer = BMPRenderer(output_dir="_screens")
-
-# Draw your content
+fire = AkaiFire()
+canvas = fire.new_canvas()
 canvas.draw_text("Test Screen", 10, 10)
 
 # Save as BMP
-renderer.render_canvas(canvas, "test_screen.bmp")
+os.makedirs("_screens", exist_ok=True)
+fire.render_to_bmp(os.path.join("_screens", "test_screen.bmp"))
 ```
 
 #### General Methods
@@ -287,25 +266,6 @@ LED_HIGH_YELLOW = 0x02
 | `FIELD_USER1`   | `0x04` | User 1 LED           |
 | `FIELD_USER2`   | `0x08` | User 2 LED           |
 
-### Predefined Combinations
-
-| Constant                                   | Value  | Active LEDs               |
-|--------------------------------------------|--------|---------------------------|
-| `CONTROL_BANK_ALL_OFF`                     | `0x10` | None                      |
-| `CONTROL_BANK_ALL_ON`                      | `0x1F` | All                       |
-| `CONTROL_BANK_CHANNEL`                     | `0x11` | Channel                   |
-| `CONTROL_BANK_MIXER`                       | `0x12` | Mixer                     |
-| `CONTROL_BANK_USER1`                       | `0x14` | User 1                    |
-| `CONTROL_BANK_USER2`                       | `0x18` | User 2                    |
-| `CONTROL_BANK_CHANNEL_AND_MIXER`           | `0x13` | Channel + Mixer           |
-| `CONTROL_BANK_CHANNEL_AND_USER1`           | `0x15` | Channel + User 1          |
-| `CONTROL_BANK_CHANNEL_AND_USER2`           | `0x19` | Channel + User 2          |
-| `CONTROL_BANK_MIXER_AND_USER2`             | `0x1A` | Mixer + User 2            |
-| `CONTROL_BANK_CHANNEL_AND_MIXER_AND_USER1` | `0x17` | Channel + Mixer + User 1  |
-| `CONTROL_BANK_CHANNEL_AND_MIXER_AND_USER2` | `0x1B` | Channel + Mixer + User 2  |
-| `CONTROL_BANK_CHANNEL_AND_USER1_AND_USER2` | `0x1D` | Channel + User 1 + User 2 |
-| `CONTROL_BANK_MIXER_AND_USER1_AND_USER2`   | `0x1E` | Mixer + User 1 + User 2   |
-
 ### Control Bank Examples
 
 ```python
@@ -315,43 +275,52 @@ import time
 fire = AkaiFire()
 
 # Using predefined states
-fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_ALL_ON)  # Turn all LEDs on
+fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_ALL_ON)
 time.sleep(1)
 
-fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_CHANNEL_AND_MIXER)  # Channel + Mixer only
+fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_CHANNEL_AND_MIXER)
 time.sleep(1)
 
 # Combining fields manually
-custom_state = AkaiFire.FIELD_BASE | AkaiFire.FIELD_USER1 | AkaiFire.FIELD_USER2  # Both USER LEDs
+custom_state = AkaiFire.FIELD_BASE | AkaiFire.FIELD_USER1 | AkaiFire.FIELD_USER2
 fire.set_control_bank_leds(custom_state)
 time.sleep(1)
-
-# Cycling through different combinations
-combinations = [
-    AkaiFire.CONTROL_BANK_CHANNEL,
-    AkaiFire.CONTROL_BANK_MIXER,
-    AkaiFire.CONTROL_BANK_USER1,
-    AkaiFire.CONTROL_BANK_USER2
-]
-
-for state in combinations:
-    fire.set_control_bank_leds(state)
-    time.sleep(0.5)
 
 # Turn everything off
 fire.clear_control_bank_leds()
 fire.close()
 ```
 
-#### Rotary Controls
+## Examples
 
-```python
-ROTARY_VOLUME = 0x10
-ROTARY_PAN = 0x11
-ROTARY_FILTER = 0x12
-ROTARY_RESONANCE = 0x13
-ROTARY_SELECT = 0x76
-```
+The `examples` directory contains several scripts to demonstrate the library's capabilities:
+
+- [blink_random.py](examples/blink_random.py) - Randomly blinks pads
+- [control_bank_leds.py](examples/control_bank_leds.py) - Demonstrates control bank LED states
+- [events.py](examples/events.py) - Demonstrates event handling with decorators (WIP)
+- [hello_world.py](examples/hello_world.py) - All pads lights up in a uniform color
+- [hello_worlder.py](examples/hello_worlder.py) - All pads lights up in a uniform color, but brighter
+- [looper.py](examples/looper.py) - Old Attempt at building a MIDI clip recorder/looper
+- [looper2.py](examples/looper2.py) - Attempt at building a MIDI clip recorder/looper
+- [clear_all.py](examples/clear_all.py) - Clears all the LEDs, Buttons, Pads, and Screen
+- [pad_color_cycle.py](examples/pad_color_cycle.py) - Lights up one pad at a time, cycling through colors.
+- [pad_toggle_on_press.py](examples/pad_toggle_on_press.py) - Showcases how to handle pad press events
+- [screen_animated_wave.py](examples/screen_animated_wave.py) - Shows a pleasing animated graphic on the OLED screen.
+- [screen_bounce.py](examples/screen_bounce.py) - Bouncing ball animation on the OLED screen.
+- [screen_showcase.py](examples/screen_showcase.py) - Demonstrates various animations on the OLED screen.
+- [screen_simple.py](examples/screen_simple.py) - Shows "Hello, World!" on the OLED screen.
+- [screen_snow.py](examples/screen_snow.py) - Shows static snow on the OLED scree (randomly black and white pixels).
+- [track_led_cycle.py](examples/track_led_cycle.py) - Cycles through the track LEDs.
+- [track_led_rain.py](examples/track_led_rain.py) - Cycles through each track and lights up the SOLO, Track led, and
+  each pad in a sequence.
+
+### Experimental Examples
+
+- [batching.py](experiments/batching.py) - Batched pad color updates
+- [batching_animated.py](experiments/batching_animated.py) - Batched pad color updates with animation (smoother)
+- [batching_water.py](experiments/batching_water.py) - Batched pad color updates with a water animation and interaction
+  with the pads, rotary encoders, and buttons.
+- [non_batch_water.py](experiments/non_batch_water.py) - Same-ish but not batched to compare performance.
 
 ## Setup for Development
 
@@ -359,8 +328,8 @@ ROTARY_SELECT = 0x76
 # Create a virtual environment
 python3 -m venv venv
 
-# Activate the virtual environment                                                                                                                                                                                 
-source venv/bin/activate 
+# Activate the virtual environment
+source venv/bin/activate
 
 # Install the requirements
 pip install -r requirements.txt
@@ -373,7 +342,6 @@ pipx run black .
 
 # or windows after `pip install`
 black */**.py
-
 ```
 
 ### 🧠 Quick-Tips for `requirements.txt`
@@ -393,5 +361,5 @@ pipreqs . --force
 Built upon the work done by others:
 
 - ["Segger - Decoding the AKAI Fire"](https://blog.segger.com/decoding-the-akai-fire-part-1/)
-- [Bitmap drawing routine](https://github.com/scjurgen/AkaiFireMapper/blob/master/akaifire.py#L61-L69)
-- Uses the [python-rtmidi](https://pypi.org/project/python-rtmidi/) library 
+- Uses the [python-rtmidi](https://pypi.org/project/python-rtmidi/) library
+

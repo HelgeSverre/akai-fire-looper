@@ -93,10 +93,10 @@ if __name__ == "__main__":
             time.sleep(0.02)
 
             # Animate pads with red
-            # animate_track_pads(fire, track_index, "red")
+            animate_track_pads(fire, track_index, "red")
 
             # Animate pads with green
-            # animate_track_pads(fire, track_index, "green")
+            animate_track_pads(fire, track_index, "green")
 
             time.sleep(1)
 
