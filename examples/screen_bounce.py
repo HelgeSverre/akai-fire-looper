@@ -1,7 +1,7 @@
 """
 AKAI Fire Example: Bouncing Ball Animation
 
-This script demonstrates how to use the AKAI Fire MIDI controller's bitmap display
+This script demonstrates how to use the AKAI Fire MIDI controller's canvas display
 to render a simple animation. A ball moves around the display, bouncing off the edges
 of the screen. The animation runs for a specified number of seconds or until the user interrupts it.
 
@@ -15,11 +15,9 @@ Key Features:
 import time
 
 from akai_fire import AkaiFire
-from screen import AkaiFireBitmap
 
-# Initialize AKAI Fire and bitmap objects
 fire = AkaiFire()
-bitmap = AkaiFireBitmap()
+canvas = fire.get_canvas()
 
 
 def main(duration=10):
@@ -40,13 +38,13 @@ def main(duration=10):
         print(f"Starting animation for {duration} seconds...")
         for frame in range(total_frames):
             # Clear the display
-            bitmap.clear()
+            canvas.clear()
 
             # Draw the ball at the current position
-            bitmap.fill_circle(x, y, radius, 1)
+            canvas.fill_circle(x, y, radius)
 
-            # Send the updated bitmap to the device
-            fire.send_bitmap(bitmap)
+            # Send the updated canvas to the device
+            fire.render_to_display()
 
             # Update ball position
             x += dx
@@ -64,7 +62,7 @@ def main(duration=10):
         print("Animation interrupted by user.")
     finally:
         print("Clearing display...")
-        fire.clear_bitmap()
+        fire.clear_display()
 
         print("Closing connection...")
         fire.close()

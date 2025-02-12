@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     finally:
         # Clean up
-        fire.clear_bitmap()
+        fire.clear_display()
         fire.clear_all_pads()
         fire.clear_all_button_leds()
         fire.clear_all_track_leds()

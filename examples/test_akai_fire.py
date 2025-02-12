@@ -1,12 +1,8 @@
 import unittest
 from unittest.mock import Mock, patch, call
 import time
-import rtmidi
-from PIL import Image, ImageDraw, ImageFont
 
-from akai_fire import AkaiFire
-from screen import AkaiFireBitmap
-from canvas import Canvas, FireRenderer
+from akai_fire import AkaiFire, Canvas
 
 
 class MockMidiPort:
@@ -36,8 +32,8 @@ class MockMidiPort:
 
 
 class TestAkaiFire(unittest.TestCase):
-    @patch('rtmidi.MidiIn')
-    @patch('rtmidi.MidiOut')
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
     def setUp(self, mock_midi_out, mock_midi_in):
         """Set up test case with mocked MIDI ports"""
         self.mock_midi_in = MockMidiPort()
@@ -62,18 +58,23 @@ class TestAkaiFire(unittest.TestCase):
         # Test single pad
         self.fire.set_pad_color(0, 127, 0, 0)  # Red
         expected_sysex = [
-            0xF0, 0x47, 0x7F, 0x43, 0x65,  # Header
-            0x00, 0x04,  # Length
-            0x00, 127, 0, 0,  # Pad data
-            0xF7  # End of SysEx
+            0xF0,
+            0x47,
+            0x7F,
+            0x43,
+            0x65,  # Header
+            0x00,
+            0x04,  # Length
+            0x00,
+            127,
+            0,
+            0,  # Pad data
+            0xF7,  # End of SysEx
         ]
         self.assertEqual(self.mock_midi_out.messages[-1], expected_sysex)
 
         # Test multiple pads
-        self.fire.set_multiple_pad_colors([
-            (0, 127, 0, 0),
-            (1, 0, 127, 0)
-        ])
+        self.fire.set_multiple_pad_colors([(0, 127, 0, 0), (1, 0, 127, 0)])
         sysex = self.mock_midi_out.messages[-1]
         self.assertEqual(len(sysex), 16)  # Header(5) + Length(2) + Data(2*4) + End(1)
 
@@ -212,7 +213,9 @@ class TestAkaiFire(unittest.TestCase):
         self.fire.clear_all_pads()
         last_message = self.mock_midi_out.messages[-1]
         self.assertEqual(last_message[0], 0xF0)  # SysEx
-        self.assertEqual(len(last_message), 264)  # Header(5) + Length(2) + Data(64*4) + End(1)
+        self.assertEqual(
+            len(last_message), 264
+        )  # Header(5) + Length(2) + Data(64*4) + End(1)
 
         # Test clear all button LEDs
         self.fire.clear_all_button_leds()
@@ -229,7 +232,9 @@ class TestAkaiFire(unittest.TestCase):
         callback1 = Mock()
         callback2 = Mock()
         self.fire.add_button_listener(self.fire.BUTTON_PLAY, callback1)
-        self.fire.add_button_listener(self.fire.BUTTON_PLAY, callback2)  # Should replace callback1
+        self.fire.add_button_listener(
+            self.fire.BUTTON_PLAY, callback2
+        )  # Should replace callback1
 
         self.fire._process_message(([0x90, self.fire.BUTTON_PLAY, 127], 0))
         callback1.assert_not_called()
@@ -292,7 +297,9 @@ class TestAkaiFire(unittest.TestCase):
 
         self.fire.set_multiple_pad_colors(pattern)
         last_message = self.mock_midi_out.messages[-1]
-        self.assertEqual(len(last_message), 264)  # Header(5) + Length(2) + Data(64*4) + End(1)
+        self.assertEqual(
+            len(last_message), 264
+        )  # Header(5) + Length(2) + Data(64*4) + End(1)
 
     def test_rapid_led_changes(self):
         """Test rapid LED state changes"""
@@ -301,8 +308,11 @@ class TestAkaiFire(unittest.TestCase):
             self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_OFF)
 
         # Should have 20 messages
-        play_messages = [msg for msg in self.mock_midi_out.messages
-                         if msg[1] == self.fire.BUTTON_PLAY]
+        play_messages = [
+            msg
+            for msg in self.mock_midi_out.messages
+            if msg[1] == self.fire.BUTTON_PLAY
+        ]
         self.assertEqual(len(play_messages), 20)
 
     def test_track_led_patterns(self):
@@ -394,11 +404,15 @@ class TestCanvas(unittest.TestCase):
         """Test basic drawing operations"""
         # Test rectangle
         self.canvas.draw_rect(0, 0, 10, 10)
-        self.assertEqual(self.canvas.image.getpixel((0, 0)), 0)  # Border should be black (0)
+        self.assertEqual(
+            self.canvas.image.getpixel((0, 0)), 0
+        )  # Border should be black (0)
 
         # Test filled rectangle
         self.canvas.fill_rect(20, 20, 10, 10)
-        self.assertEqual(self.canvas.image.getpixel((25, 25)), 0)  # Inside should be black
+        self.assertEqual(
+            self.canvas.image.getpixel((25, 25)), 0
+        )  # Inside should be black
 
         # Test text
         self.canvas.draw_text("Test", 40, 40)
@@ -409,20 +423,20 @@ class TestBitmapOperations(unittest.TestCase):
     """Test bitmap operations for OLED display"""
 
     def setUp(self):
-        self.bitmap = AkaiFireBitmap()
+        self.canvas = Canvas()
 
     def test_pixel_boundaries(self):
         """Test pixel operations at display boundaries"""
         # Test corners
         corners = [(0, 0), (127, 0), (0, 63), (127, 63)]
         for x, y in corners:
-            self.bitmap.set_pixel(x, y, 1)
+            self.canvas.set_pixel(x, y, 1)
             # Verify no exception raised
 
         # Test out of bounds
         out_of_bounds = [(-1, 0), (128, 0), (0, -1), (0, 64)]
         for x, y in out_of_bounds:
-            self.bitmap.set_pixel(x, y, 1)
+            self.canvas.set_pixel(x, y, 1)
             # Should silently ignore
 
     def test_bitmap_patterns(self):
@@ -430,37 +444,13 @@ class TestBitmapOperations(unittest.TestCase):
         # Draw horizontal lines
         for y in range(0, 64, 8):
             for x in range(128):
-                self.bitmap.set_pixel(x, y, 1)
+                self.canvas.set_pixel(x, y, 1)
 
         # Draw vertical lines
         for x in range(0, 128, 16):
             for y in range(64):
-                self.bitmap.set_pixel(x, y, 1)
+                self.canvas.set_pixel(x, y, 1)
 
 
-class TestFireRenderer(unittest.TestCase):
-    @patch('rtmidi.MidiIn')
-    @patch('rtmidi.MidiOut')
-    def setUp(self, mock_midi_out, mock_midi_in):
-        self.mock_midi_in = MockMidiPort()
-        self.mock_midi_out = MockMidiPort()
-        mock_midi_in.return_value = self.mock_midi_in
-        mock_midi_out.return_value = self.mock_midi_out
-
-        self.fire = AkaiFire()
-        self.canvas = Canvas()
-        self.renderer = FireRenderer(self.fire)
-
-    def test_render(self):
-        """Test rendering canvas to Fire display"""
-        self.canvas.draw_text("Test", 0, 0)
-        self.renderer.render_canvas(self.canvas)
-
-        # Verify SysEx message was sent
-        last_message = self.mock_midi_out.messages[-1]
-        self.assertEqual(last_message[0], 0xF0)  # SysEx start
-        self.assertEqual(last_message[4], 0x0E)  # OLED Write command
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

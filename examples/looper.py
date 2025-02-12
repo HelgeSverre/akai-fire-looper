@@ -434,7 +434,6 @@ from typing import List, Optional, Tuple
 import rtmidi
 
 from akai_fire import AkaiFire
-from canvas import Canvas
 
 
 @dataclass
@@ -517,7 +516,9 @@ class MidiLooper:
         self.fire.add_button_listener(self.fire.BUTTON_REC, self._handle_rec)
         self.fire.add_button_listener(self.fire.BUTTON_STOP, self._handle_stop)
         self.fire.add_rotary_listener(self.fire.ROTARY_VOLUME, self._handle_bpm)
-        self.fire.add_button_listener(self.fire.BUTTON_SELECT, self._handle_midi_input_selection)
+        self.fire.add_button_listener(
+            self.fire.BUTTON_SELECT, self._handle_midi_input_selection
+        )
 
     def _handle_pad(self, pad_index: int):
         """Handle pad presses to start/stop recording or playback."""
@@ -528,7 +529,9 @@ class MidiLooper:
             self._stop_recording(pad_index)
         else:
             clip.is_playing = not clip.is_playing
-            print(f"{'Started' if clip.is_playing else 'Stopped'} playback on clip {pad_index}")
+            print(
+                f"{'Started' if clip.is_playing else 'Stopped'} playback on clip {pad_index}"
+            )
 
     def _start_recording(self, pad_index: int):
         """Start recording MIDI events to the selected clip."""
@@ -543,7 +546,9 @@ class MidiLooper:
         clip = self.clips[pad_index]
         clip.is_recording = False
         clip.length = time.time() - clip.start_time
-        print(f"Stopped recording on clip {pad_index}, recorded {len(clip.midi_messages)} messages")
+        print(
+            f"Stopped recording on clip {pad_index}, recorded {len(clip.midi_messages)} messages"
+        )
         self.recording_clip = None
 
     def _process_midi(self):
@@ -556,12 +561,16 @@ class MidiLooper:
                 clip = self.clips[self.recording_clip]
                 timestamp = time.time() - clip.start_time
                 clip.midi_messages.append((timestamp, midi_data))
-                print(f"Recorded MIDI to clip {self.recording_clip} at {timestamp:.2f}s")
+                print(
+                    f"Recorded MIDI to clip {self.recording_clip} at {timestamp:.2f}s"
+                )
 
     def _handle_midi_input_selection(self, button_id: int, event: str):
         """Cycle through available MIDI inputs."""
         if event == "press":
-            self.selected_midi_input = (self.selected_midi_input + 1) % len(self.midi_inputs)
+            self.selected_midi_input = (self.selected_midi_input + 1) % len(
+                self.midi_inputs
+            )
             self.midi_in.close_port()
             self.midi_in.open_port(self.selected_midi_input)
             print(f"Selected MIDI input: {self.midi_inputs[self.selected_midi_input]}")

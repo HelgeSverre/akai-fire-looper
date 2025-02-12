@@ -28,7 +28,7 @@ def main():
 
     print("Clearing screen...")
     time.sleep(0.1)
-    fire.clear_bitmap()
+    fire.clear_display()
 
     print("Done.")
 

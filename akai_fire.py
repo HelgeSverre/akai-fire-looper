@@ -1,7 +1,132 @@
 import threading
 import time
+
 import rtmidi
-from screen import AkaiFireBitmap
+from PIL import Image, ImageDraw, ImageFont
+
+
+class Canvas:
+    WIDTH, HEIGHT = 128, 64
+
+    def __init__(self):
+        self.image = Image.new(
+            "1", (self.WIDTH, self.HEIGHT), 1
+        )  # 1 = white background
+        self.draw = ImageDraw.Draw(self.image)
+
+    def clone(self):
+        """Create a copy of the current canvas."""
+        cloned_canvas = Canvas()
+        cloned_canvas.image = self.image.copy()
+        cloned_canvas.draw = ImageDraw.Draw(cloned_canvas.image)
+        return cloned_canvas
+
+    def clear(self, color: int = 1):
+        """Clear the canvas."""
+        self.image = Image.new("1", (self.WIDTH, self.HEIGHT), color)
+        self.draw = ImageDraw.Draw(self.image)
+
+    def get_pixel(self, x, y):
+        """Get a pixel from the canvas."""
+        if 0 <= x < self.WIDTH and 0 <= y < self.HEIGHT:
+            return self.image.getpixel((x, y)).is_integer()
+        return None
+
+    def set_pixel(self, x, y, color: int = 0):
+        """Set a pixel on the canvas."""
+        if 0 <= x < self.WIDTH and 0 <= y < self.HEIGHT:
+            self.image.putpixel((x, y), color)
+
+    def draw_rect(self, x, y, width, height, color: int = 0):
+        """Draw rectangle outline."""
+        self.draw.rectangle([x, y, x + width, y + height], outline=color)
+
+    def fill_rect(self, x, y, width, height, color: int = 0):
+        """Draw filled rectangle."""
+        self.draw.rectangle([x, y, x + width, y + height], fill=color)
+
+    def draw_text(self, text, x, y, font=None, color: int = 0):
+        """Draw text."""
+        if font is None:
+            font = ImageFont.load_default()
+
+        self.draw.text((x, y), text, fill=color, font=font)
+
+    def draw_border(self, thickness: int = 1, color: int = 0):
+        """Draw a border around the entire canvas."""
+        for i in range(thickness):
+            self.draw_rect(i, i, self.WIDTH - 2 * i, self.HEIGHT - 2 * i, color)
+
+    def draw_horizontal_line(self, x: int, y: int, length: int, color: int = 0):
+        """Draw a horizontal line."""
+        for i in range(length):
+            self.set_pixel(x + i, y, color)
+
+    def draw_vertical_line(self, x: int, y: int, length: int, color: int = 0):
+        """Draw a vertical line."""
+        for i in range(length):
+            self.set_pixel(x, y + i, color)
+
+    def draw_rectangle(self, x: int, y: int, width: int, height: int, color: int = 0):
+        """Draw a rectangle."""
+        self.draw_horizontal_line(x, y, width, color)
+        self.draw_horizontal_line(x, y + height - 1, width, color)
+        self.draw_vertical_line(x, y, height, color)
+        self.draw_vertical_line(x + width - 1, y, height, color)
+
+    def fill_rectangle(self, x: int, y: int, width: int, height: int, color: int = 0):
+        """Fill a rectangle."""
+        for i in range(height):
+            self.draw_horizontal_line(x, y + i, width, color)
+
+    def draw_circle(self, x0: int, y0: int, radius: int, color: int = 0):
+        """Draw a circle using the midpoint circle algorithm."""
+        x = radius
+        y = 0
+        decision_over_2 = 1 - x
+
+        while x >= y:
+            self.set_pixel(x0 + x, y0 + y, color)
+            self.set_pixel(x0 + y, y0 + x, color)
+            self.set_pixel(x0 - y, y0 + x, color)
+            self.set_pixel(x0 - x, y0 + y, color)
+            self.set_pixel(x0 - x, y0 - y, color)
+            self.set_pixel(x0 - y, y0 - x, color)
+            self.set_pixel(x0 + y, y0 - x, color)
+            self.set_pixel(x0 + x, y0 - y, color)
+            y += 1
+            if decision_over_2 <= 0:
+                decision_over_2 += 2 * y + 1
+            else:
+                x -= 1
+                decision_over_2 += 2 * (y - x) + 1
+
+    def fill_circle(self, x0: int, y0: int, radius: int, color: int = 0):
+        """Fill a circle."""
+        for y in range(-radius, radius + 1):
+            for x in range(-radius, radius + 1):
+                if x ** 2 + y ** 2 <= radius ** 2:
+                    self.set_pixel(x0 + x, y0 + y, color)
+
+    def draw_line(self, x0: int, y0: int, x1: int, y1: int, color: int = 0):
+        """Draw a line using Bresenham's line algorithm."""
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx - dy
+
+        while True:
+            self.set_pixel(x0, y0, color)
+            if x0 == x1 and y0 == y1:
+                break
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x0 += sx
+            if e2 < dx:
+                err += dx
+                y0 += sy
 
 
 class AkaiFire:
@@ -75,6 +200,64 @@ class AkaiFire:
     CONTROL_BANK_USER1_AND_USER2 = 0x1C
     CONTROL_BANK_USER2 = 0x03
 
+    def render_to_display(self):
+        """Factory method to render canvas to the OLED display."""
+
+        # For OLED 128x64, calculated as ceil(128*64/7)
+        bitmap_size = 1171
+        bitmap = [0] * bitmap_size
+
+        bitmap_pixel_mapping = [
+            [13, 0, 1, 2, 3, 4, 5, 6],
+            [19, 20, 7, 8, 9, 10, 11, 12],
+            [25, 26, 27, 14, 15, 16, 17, 18],
+            [31, 32, 33, 34, 21, 22, 23, 24],
+            [37, 38, 39, 40, 41, 28, 29, 30],
+            [43, 44, 45, 46, 47, 48, 35, 36],
+            [49, 50, 51, 52, 53, 54, 55, 42],
+        ]
+
+        # Convert canvas to bitmap
+        for y in range(self.canvas.HEIGHT):
+            for x in range(self.canvas.WIDTH):
+                pixel = self.canvas.image.getpixel((x, y))
+                if pixel == 0:  # Black pixel in PIL = ON in OLED
+                    x_mapped = x + int(self.canvas.WIDTH * (y // 8))
+                    y_mapped = y % 8
+                    rb = bitmap_pixel_mapping[int(x_mapped % 7)][y_mapped]
+                    index = int((x_mapped // 7) * 8 + (rb // 7))
+                    bitmap[index] |= 1 << (rb % 7)
+
+        # Send to display
+        sysex_data = [
+            0xF0, 0x47, 0x7F, 0x43, 0x0E,
+            (len(bitmap) + 4) >> 7,
+            (len(bitmap) + 4) & 0x7F,
+            0, 0x07, 0, 0x7F
+        ]
+        sysex_data.extend(bitmap)
+        sysex_data.append(0xF7)
+
+        self.midi_out.send_message(sysex_data)
+
+    def render_to_bmp(self, output_path: str, image_format="BMP"):
+        """Factory method to save canvas as BMP file."""
+        self.canvas.image.save(output_path, format=image_format)
+
+    def clear_display(self):
+        """Clear the OLED display."""
+        self.canvas.clear()
+        self.render_to_display()
+
+    def get_canvas(self) -> Canvas:
+        """Get the current canvas for drawing."""
+        return self.canvas
+
+    def new_canvas(self) -> Canvas:
+        """Create a new blank canvas."""
+        self.canvas = Canvas()
+        return self.canvas
+
     def __enter__(self):
         """Context manager entry"""
         return self
@@ -84,6 +267,7 @@ class AkaiFire:
         self.close()
 
     def __init__(self, port_name=None):
+        self.canvas = Canvas()
         self.look_for_port = port_name or "FL STUDIO FIRE"
         self.midi_in = rtmidi.MidiIn()
         self.midi_out = rtmidi.MidiOut()
@@ -139,22 +323,12 @@ class AkaiFire:
         self.midi_in.close_port()
         self.midi_out.close_port()
 
-    def send_bitmap(self, screen):
-        """Send the bitmap to the Akai Fire device."""
-        self.midi_out.send_message(screen.get_sysex_message())
-        pass
-
-    def clear_bitmap(self):
-        """Clear the OLED display."""
-        self.send_bitmap(AkaiFireBitmap())
-        pass
-
     def clear_all(self):
         """Turns off all LEDs, Pads, Buttons and the Screen."""
         self.clear_all_track_leds()
         self.clear_all_button_leds()
         self.clear_all_pads()
-        self.clear_bitmap()
+        self.clear_display()
         self.clear_control_bank_leds()
         self.close()
 

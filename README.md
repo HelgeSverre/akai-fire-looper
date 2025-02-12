@@ -370,6 +370,10 @@ pip install -r requirements.txt
 
 ```shell
 pipx run black .
+
+# or windows after `pip install`
+black */**.py
+
 ```
 
 ### 🧠 Quick-Tips for `requirements.txt`

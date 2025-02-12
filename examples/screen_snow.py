@@ -2,11 +2,9 @@ import random
 import time
 
 from akai_fire import AkaiFire
-from screen import AkaiFireBitmap
 
-# Initialize AKAI Fire and bitmap objects
 fire = AkaiFire()
-bitmap = AkaiFireBitmap()
+canvas = fire.get_canvas()
 
 
 def tv_snow(duration=10, fps=30):
@@ -22,16 +20,16 @@ def tv_snow(duration=10, fps=30):
     print(f"Starting TV snow animation for {duration} seconds...")
     for frame in range(total_frames):
         # Clear the display
-        bitmap.clear()
+        canvas.clear()
 
         # Generate random pixels for the entire screen (128x64 resolution)
         for x in range(128):
             for y in range(64):
                 if random.choice([True, False]):  # Randomly turn pixels on or off
-                    bitmap.set_pixel(x, y, 1)
+                    canvas.set_pixel(x, y, 0)
 
-        # Send the updated bitmap to the device
-        fire.send_bitmap(bitmap)
+        # Send the updated canvas to the device
+        fire.render_to_display()
 
         # Pause to control frame rate
         time.sleep(1 / fps)
@@ -44,7 +42,7 @@ if __name__ == "__main__":
         print("Animation interrupted by user.")
     finally:
         print("Clearing display...")
-        fire.clear_bitmap()
+        fire.clear_display()
 
         print("Closing connection...")
         fire.close()
