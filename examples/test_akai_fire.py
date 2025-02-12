@@ -224,6 +224,159 @@ class TestAkaiFire(unittest.TestCase):
         # Should have one message per track
         self.assertTrue(len(self.mock_midi_out.messages) >= 4)
 
+    def test_multiple_button_listeners(self):
+        """Test multiple listeners on same button"""
+        callback1 = Mock()
+        callback2 = Mock()
+        self.fire.add_button_listener(self.fire.BUTTON_PLAY, callback1)
+        self.fire.add_button_listener(self.fire.BUTTON_PLAY, callback2)  # Should replace callback1
+
+        self.fire._process_message(([0x90, self.fire.BUTTON_PLAY, 127], 0))
+        callback1.assert_not_called()
+        callback2.assert_called_with(self.fire.BUTTON_PLAY, "press")
+
+    def test_remove_listeners(self):
+        """Test removing listeners"""
+        callback = Mock()
+        self.fire.add_button_listener(self.fire.BUTTON_PLAY, callback)
+
+        # Remove listener
+        self.fire.button_listeners.pop(self.fire.BUTTON_PLAY)
+
+        self.fire._process_message(([0x90, self.fire.BUTTON_PLAY, 127], 0))
+        callback.assert_not_called()
+
+    def test_concurrent_pad_presses(self):
+        """Test handling multiple simultaneous pad presses"""
+        callback = Mock()
+        self.fire.add_listener([0, 1, 2], callback)
+
+        # Simulate multiple pad presses
+        messages = [
+            ([0x90, 54, 127], 0),  # Pad 0
+            ([0x90, 55, 127], 0),  # Pad 1
+            ([0x90, 56, 127], 0),  # Pad 2
+        ]
+
+        for msg in messages:
+            self.fire._process_message(msg)
+
+        self.assertEqual(callback.call_count, 3)
+
+    def test_rotary_velocity(self):
+        """Test different rotary velocities"""
+        callback = Mock()
+        self.fire.add_rotary_listener(self.fire.ROTARY_VOLUME, callback)
+
+        # Test slow turn (velocity 1)
+        self.fire._process_message(([0xB0, self.fire.ROTARY_VOLUME, 1], 0))
+        callback.assert_called_with(self.fire.ROTARY_VOLUME, "clockwise", 1)
+
+        # Test fast turn (velocity 10)
+        self.fire._process_message(([0xB0, self.fire.ROTARY_VOLUME, 10], 0))
+        callback.assert_called_with(self.fire.ROTARY_VOLUME, "clockwise", 10)
+
+        # Test max velocity
+        self.fire._process_message(([0xB0, self.fire.ROTARY_VOLUME, 127], 0))
+        callback.assert_called_with(self.fire.ROTARY_VOLUME, "counterclockwise", 1)
+
+    def test_pad_color_patterns(self):
+        """Test complex pad color patterns"""
+        # Checkerboard pattern
+        pattern = []
+        for i in range(64):
+            if (i // 8 + i % 8) % 2 == 0:
+                pattern.append((i, 127, 0, 0))  # Red
+            else:
+                pattern.append((i, 0, 127, 0))  # Green
+
+        self.fire.set_multiple_pad_colors(pattern)
+        last_message = self.mock_midi_out.messages[-1]
+        self.assertEqual(len(last_message), 264)  # Header(5) + Length(2) + Data(64*4) + End(1)
+
+    def test_rapid_led_changes(self):
+        """Test rapid LED state changes"""
+        for _ in range(10):
+            self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_HIGH_GREEN)
+            self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_OFF)
+
+        # Should have 20 messages
+        play_messages = [msg for msg in self.mock_midi_out.messages
+                         if msg[1] == self.fire.BUTTON_PLAY]
+        self.assertEqual(len(play_messages), 20)
+
+    def test_track_led_patterns(self):
+        """Test track LED patterns"""
+        patterns = [
+            (self.fire.RECTANGLE_LED_DULL_RED, self.fire.RECTANGLE_LED_HIGH_RED),
+            (self.fire.RECTANGLE_LED_DULL_GREEN, self.fire.RECTANGLE_LED_HIGH_GREEN),
+        ]
+
+        for dull, bright in patterns:
+            for track in range(1, 5):
+                self.fire.set_track_led(track, dull)
+                self.fire.set_track_led(track, bright)
+
+    def test_invalid_midi_messages(self):
+        """Test handling of invalid MIDI messages"""
+        callback = Mock()
+        self.fire.add_button_listener(self.fire.BUTTON_PLAY, callback)
+
+        # Test invalid message formats
+        invalid_messages = [
+            ([0x90], 0),  # Too short
+            ([0x90, self.fire.BUTTON_PLAY], 0),  # Missing velocity
+            ([0x90, 255, 127], 0),  # Invalid controller
+            ([], 0),  # Empty message
+            (None, 0),  # None message
+            ("not a message", 0),  # Wrong type
+            ([None, None, None], 0),  # Invalid data
+            ([[]], 0),  # Nested empty list
+        ]
+
+        for msg in invalid_messages:
+            # Should not raise exception
+            try:
+                self.fire._process_message(msg)
+            except Exception as e:
+                self.fail(f"Processing {msg} raised {e}")
+            callback.assert_not_called()
+
+    def test_context_manager(self):
+        """Test context manager functionality"""
+        with AkaiFire() as fire:
+            fire.set_pad_color(0, 127, 0, 0)
+            self.assertTrue(fire.midi_in.is_port_open())
+            self.assertTrue(fire.midi_out.is_port_open())
+
+        # Should be closed after context
+        self.assertFalse(fire.midi_in.is_port_open())
+        self.assertFalse(fire.midi_out.is_port_open())
+
+    def test_simultaneous_callbacks(self):
+        """Test multiple types of callbacks simultaneously"""
+        button_callback = Mock()
+        rotary_callback = Mock()
+        pad_callback = Mock()
+
+        self.fire.add_button_listener(self.fire.BUTTON_PLAY, button_callback)
+        self.fire.add_rotary_listener(self.fire.ROTARY_VOLUME, rotary_callback)
+        self.fire.add_listener([0], pad_callback)
+
+        # Send multiple types of messages
+        messages = [
+            ([0x90, self.fire.BUTTON_PLAY, 127], 0),  # Button press
+            ([0xB0, self.fire.ROTARY_VOLUME, 1], 0),  # Rotary turn
+            ([0x90, 54, 127], 0),  # Pad press
+        ]
+
+        for msg in messages:
+            self.fire._process_message(msg)
+
+        button_callback.assert_called_once()
+        rotary_callback.assert_called_once()
+        pad_callback.assert_called_once()
+
 
 class TestCanvas(unittest.TestCase):
     def setUp(self):
@@ -250,6 +403,39 @@ class TestCanvas(unittest.TestCase):
         # Test text
         self.canvas.draw_text("Test", 40, 40)
         # Text verification would need more sophisticated image analysis
+
+
+class TestBitmapOperations(unittest.TestCase):
+    """Test bitmap operations for OLED display"""
+
+    def setUp(self):
+        self.bitmap = AkaiFireBitmap()
+
+    def test_pixel_boundaries(self):
+        """Test pixel operations at display boundaries"""
+        # Test corners
+        corners = [(0, 0), (127, 0), (0, 63), (127, 63)]
+        for x, y in corners:
+            self.bitmap.set_pixel(x, y, 1)
+            # Verify no exception raised
+
+        # Test out of bounds
+        out_of_bounds = [(-1, 0), (128, 0), (0, -1), (0, 64)]
+        for x, y in out_of_bounds:
+            self.bitmap.set_pixel(x, y, 1)
+            # Should silently ignore
+
+    def test_bitmap_patterns(self):
+        """Test complex bitmap patterns"""
+        # Draw horizontal lines
+        for y in range(0, 64, 8):
+            for x in range(128):
+                self.bitmap.set_pixel(x, y, 1)
+
+        # Draw vertical lines
+        for x in range(0, 128, 16):
+            for y in range(64):
+                self.bitmap.set_pixel(x, y, 1)
 
 
 class TestFireRenderer(unittest.TestCase):

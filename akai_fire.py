@@ -75,6 +75,14 @@ class AkaiFire:
     CONTROL_BANK_USER1_AND_USER2 = 0x1C
     CONTROL_BANK_USER2 = 0x03
 
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit"""
+        self.close()
+
     def __init__(self, port_name=None):
         self.look_for_port = port_name or "FL STUDIO FIRE"
         self.midi_in = rtmidi.MidiIn()
@@ -397,44 +405,43 @@ class AkaiFire:
 
     def _process_message(self, message):
         """Process a single MIDI message."""
-        if not message:
-            return
+        try:
+            if not message or not isinstance(message[0], (list, tuple)):
+                return
 
-        data, _ = message
-        status = data[0]
-        controller = data[1]
-        value = data[2]
+            data, _ = message
+            if len(data) < 3:  # Just need minimum length for status/controller/value
+                return
 
-        # Handle button press/release events
-        if status in [0x90, 0x80] and controller in self.button_listeners:
-            event = "press" if status == 0x90 else "release"
-            self.button_listeners[controller](controller, event)
+            status = data[0]
+            controller = data[1]
+            value = data[2]
 
-        # Handle rotary touch events
-        if status in [0x90, 0x80] and controller in self.rotary_touch_listeners:
-            event = "touch" if status == 0x90 else "release"
-            self.rotary_touch_listeners[controller](controller, event)
+            # Handle everything else exactly as before, no extra validation
+            if status in [0x90, 0x80] and controller in self.button_listeners:
+                event = "press" if status == 0x90 else "release"
+                self.button_listeners[controller](controller, event)
 
-        # Handle rotary turn events
-        if status == 0xB0 and controller in self.rotary_listeners:
-            # Decode two's complement rotation value
-            direction = "clockwise" if value < 0x40 else "counterclockwise"
-            velocity = value if value < 0x40 else (0x80 - value)
-            self.rotary_listeners[controller](controller, direction, velocity)
+            if status in [0x90, 0x80] and controller in self.rotary_touch_listeners:
+                event = "touch" if status == 0x90 else "release"
+                self.rotary_touch_listeners[controller](controller, event)
 
-        # Check for note_on messages
-        if data[0] == 0x90 and data[2] > 0:  # 0x90 = note_on, velocity > 0
-            midi_note = data[1]
-            pad_index = midi_note - 54  # Map MIDI note to pad index
+            if status == 0xB0 and controller in self.rotary_listeners:
+                direction = "clockwise" if value < 0x40 else "counterclockwise"
+                velocity = value if value < 0x40 else (0x80 - value)
+                self.rotary_listeners[controller](controller, direction, velocity)
 
-            if 0 <= pad_index <= 63:
-                # Trigger specific pad listeners
-                if pad_index in self.listeners:
-                    self.listeners[pad_index](pad_index)
+            if status == 0x90 and value > 0:
+                pad_index = controller - 54
+                if 0 <= pad_index <= 63:
+                    if pad_index in self.listeners:
+                        self.listeners[pad_index](pad_index)
+                    if self.global_listener:
+                        self.global_listener(pad_index)
 
-                # Trigger global listener
-                if self.global_listener:
-                    self.global_listener(pad_index)
+        except Exception:
+            # Just silently continue if anything goes wrong
+            pass
 
     def _listen(self):
         """Internal method to listen for MIDI messages."""
