@@ -95,20 +95,55 @@ class RhythmDemo:
         self.screen_mode = ScreenMode.MAIN
         self.last_note = None
 
+        # MIDI Recording State
+        self.recorded_notes = []  # Store (step, note, velocity, duration)
+        self.is_recording_midi = False
+
+        # Setup MIDI Input callback
+        self.midi_in.set_callback(self.handle_midi_input)
+
         self.setup_handlers()
         self.update_display()
         self.update_pads()
 
+    def handle_midi_input(self, message_data, _):
+        message, _ = message_data
+        status = message[0] & 0xF0
+        note = message[1]
+        velocity = message[2] if len(message) > 2 else 0
+
+        if status == 0x90 and velocity > 0:  # Note On
+            if self.is_recording_midi and self.play_state == PlayState.RECORDING:
+                step = self.current_step % self.max_steps
+                self.recorded_notes.append(
+                    {"step": step, "note": note, "velocity": velocity, "duration": 0}
+                )
+                self.update_pads()
+
+        elif status == 0x80 or (status == 0x90 and velocity == 0):  # Note Off
+            for recorded_note in self.recorded_notes:
+                if recorded_note["note"] == note and recorded_note["duration"] == 0:
+                    recorded_note["duration"] = (
+                        self.current_step - recorded_note["step"]
+                    )
+
+        # For MIDI Monitor Display
+        if len(self.midi_monitor_messages) >= self.max_monitor_messages:
+            self.midi_monitor_messages.pop(0)
+        self.midi_monitor_messages.append(f"Note: {note}, Vel: {velocity}")
+
+        self.update_display()
+
     def update_pads(self):
         """Update all pad colors based on current state"""
-        loop_tint = (0, 0, 32)  # Slight blue tint for loop region
-        edge_intensity = 5  # Dim light for pattern edge
+        loop_tint = (0, 0, 32)
+        edge_intensity = 5
 
         for row in range(4):
             for col in range(16):
                 absolute_col = col + (self.current_page * 16)
                 pad_index = row * 16 + col
-                base_color = (0, 0, 0)  # Default off state
+                base_color = (0, 0, 0)
 
                 in_pattern = absolute_col < self.pattern_length
                 is_pattern_edge = absolute_col == (self.pattern_length - 1)
@@ -138,6 +173,12 @@ class RhythmDemo:
                     )
                 elif is_pattern_edge or is_loop_edge:
                     base_color = (edge_intensity, edge_intensity, edge_intensity)
+
+                # Apply recorded notes
+                for recorded_note in self.recorded_notes:
+                    if recorded_note["step"] == absolute_col:
+                        intensity = min(127, recorded_note["velocity"])
+                        base_color = (intensity, intensity, intensity)
 
                 # Apply loop region tint if applicable
                 final_color = (
@@ -198,12 +239,22 @@ class RhythmDemo:
             if event == "press":
                 if self.play_state == PlayState.RECORDING:
                     self.play_state = PlayState.STOPPED
+                    self.is_recording_midi = False
                     self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_OFF)
                 else:
                     self.play_state = PlayState.RECORDING
+                    self.is_recording_midi = True
+                    self.recorded_notes.clear()  # Clear previous recording
                     self.fire.set_button_led(
                         self.fire.BUTTON_REC, self.fire.LED_HIGH_RED
                     )
+                self.update_display()
+
+        @self.fire.on_button(self.fire.BUTTON_SHIFT)
+        def clear_recording(event):
+            if event == "press":
+                self.recorded_notes.clear()
+                self.update_pads()
                 self.update_display()
 
         @self.fire.on_button(self.fire.BUTTON_BROWSER)
@@ -245,6 +296,16 @@ class RhythmDemo:
                     else ScreenMode.MAIN
                 )
                 self.update_display()
+
+        # Move playhead
+        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
+        def handle_bpm(direction, velocity):
+            if direction == "clockwise":
+                self.tempo = min(240, self.tempo + 1)
+            else:
+                self.tempo = max(1, self.tempo - 1)
+            self.update_display()
+            self.update_pads()
 
         # Move playhead
         @self.fire.on_rotary_turn(self.fire.ROTARY_FILTER)
@@ -421,17 +482,12 @@ class RhythmDemo:
             )
 
     def _draw_midi_monitor_screen(self):
-        """Draw the MIDI monitor screen."""
-        # Header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
         self.canvas.draw_text("MIDI Monitor", 2, 1, color=1)
 
-        # Show MIDI messages
         y = 15
-        for i, message in enumerate(
-            self.midi_monitor_messages[:4]
-        ):  # Show last 4 messages
-            self.canvas.draw_text(message[:21], 2, y)  # Truncate to fit screen
+        for i, message in enumerate(self.midi_monitor_messages[-4:]):
+            self.canvas.draw_text(message[:21], 2, y)
             y += 12
 
         if not self.midi_monitor_messages:
@@ -502,6 +558,7 @@ class RhythmDemo:
                             self.bank_leds[self.current_page]
                         )
 
+                        self.playback_recorded_notes()
                         self.update_pads()
                         self.update_display()
                         last_step_time = current_time
@@ -513,6 +570,20 @@ class RhythmDemo:
         finally:
             self.fire.clear_all()
             self.fire.close()
+
+    def playback_recorded_notes(self):
+        for recorded_note in self.recorded_notes:
+            if recorded_note["step"] == self.current_step:
+                self.midi_out.send_message(
+                    [0x90, recorded_note["note"], recorded_note["velocity"]]
+                )
+            if (
+                recorded_note["duration"] > 0
+                and (recorded_note["step"] + recorded_note["duration"])
+                % self.pattern_length
+                == self.current_step
+            ):
+                self.midi_out.send_message([0x80, recorded_note["note"], 0])
 
 
 if __name__ == "__main__":
