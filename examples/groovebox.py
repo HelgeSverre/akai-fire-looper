@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 import rtmidi
 from akai_fire import AkaiFire
+from utils import MidiUtils
 
 
 class PlayState(Enum):
@@ -473,7 +474,6 @@ class Groovebox:
         self.update_display()
 
     def _handle_shift_pad(self, track: int, clip: int):
-
         """Handle pad press with shift held (copy/paste)"""
         if self.selected_track == -1:  # No source selected
             self.selected_track = track
@@ -847,34 +847,13 @@ class Groovebox:
 
         y = 15
         pattern = clip.euclidean
-        self.canvas.draw_text(f"Steps: {pattern.steps}", 2, y)
+        self.canvas.draw_text(f"Steps: {pattern.steps} / Offset: {pattern.offset}", 2, y)
         y += 12
         self.canvas.draw_text(f"Pulses: {pattern.pulses}", 2, y)
         y += 12
-        self.canvas.draw_text(f"Offset: {pattern.offset}", 2, y)
+        note_name = MidiUtils.midi_to_note_name(pattern.note)
 
-    def run(self):
-        """Main loop"""
-        try:
-            last_step_time = time.time()
-
-            while True:
-                if self.play_state != PlayState.STOPPED:
-                    current_time = time.time()
-                    step_duration = 60.0 / (self.tempo * 4)  # 16th notes
-
-                    if current_time - last_step_time >= step_duration:
-                        self._process_step()
-                        last_step_time = current_time
-
-                time.sleep(0.001)
-
-        except KeyboardInterrupt:
-            print("\nShutting down...")
-        finally:
-            self.stop_all_notes()
-            self.fire.clear_all()
-            self.fire.close()
+        self.canvas.draw_text(f"Root Note: {note_name}", 2, y)
 
     def _process_step(self):
         """Process one step of sequencer playback"""
@@ -1059,7 +1038,34 @@ class Groovebox:
         for note in range(128):
             self.midi_out.send_message([0x80, note, 0])
 
+    def run(self):
+        """Main loop"""
+        try:
+            last_step_time = time.time()
+
+            while True:
+                if self.play_state != PlayState.STOPPED:
+                    current_time = time.time()
+                    step_duration = 60.0 / (self.tempo * 4)  # 16th notes
+
+                    if current_time - last_step_time >= step_duration:
+                        self._process_step()
+                        last_step_time = current_time
+
+                time.sleep(0.001)
+
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+        finally:
+            self.stop_all_notes()
+            self.fire.clear_all()
+            self.fire.close()
+
 
 if __name__ == "__main__":
     groovebox = Groovebox()
     groovebox.run()
+
+
+def core():
+    return None
