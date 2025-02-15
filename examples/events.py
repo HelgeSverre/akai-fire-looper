@@ -1,6 +1,7 @@
-from enum import Enum
 import time
-from akai_fire import AkaiFire, Canvas
+from enum import Enum
+
+from akai_fire import AkaiFire
 
 
 class DemoMode(Enum):
