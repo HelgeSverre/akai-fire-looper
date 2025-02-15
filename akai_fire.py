@@ -1,6 +1,7 @@
 import threading
 import time
 from collections import defaultdict
+from typing import Optional, Union
 
 import rtmidi
 from PIL import Image, ImageDraw, ImageFont
@@ -159,6 +160,14 @@ class AkaiFire:
     BUTTON_PAT_DOWN = 0x20
     BUTTON_GRID_LEFT = 0x22
     BUTTON_GRID_RIGHT = 0x23
+
+    # Solo Button mapped to index
+    SOLO_BUTTONS = {
+        1: BUTTON_SOLO_1,
+        2: BUTTON_SOLO_2,
+        3: BUTTON_SOLO_3,
+        4: BUTTON_SOLO_4,
+    }
 
     # LED Values
     LED_OFF = 0x00
@@ -434,6 +443,58 @@ class AkaiFire:
             return func
 
         return decorator
+
+    def on_solo(self, index: Optional[Union[int]] = None):
+        """
+        Decorator for solo button events. Supports index (1-4) for specific solo buttons.
+
+        Args:
+            index: Solo button number (1-4) or None for global handler
+
+        Usage:
+            @fire.on_solo(1)  # Specific solo button
+            def handle_solo_1(event):  # event will be "press" or "release"
+                print(f"Solo 1 {event}")
+
+            @fire.on_solo()  # Global handler
+            def handle_any_solo(index, event):  # index will be 1-4
+                print(f"Solo {index} {event}")
+
+        Raises:
+            ValueError: If the index is invalid (must be 1-4)
+        """
+
+        def decorator(func):
+            if index is None:
+                # For global handler, register for all solo buttons
+                # We use a wrapper to translate button_id to index for consistent API
+                def global_wrapper(button_id, event):
+                    print(f"wrapper called {button_id} - {event}")
+                    solo_index = self.get_solo_index(button_id)
+                    if solo_index:  # Only call for solo buttons
+                        func(solo_index, event)
+
+                self.button_listeners["global"].append(global_wrapper)
+            else:
+                # Validate index
+                if not isinstance(index, int) or index not in self.SOLO_BUTTONS:
+                    raise ValueError("Solo button index must be 1-4")
+
+                # Get the actual button ID from index
+                button_id = self.SOLO_BUTTONS[index]
+                self.button_listeners[button_id].append(func)
+
+            self.start_listening()
+            return func
+
+        return decorator
+
+    def get_solo_index(self, button_id: int) -> Optional[int]:
+        """Convert a BUTTON_SOLO_* constant to its index (1-4)"""
+        for index, bid in self.SOLO_BUTTONS.items():
+            if bid == button_id:
+                return index
+        return None
 
     def _handle_shift(self, event):
         """Internal handler for shift key state"""
@@ -866,7 +927,9 @@ class AkaiFire:
 
         except Exception as e:
             import traceback
+
             traceback.print_exc()
+
     def _listen(self):
         """Internal method to listen for MIDI messages."""
         while self.listening:
