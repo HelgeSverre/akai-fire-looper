@@ -10,9 +10,7 @@ class Canvas:
     WIDTH, HEIGHT = 128, 64
 
     def __init__(self):
-        self.image = Image.new(
-            "1", (self.WIDTH, self.HEIGHT), 1
-        )  # 1 = white background
+        self.image = Image.new("1", (self.WIDTH, self.HEIGHT), 1)
         self.draw = ImageDraw.Draw(self.image)
 
     def clone(self):
