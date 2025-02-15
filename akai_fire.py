@@ -104,7 +104,7 @@ class Canvas:
         """Fill a circle."""
         for y in range(-radius, radius + 1):
             for x in range(-radius, radius + 1):
-                if x ** 2 + y ** 2 <= radius ** 2:
+                if x**2 + y**2 <= radius**2:
                     self.set_pixel(x0 + x, y0 + y, color)
 
     def draw_line(self, x0: int, y0: int, x1: int, y1: int, color: int = 0):
@@ -231,10 +231,17 @@ class AkaiFire:
 
         # Send to display
         sysex_data = [
-            0xF0, 0x47, 0x7F, 0x43, 0x0E,
+            0xF0,
+            0x47,
+            0x7F,
+            0x43,
+            0x0E,
             (len(bitmap) + 4) >> 7,
             (len(bitmap) + 4) & 0x7F,
-            0, 0x07, 0, 0x7F
+            0,
+            0x07,
+            0,
+            0x7F,
         ]
         sysex_data.extend(bitmap)
         sysex_data.append(0xF7)
@@ -268,6 +275,10 @@ class AkaiFire:
         self.close()
 
     def __init__(self, port_name=None):
+
+        self.listening = False
+        self.listening_thread = None
+
         self.canvas = Canvas()
         self.look_for_port = port_name or "FL STUDIO FIRE"
         self.midi_in = rtmidi.MidiIn()
@@ -282,22 +293,19 @@ class AkaiFire:
         self.midi_out.open_port(self.output_port_index)
         self.midi_in.open_port(self.input_port_index)
 
-        self.listeners = {}
-        self.global_pad_listeners = []
-        self.button_listeners = {}
-        self.global_button_listeners = []
-        self.rotary_listeners = {}
-        self.global_rotary_listeners = []
-        self.rotary_touch_listeners = {}
-        self.global_rotary_touch_listeners = []
+        # Modifier state
+        self._shift_pressed = False
+        self._alt_pressed = False
 
-        self.pad_listeners = defaultdict(list)  # {pad_index: [callbacks]}
-        self.button_listeners = defaultdict(list)  # {button_id: [callbacks]}
-        self.rotary_listeners = defaultdict(list)  # {rotary_id: [callbacks]}
-        self.rotary_touch_listeners = defaultdict(list)  # {rotary_id: [callbacks]}
+        # Initialize listener collections
+        self.button_listeners = defaultdict(list)
+        self.pad_listeners = defaultdict(list)
+        self.rotary_listeners = defaultdict(list)
+        self.rotary_touch_listeners = defaultdict(list)
 
-        self.listening = False
-        self.listening_thread = None
+        # Set up modifier key tracking
+        self.add_button_listener(self.BUTTON_SHIFT, self._handle_shift)
+        self.add_button_listener(self.BUTTON_ALT, self._handle_alt)
 
     def on_button(self, button_id=None):
         """
@@ -341,8 +349,21 @@ class AkaiFire:
             if rotary_id is None:
                 self.rotary_listeners["global"].append(func)
             else:
+                if rotary_id not in [
+                    self.ROTARY_VOLUME,
+                    self.ROTARY_PAN,
+                    self.ROTARY_FILTER,
+                    self.ROTARY_RESONANCE,
+                    self.ROTARY_SELECT,
+                ]:
+                    raise ValueError("Invalid rotary ID")
+
+                if rotary_id not in self.rotary_listeners:
+                    self.rotary_listeners[rotary_id] = []
                 self.rotary_listeners[rotary_id].append(func)
+
             self.start_listening()
+
             return func
 
         return decorator
@@ -413,6 +434,22 @@ class AkaiFire:
             return func
 
         return decorator
+
+    def _handle_shift(self, event):
+        """Internal handler for shift key state"""
+        self._shift_pressed = event == "press"
+
+    def _handle_alt(self, event):
+        """Internal handler for alt key state"""
+        self._alt_pressed = event == "press"
+
+    def is_shift_pressed(self) -> bool:
+        """Returns whether the shift key is currently held down"""
+        return self._shift_pressed
+
+    def is_alt_pressed(self) -> bool:
+        """Returns whether the alt key is currently held down"""
+        return self._alt_pressed
 
     def start_listening(self):
         """Start the listening thread."""
@@ -516,10 +553,8 @@ class AkaiFire:
         :param value: One of the LED_* constants (e.g., LED_OFF, LED_HIGH_RED).
         """
         if button_id not in [
-
             self.BUTTON_STEP,
             self.BUTTON_NOTE,
-
             self.BUTTON_DRUM,
             self.BUTTON_PERFORM,
             self.BUTTON_SHIFT,
@@ -619,7 +654,7 @@ class AkaiFire:
         Adds a listener for rotary control turn events.
         :param rotary_id: One of the ROTARY_* constants.
         :param callback: Function to call when the rotary control is turned.
-                         The callback receives (rotary_id, direction, velocity).
+                     The callback receives (direction, velocity).
         """
         if rotary_id not in [
             self.ROTARY_VOLUME,
@@ -628,9 +663,9 @@ class AkaiFire:
             self.ROTARY_RESONANCE,
             self.ROTARY_SELECT,
         ]:
-            raise ValueError("Invalid rotary ID.")
-        self.rotary_listeners[rotary_id] = callback
+            raise ValueError(f"Invalid rotary ID: {rotary_id}")
 
+        self.rotary_listeners[rotary_id].append(callback)
         self.start_listening()
 
     def add_rotary_touch_listener(self, rotary_id, callback):
@@ -638,7 +673,7 @@ class AkaiFire:
         Adds a listener for rotary control touch events.
         :param rotary_id: One of the ROTARY_* constants.
         :param callback: Function to call when the rotary control is touched or released.
-                         The callback receives (rotary_id, event), where `event` is "touch" or "release".
+                         The callback receives (event), where event is "touch" or "release".
         """
         if rotary_id not in [
             self.ROTARY_VOLUME,
@@ -647,15 +682,17 @@ class AkaiFire:
             self.ROTARY_RESONANCE,
             self.ROTARY_SELECT,
         ]:
-            raise ValueError("Invalid rotary ID.")
-        self.rotary_touch_listeners[rotary_id] = callback
+            raise ValueError(f"Invalid rotary ID: {rotary_id}")
+
+        self.rotary_touch_listeners[rotary_id].append(callback)
+        self.start_listening()
 
     def add_button_listener(self, button_id, callback):
         """
         Adds a listener for button press and release events.
         :param button_id: One of the BUTTON_* constants.
         :param callback: Function to call when the button is pressed or released.
-                         The callback receives (button_id, event), where `event` is "press" or "release".
+                     The callback receives (event), where event is "press" or "release".
         """
         if button_id not in [
             self.BUTTON_SELECT,
@@ -680,9 +717,9 @@ class AkaiFire:
             self.BUTTON_GRID_LEFT,
             self.BUTTON_GRID_RIGHT,
         ]:
-            raise ValueError("Invalid button ID.")
-        self.button_listeners[button_id] = callback
+            raise ValueError(f"Invalid button ID: {button_id}")
 
+        self.button_listeners[button_id].append(callback)
         self.start_listening()
 
     def add_listener(self, pad_indices, callback):
@@ -692,19 +729,24 @@ class AkaiFire:
         :param callback: Function to call when a pad in the list is pressed.
         """
         for index in pad_indices:
-            self.listeners[index] = callback
+            if not (0 <= index <= 63):
+                raise ValueError("Pad index must be between 0 and 63")
+            if index not in self.pad_listeners:
+                self.pad_listeners[index] = []
+
+            self.pad_listeners[index].append(callback)
 
         self.start_listening()
 
     @staticmethod
-    def pad_position(index) -> tuple:
+    def pad_position(pad_index) -> tuple:
         """
         Determines the column and row of a pad based on its index.
         :param pad_index: Pad index (0-63).
         :return:  (column, row)
         """
-        col = index % 16
-        row = index // 16
+        col = pad_index % 16
+        row = pad_index // 16
 
         return col, row
 
@@ -740,11 +782,13 @@ class AkaiFire:
             controller = data[1]
             value = data[2]
 
-            # Handle rotary touch events first (Note On/Off for rotary controls)
+            # Handle rotary touch events first. (Note On/Off for rotary controls)
             # This needs to come before button handling since they share the same status codes
             if status in [0x90, 0x80] and controller in [
-                self.ROTARY_VOLUME, self.ROTARY_PAN,
-                self.ROTARY_FILTER, self.ROTARY_RESONANCE
+                self.ROTARY_VOLUME,
+                self.ROTARY_PAN,
+                self.ROTARY_FILTER,
+                self.ROTARY_RESONANCE,
             ]:
                 event = "touch" if status == 0x90 else "release"
 
@@ -758,15 +802,30 @@ class AkaiFire:
 
             # Handle button events
             if status in [0x90, 0x80] and controller in [
-                self.BUTTON_SELECT, self.BUTTON_STEP, self.BUTTON_NOTE,
-                self.BUTTON_DRUM, self.BUTTON_PERFORM, self.BUTTON_SHIFT,
-                self.BUTTON_ALT, self.BUTTON_PATTERN, self.BUTTON_PLAY,
-                self.BUTTON_STOP, self.BUTTON_REC, self.BUTTON_BANK,
-                self.BUTTON_BROWSER, self.BUTTON_SOLO_1, self.BUTTON_SOLO_2,
-                self.BUTTON_SOLO_3, self.BUTTON_SOLO_4, self.BUTTON_PAT_UP,
-                self.BUTTON_PAT_DOWN, self.BUTTON_GRID_LEFT, self.BUTTON_GRID_RIGHT
+                self.BUTTON_SELECT,
+                self.BUTTON_STEP,
+                self.BUTTON_NOTE,
+                self.BUTTON_DRUM,
+                self.BUTTON_PERFORM,
+                self.BUTTON_SHIFT,
+                self.BUTTON_ALT,
+                self.BUTTON_PATTERN,
+                self.BUTTON_PLAY,
+                self.BUTTON_STOP,
+                self.BUTTON_REC,
+                self.BUTTON_BANK,
+                self.BUTTON_BROWSER,
+                self.BUTTON_SOLO_1,
+                self.BUTTON_SOLO_2,
+                self.BUTTON_SOLO_3,
+                self.BUTTON_SOLO_4,
+                self.BUTTON_PAT_UP,
+                self.BUTTON_PAT_DOWN,
+                self.BUTTON_GRID_LEFT,
+                self.BUTTON_GRID_RIGHT,
             ]:
                 event = "press" if status == 0x90 else "release"
+
                 # Call specific button handlers
                 for handler in self.button_listeners[controller]:
                     handler(event)
@@ -789,9 +848,11 @@ class AkaiFire:
 
             # Handle rotary turn events (Control Change)
             if status == 0xB0 and controller in [
-                self.ROTARY_VOLUME, self.ROTARY_PAN,
-                self.ROTARY_FILTER, self.ROTARY_RESONANCE,
-                self.ROTARY_SELECT
+                self.ROTARY_VOLUME,
+                self.ROTARY_PAN,
+                self.ROTARY_FILTER,
+                self.ROTARY_RESONANCE,
+                self.ROTARY_SELECT,
             ]:
                 direction = "clockwise" if value < 0x40 else "counterclockwise"
                 velocity = value if value < 0x40 else (0x80 - value)
@@ -806,7 +867,6 @@ class AkaiFire:
         except Exception as e:
             import traceback
             traceback.print_exc()
-
     def _listen(self):
         """Internal method to listen for MIDI messages."""
         while self.listening:
