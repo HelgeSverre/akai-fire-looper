@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import Canvas
+from tkdial import ScrollKnob, Dial
 
 
 class AkaiFireMockGUI:
@@ -17,37 +18,35 @@ class AkaiFireMockGUI:
 
         # Display (OLED simulation)
         self.display_canvas = Canvas(self.main_frame, width=128, height=64, bg="white")
+        self.display_canvas.create_text(64, 32, text="Akai Fire", font=("Consolas", 8))
         self.display_canvas.grid(row=0, column=2, columnspan=4, pady=5)
 
         # Rotary knobs simulation
         self.knob_frame = tk.Frame(self.main_frame, bg="black")
         self.knob_frame.grid(row=1, column=0, columnspan=8, pady=5)
         self.knobs = {
-            "Volume": tk.Scale(self.knob_frame, from_=0, to=127, orient="horizontal"),
-            "Pan": tk.Scale(self.knob_frame, from_=-64, to=63, orient="horizontal"),
-            "Filter": tk.Scale(self.knob_frame, from_=-64, to=63, orient="horizontal"),
-            "Resonance": tk.Scale(
-                self.knob_frame, from_=-64, to=63, orient="horizontal"
-            ),
-            "Select": tk.Scale(self.knob_frame, from_=0, to=127, orient="horizontal"),
+            "Volume": Dial(self.knob_frame, radius=32, start=0, end=127, scroll_steps=10, ),
+            "Pan": Dial(self.knob_frame, radius=32, start=0, end=127, scroll_steps=10, ),
+            "Filter": Dial(self.knob_frame, radius=32, start=0, end=127, scroll_steps=10, ),
+            "Resonance": Dial(self.knob_frame, radius=32, start=0, end=127, scroll_steps=10, ),
+            "Select": Dial(self.knob_frame, radius=32, start=0, end=127, scroll_steps=10, ),
         }
         for idx, (name, scale) in enumerate(self.knobs.items()):
-            tk.Label(self.knob_frame, text=name, fg="white", bg="black").grid(
-                row=0, column=idx
-            )
+            tk.Label(self.knob_frame, text=name, fg="white", bg="black").grid(row=0, column=idx)
+
             scale.grid(row=1, column=idx, padx=5)
 
-        # Pad grid (8x4)
+        # Pad grid (16x4)
         self.pads_frame = tk.Frame(self.main_frame, bg="black")
         self.pads_frame.grid(row=2, column=1, columnspan=6)
         self.pads = []
         for row in range(4):
             row_pads = []
-            for col in range(8):
+            for col in range(16):
                 pad = tk.Button(
                     self.pads_frame,
                     bg="gray20",
-                    activebackground="green",
+                    activebackground="lightgreen",
                     width=6,
                     height=3,
                     command=lambda r=row, c=col: self.pad_pressed(r, c),
@@ -56,19 +55,19 @@ class AkaiFireMockGUI:
                 row_pads.append(pad)
             self.pads.append(row_pads)
 
-        # Side buttons (Solo/Mute)
-        self.side_buttons_frame = tk.Frame(self.main_frame, bg="black")
-        self.side_buttons_frame.grid(row=2, column=0, padx=5)
-        self.side_buttons = [
+        # Track select buttons (Solo/Mute)
+        self.track_select_buttons_frame = tk.Frame(self.main_frame, bg="black")
+        self.track_select_buttons_frame.grid(row=2, column=0, padx=5)
+        self.track_select_buttons = [
             tk.Button(
-                self.side_buttons_frame,
+                self.track_select_buttons_frame,
                 text=f"S{i + 1}",
                 width=4,
-                command=lambda i=i: self.side_button_pressed(i),
+                command=lambda i=i: self.track_select_button_pressed(i),
             )
             for i in range(4)
         ]
-        for idx, btn in enumerate(self.side_buttons):
+        for idx, btn in enumerate(self.track_select_buttons):
             btn.grid(row=idx, column=0, pady=5)
 
         # Navigation and function buttons
@@ -78,12 +77,8 @@ class AkaiFireMockGUI:
             "Step": tk.Button(self.nav_frame, text="Step", command=self.step_pressed),
             "Note": tk.Button(self.nav_frame, text="Note", command=self.note_pressed),
             "Drum": tk.Button(self.nav_frame, text="Drum", command=self.drum_pressed),
-            "Perform": tk.Button(
-                self.nav_frame, text="Perform", command=self.perform_pressed
-            ),
-            "Shift": tk.Button(
-                self.nav_frame, text="Shift", command=self.shift_pressed
-            ),
+            "Perform": tk.Button(self.nav_frame, text="Perform", command=self.perform_pressed),
+            "Shift": tk.Button(self.nav_frame, text="Shift", command=self.shift_pressed),
             "Alt": tk.Button(self.nav_frame, text="Alt", command=self.alt_pressed),
         }
         for idx, (name, btn) in enumerate(self.nav_buttons.items()):
@@ -93,28 +88,15 @@ class AkaiFireMockGUI:
         self.transport_frame = tk.Frame(self.main_frame, bg="black")
         self.transport_frame.grid(row=4, column=1, columnspan=6, pady=5)
         self.buttons = {
-            "Play": tk.Button(
-                self.transport_frame, text="Play", command=self.play_pressed
-            ),
-            "Stop": tk.Button(
-                self.transport_frame, text="Stop", command=self.stop_pressed
-            ),
-            "Rec": tk.Button(
-                self.transport_frame, text="Rec", command=self.rec_pressed
-            ),
-            "Browser": tk.Button(
-                self.transport_frame, text="Browser", command=self.browser_pressed
-            ),
-            "Pattern": tk.Button(
-                self.transport_frame, text="Pattern", command=self.pattern_pressed
-            ),
-            "Grid Left": tk.Button(
-                self.transport_frame, text="Grid Left", command=self.grid_left_pressed
-            ),
-            "Grid Right": tk.Button(
-                self.transport_frame, text="Grid Right", command=self.grid_right_pressed
-            ),
+            "Play": tk.Button(self.transport_frame, text="Play", command=self.play_pressed),
+            "Stop": tk.Button(self.transport_frame, text="Stop", command=self.stop_pressed),
+            "Rec": tk.Button(self.transport_frame, text="Rec", command=self.rec_pressed),
+            "Browser": tk.Button(self.transport_frame, text="Browser", command=self.browser_pressed),
+            "Pattern": tk.Button(self.transport_frame, text="Pattern", command=self.pattern_pressed),
+            "Grid Left": tk.Button(self.transport_frame, text="Grid Left", command=self.grid_left_pressed),
+            "Grid Right": tk.Button(self.transport_frame, text="Grid Right", command=self.grid_right_pressed),
         }
+
         for idx, (name, btn) in enumerate(self.buttons.items()):
             btn.grid(row=0, column=idx, padx=5)
 
@@ -123,8 +105,8 @@ class AkaiFireMockGUI:
         self.pads[row][col].config(bg="green")
         self.root.after(200, lambda: self.pads[row][col].config(bg="gray20"))
 
-    def side_button_pressed(self, idx):
-        print(f"Side button S{idx + 1} pressed")
+    def track_select_button_pressed(self, idx):
+        print(f"Track select button pressed: {idx + 1}")
 
     def play_pressed(self):
         print("Play pressed")
