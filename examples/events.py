@@ -1,3 +1,4 @@
+import os
 import time
 from enum import Enum
 from akai_fire import AkaiFire
@@ -265,15 +266,18 @@ class FireDemo:
             self.canvas.draw_text("Each row = different track", 2, 39)
 
         elif self.mode == DemoMode.MIXER:
-
             vol = self.track_volumes[self.current_track]
-            self.canvas.draw_text(f"Track {self.current_track +1} Volume:", 2, 15)
-            self.canvas.draw_text(f"{self.track_volumes[self.current_track]}", 2, 27)
-            self.canvas.fill_rect(0, 40, self.canvas.WIDTH * (vol / 127), 4, color=1)
-
+            self.canvas.draw_text(f"Track {self.current_track +1} Volume: {vol}", 2, 15)
+            self.canvas.fill_rect(0, 32, self.canvas.WIDTH * (vol / 127), 4, color=0)
             self.canvas.draw_text("Select track & adjust vol", 2, 39)
 
         self.fire.render_to_display()
+
+        filepath = os.path.join(
+            os.path.dirname(__file__), f"fire_mode_{self.mode.value}.bmp"
+        )
+
+        self.fire.render_to_bmp(filepath)
 
     def run(self):
         """Main loop"""
