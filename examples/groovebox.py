@@ -1,12 +1,16 @@
 import random
 import threading
 import time
-from enum import Enum, auto
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from enum import Enum, auto
+from typing import List, Optional, Dict, Set
+
+import math
+
+# noinspection PyPackageRequirements
 import rtmidi
-from akai_fire import AkaiFire
-from utils import MidiUtils
+
+from gui import MockAkaiFire
 
 
 class PlayState(Enum):
@@ -15,26 +19,58 @@ class PlayState(Enum):
     RECORDING = "recording"
 
 
-class ScreenMode(Enum):
-    MAIN = "main"
-    NOTES = "notes"
-    STEP = "step"
-    EUCLIDEAN = "euclidean"
-    MIDI_MONITOR = "midi_monitor"
-    MIDI_CONFIG = "midi_config"
-
-
 class ClipType(Enum):
     EMPTY = auto()
     RECORDED = auto()
     STEP = auto()
     EUCLIDEAN = auto()
+    GENERATIVE = auto()
+
+
+class ChordType:
+    def __init__(self, name: str, intervals: List[int]):
+        self.name = name
+        self.intervals = intervals
+
+
+CHORD_TYPES = {
+    "maj": ChordType("Major", [0, 4, 7]),
+    "min": ChordType("Minor", [0, 3, 7]),
+    "7": ChordType("Dominant 7", [0, 4, 7, 10]),
+    "maj7": ChordType("Major 7", [0, 4, 7, 11]),
+    "min7": ChordType("Minor 7", [0, 3, 7, 10]),
+    "dim": ChordType("Diminished", [0, 3, 6]),
+    "aug": ChordType("Augmented", [0, 4, 8]),
+    "sus2": ChordType("Sus2", [0, 2, 7]),
+    "sus4": ChordType("Sus4", [0, 5, 7]),
+}
+
+NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
 class EditMode(Enum):
     CLIP = auto()
+    NOTES = auto()  # Single note input
+    CHORDS = auto()  # Chord input
     STEP = auto()
     EUCLIDEAN = auto()
+    GENERATIVE = auto()
+
+
+@dataclass
+class ChordState:
+    type: str = "maj"
+    root: int = 60
+    octave: int = 0
+    inversion: int = 0
+
+
+@dataclass
+class ScreenData:
+    title: str
+    parameters: List[str]  # ["Param1: Value", "Param2: Value"]
+    grid: Optional[List[List[int]]] = None  # 2D grid for patterns
+    waveform: Optional[List[int]] = None  # For modulation screens
 
 
 @dataclass
@@ -83,11 +119,27 @@ class EuclideanPattern:
 
 
 @dataclass
+class GenerativePattern:
+    steps: int = 16
+    pulses: int = 4
+    offset: int = 0
+    probability: float = 1.0
+    note_range: tuple[int, int] = (36, 72)  # C2 - C5
+    velocity_range: tuple[int, int] = (50, 127)
+    gate_time: float = 0.5
+    modulation_depth: float = 0.5  # How much LFO affects probability/note
+    modulation_rate: float = 0.25  # LFO speed
+    modulation_type: str = "sine"  # "sine", "square", "random"
+    random_seed: int = 42
+
+
+@dataclass
 class Clip:
     type: ClipType = ClipType.EMPTY
     midi_messages: List[MidiMessage] = field(default_factory=list)
     step_sequence: Optional[StepSequence] = None
     euclidean: Optional[EuclideanPattern] = None
+    generative: Optional[GenerativePattern] = None  # New generative type
     length: float = 4.0  # Length in bars
     quantize: bool = True
     is_playing: bool = False
@@ -98,14 +150,13 @@ class Clip:
 class Groovebox:
     def __init__(self):
         # Hardware setup
-        self.fire = AkaiFire()
+        # self.fire = AkaiFire()
+        self.fire = MockAkaiFire()
         self.canvas = self.fire.get_canvas()
 
         # Core state
         self.play_state = PlayState.STOPPED
         self.edit_mode = EditMode.CLIP
-        self.selected_track = -1
-        self.current_step = 0
         self.tempo = 120.0
         self.swing = 0.5
         self.current_page = 0
@@ -116,6 +167,19 @@ class Groovebox:
         self.tracks: List[List[Clip]] = [[Clip() for _ in range(16)] for _ in range(4)]
         self.track_solos = [False, False, False, False]
         self.track_mutes = [False, False, False, False]
+
+        # Step sequencer state
+        self.current_step = 0
+        self.selected_step = 0
+        self.selected_param = "note"
+        self.selected_track = -1
+        self.selected_clip = -1
+
+        # Chord state
+        self.chord_state = ChordState()
+        self.active_notes: Set[int] = set()  # Currently playing notes
+        self.current_scale = [0, 2, 4, 5, 7, 9, 11]  # Major scale intervals
+        self.root_note = 60  # Middle C
 
         # MIDI setup
         self.midi_in = rtmidi.MidiIn()
@@ -128,7 +192,7 @@ class Groovebox:
 
         # Recording state
         self.recording_clip: Optional[tuple[int, int]] = None  # (track, clip)
-        self.active_notes: Dict[int, MidiMessage] = {}  # note -> start message
+        self.active_notes: Dict[int, MidiMessage] = {}
         self.quantize_record = True
 
         # Step sequencing state
@@ -175,7 +239,7 @@ class Groovebox:
                     start_msg = self.active_notes[note]
                     start_msg.length = time.time() - start_msg.timestamp
                     self.tracks[track][clip].midi_messages.append(start_msg)
-                    del self.active_notes[note]
+                    self.active_notes.remove(note)
 
         # Always pass through MIDI
         self.midi_out.send_message(message)
@@ -232,13 +296,31 @@ class Groovebox:
                 # Normal pad press depends on mode
                 self._handle_pad_press(track, clip, velocity)
 
-        # Volume knob controls tempo
         @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
-        def handle_tempo(direction, velocity):
-            if direction == "clockwise":
-                self.tempo = min(300.0, self.tempo + velocity * 0.5)
-            else:
-                self.tempo = max(20.0, self.tempo - velocity * 0.5)
+        def handle_generative_steps(direction, velocity):
+            if self.edit_mode == EditMode.CLIP:
+                if direction == "clockwise":
+                    self.tempo = min(300.0, self.tempo + velocity * 0.5)
+                else:
+                    self.tempo = max(20.0, self.tempo - velocity * 0.5)
+
+            if self.edit_mode == EditMode.CHORDS:
+                if direction == "clockwise":
+                    self.chord_state.root = min(84, self.chord_state.root + 1)
+                else:
+                    self.chord_state.root = max(36, self.chord_state.root - 1)
+
+            if self.edit_mode == EditMode.GENERATIVE:
+                clip = self.tracks[self.selected_track][self.selected_clip]
+                clip.generative.steps = max(
+                    1,
+                    min(
+                        32,
+                        clip.generative.steps + (1 if direction == "clockwise" else -1),
+                    ),
+                )
+
+            self.update_pads()
             self.update_display()
 
         # Pan knob controls step parameter values
@@ -355,7 +437,7 @@ class Groovebox:
                 self.current_step = 0
             # Stop global playback if no clips playing
             elif not clip_obj.is_playing and not any(
-                    c.is_playing for t in self.tracks for c in t
+                c.is_playing for t in self.tracks for c in t
             ):
                 self.play_state = PlayState.STOPPED
             self.update_transport_leds()
@@ -370,27 +452,107 @@ class Groovebox:
             self.edit_mode = EditMode.EUCLIDEAN
 
     def _handle_pad_press(self, track: int, clip: int, velocity: int):
-        """Route pad press based on current mode"""
+        """Handle pad press based on current mode"""
         if self.edit_mode == EditMode.CLIP:
-            # Handle clip mode pad press
-            if self.selected_track == track and self.selected_clip == clip:
-                self._toggle_clip_playback(track, clip)
-            else:
-                self.selected_track = track
-                self.selected_clip = clip
+            # Handle clip selection
+            self._handle_clip_selection(track, clip)
+
+            # If empty, create a new Generative clip
+            selected_clip = self.tracks[track][clip]
+            if selected_clip.type == ClipType.EMPTY:
+                selected_clip.type = ClipType.GENERATIVE
+                selected_clip.generative = GenerativePattern()
+
+            if selected_clip.type == ClipType.GENERATIVE:
+                self.edit_mode = EditMode.GENERATIVE
+                self.update_pads()
+                self.update_display()
+
+        elif self.edit_mode == EditMode.NOTES or self.edit_mode == EditMode.CHORDS:
+            # Handle note input
+            notes = self.handle_note_input(track, velocity)
+
+            for note, velocity in notes:
+                print(f"Playing note {note} with velocity {velocity}")
 
         elif self.edit_mode == EditMode.STEP:
-            # Handle step sequencer pad press
-            if track < 4:  # Use rows for different parameters
-                step = clip + (self.step_edit_page * 16)
-                self._edit_step_param(track, step)
+            # Step selection should modify a specific step
+            if 0 <= track < 4 and 0 <= clip < 16:
+                self.selected_step = clip
+                self.update_pads()
+                self.update_display()
 
         elif self.edit_mode == EditMode.EUCLIDEAN:
-            # Handle euclidean pattern pad press
+            self.selected_step = clip
             self._edit_euclidean_param(track, clip)
 
         self.update_pads()
         self.update_display()
+
+    def _get_note_for_pad(self, row: int, col: int) -> int:
+        """Get MIDI note number for pad position in note mode"""
+        base_octave = 3 - row  # Lower rows = lower octaves
+        return self.root_note + col + (base_octave * 12)
+
+    def _build_chord(
+        self, root: int, chord_type: str, octave: int = 0, inversion: int = 0
+    ) -> List[int]:
+        """Build chord from root note and type"""
+        if chord_type not in CHORD_TYPES:
+            return []
+
+        # Get base intervals and apply octave offset
+        intervals = CHORD_TYPES[chord_type].intervals
+        notes = [(root + interval) for interval in intervals]
+
+        # Apply octave offset
+        notes = [note + (octave * 12) for note in notes]
+
+        # Apply inversion
+        for _ in range(inversion):
+            notes = notes[1:] + [notes[0] + 12]
+
+        return notes
+
+    def handle_note_input(
+        self, pad_index: int, velocity: int = 100
+    ) -> List[tuple[int, int]]:
+        """Handle pad press in current mode, returns list of (note, velocity)"""
+        row = pad_index // 16
+        col = pad_index % 16
+
+        if self.edit_mode == EditMode.NOTES:
+            note = self._get_note_for_pad(row, col)
+            return [(note, velocity)]
+
+        elif self.edit_mode == EditMode.CHORDS:
+            if row == 0:  # Chord type selection
+                if col < len(CHORD_TYPES):
+                    self.chord_state.type = list(CHORD_TYPES.keys())[col]
+            elif row == 1:  # Root note selection
+                self.chord_state.root = 60 + col  # C4 + offset
+            elif row == 3:  # Modifiers
+                if col == 0:
+                    self.chord_state.octave += 1
+                elif col == 1:
+                    self.chord_state.octave -= 1
+                elif col == 2:
+                    self.chord_state.inversion += 1
+                elif col == 3:
+                    self.chord_state.inversion = 0
+
+            # Build and return chord notes
+            return [
+                (note, velocity)
+                for note in self._build_chord(
+                    self.chord_state.root,
+                    self.chord_state.type,
+                    self.chord_state.octave,
+                    self.chord_state.inversion,
+                )
+            ]
+
+        return []
 
     def _edit_step_param(self, row: int, step: int):
         """Edit step sequencer parameter based on row"""
@@ -565,10 +727,10 @@ class Groovebox:
         quantized_messages = []
 
         for msg in clip.midi_messages:
-            # Find nearest step
+            # Find nearest step with rounding
             step = round(msg.timestamp / step_duration)
-            msg.timestamp = step * step_duration
-            quantized_messages.append(msg)
+            quantized_time = step * step_duration
+            quantized_messages.append(MidiMessage(quantized_time, msg.data, msg.length))
 
         clip.midi_messages = sorted(quantized_messages, key=lambda m: m.timestamp)
 
@@ -607,6 +769,8 @@ class Groovebox:
             self._update_step_view()
         elif self.edit_mode == EditMode.EUCLIDEAN:
             self._update_euclidean_view()
+        elif self.edit_mode == EditMode.GENERATIVE:
+            self._update_generative_view()
 
     def _update_clip_view(self):
         """Update pads for clip overview mode"""
@@ -628,9 +792,9 @@ class Groovebox:
 
                 # Highlight current step if playing
                 if (
-                        clip_obj.is_playing
-                        and self.play_state != PlayState.STOPPED
-                        and clip == self.current_step % 16
+                    clip_obj.is_playing
+                    and self.play_state != PlayState.STOPPED
+                    and clip == self.current_step % 16
                 ):
                     color = (127, 127, 127)  # White flash
 
@@ -654,7 +818,7 @@ class Groovebox:
         colors = []
         page_offset = self.step_edit_page * 16
 
-        # Top row: Steps on/off + current step indicator
+        # Top row: Steps on/off + highlight selected step
         for i in range(16):
             step_idx = i + page_offset
             if step_idx >= clip.step_sequence.length:
@@ -663,50 +827,52 @@ class Groovebox:
 
             params = clip.step_sequence.steps[step_idx]
             playing = step_idx == self.current_step
+            selected = step_idx == self.selected_step  # Selected step
 
             if params.active:
                 if playing:
-                    colors.append((i, 127, 127, 127))  # White for playing step
+                    color = (127, 127, 127)  # White for playing step
+                elif selected:
+                    color = (255, 255, 0)  # Yellow for selected step
                 else:
                     vel_scaled = (params.velocity * 127) // 127
-                    colors.append((i, vel_scaled, params.accent and 127 or 0, 0))
+                    color = (vel_scaled, params.accent and 127 or 0, 0)
             else:
-                colors.append((i, playing and 40 or 10, 0, 0))  # Dim for inactive
+                color = (playing and 40 or 10, 0, 0)  # Dim for inactive
 
-        # Second row: Note selection
-        for i in range(16, 32):
-            step_idx = (i - 16) + page_offset
-            if step_idx >= clip.step_sequence.length:
-                colors.append((i, 0, 0, 0))
-                continue
+            colors.append((i, *color))
 
-            params = clip.step_sequence.steps[step_idx]
-            note_scaled = ((params.note - 36) * 127) // 60  # Scale note range to color
-            colors.append((i, 0, 0, note_scaled))
+        # Parameter rows: Highlight selected parameter
+        for row, param in enumerate(
+            ["note", "velocity", "gate", "probability"], start=1
+        ):
+            for i in range(16):
+                step_idx = i + page_offset
+                if step_idx >= clip.step_sequence.length:
+                    colors.append((16 * row + i, 0, 0, 0))
+                    continue
 
-        # Third row: Gate length
-        for i in range(32, 48):
-            step_idx = (i - 32) + page_offset
-            if step_idx >= clip.step_sequence.length:
-                colors.append((i, 0, 0, 0))
-                continue
+                params = clip.step_sequence.steps[step_idx]
+                value = getattr(params, param, 0)
+                selected = (
+                    self.selected_param == param and step_idx == self.selected_step
+                )
 
-            params = clip.step_sequence.steps[step_idx]
-            gate_scaled = int(params.gate * 127)
-            colors.append((i, 0, gate_scaled, gate_scaled))
+                color = (0, 0, 0)  # Default off
 
-        # Bottom row: Step modifiers (slide, repeat, probability)
-        for i in range(48, 64):
-            step_idx = (i - 48) + page_offset
-            if step_idx >= clip.step_sequence.length:
-                colors.append((i, 0, 0, 0))
-                continue
+                if param == "note":
+                    color = (0, 0, (value - 36) * 127 // 60)
+                elif param == "velocity":
+                    color = (0, value, 0)
+                elif param == "gate":
+                    color = (0, int(value * 127), int(value * 127))
+                elif param == "probability":
+                    color = (0, int(value * 127), 0)
 
-            params = clip.step_sequence.steps[step_idx]
-            r = 127 if params.slide else 0
-            g = int(params.probability * 127)
-            b = (params.repeat - 1) * 30
-            colors.append((i, r, g, b))
+                if selected:
+                    color = (255, 255, 0)  # Yellow for selected parameter
+
+                colors.append((16 * row + i, *color))
 
         self.fire.set_multiple_pad_colors(colors)
 
@@ -726,10 +892,45 @@ class Groovebox:
 
         colors = []
 
-        # Top row: Pattern visualization
+        # Top row: Highlight selected step
+        for i in range(16):
+            selected = i == self.selected_step
+            playing = i == self.current_step % pattern.steps
+            active = euclidean_steps[i]
+
+            if playing:
+                color = (127, 127, 127)  # White for playing step
+            elif selected:
+                color = (255, 255, 0)  # Yellow for selected step
+            elif active:
+                color = (80, 0, 0)  # Red for active
+            else:
+                color = (20, 0, 0)  # Dim red for inactive
+
+            colors.append((i, *color))
+
+        self.fire.set_multiple_pad_colors(colors)
+
+    def _update_generative_view(self):
+        """Update pad colors for generative pattern editor"""
+        if not (0 <= self.selected_track < 4 and 0 <= self.selected_clip < 16):
+            return
+
+        clip = self.tracks[self.selected_track][self.selected_clip]
+        if not clip.generative:
+            return
+
+        pattern = clip.generative
+        euclidean_steps = self.calculate_euclidean_pattern(
+            pattern.pulses, pattern.steps, pattern.offset
+        )
+
+        colors = []
+
+        # Top row: Steps visualization
         for i in range(16):
             if i >= pattern.steps:
-                colors.append((i, 0, 0, 0))
+                colors.append((i, 0, 0, 0))  # Off
             else:
                 active = euclidean_steps[i]
                 playing = i == self.current_step % pattern.steps
@@ -742,53 +943,72 @@ class Groovebox:
                     )
                 )
 
-        # Second row: Steps setting
+        # Second row: Probability settings
         for i in range(16, 32):
-            step_num = i - 15
-            active = step_num <= pattern.steps
-            colors.append((i, 0, active and 80 or 0, 0))
+            step_idx = i - 16
+            if step_idx >= pattern.steps:
+                colors.append((i, 0, 0, 0))
+                continue
 
-        # Third row: Pulses setting
+            prob_scaled = int(pattern.probability * 127)
+            colors.append((i, 0, prob_scaled, 0))
+
+        # Third row: Modulation depth
         for i in range(32, 48):
-            pulse_num = i - 31
-            active = pulse_num <= pattern.pulses
-            colors.append((i, 0, 0, active and 80 or 0))
-
-        # Bottom row: Parameter values
-        for i in range(48, 64):
-            if pattern.parameter_type == "note":
-                note_scaled = ((pattern.note - 36) * 127) // 60
-                colors.append((i, note_scaled, note_scaled, 0))
-            else:
-                val_scaled = (pattern.value_max * 127) // 127
-                colors.append((i, val_scaled, 0, val_scaled))
+            mod_scaled = int(pattern.modulation_depth * 127)
+            colors.append((i, 0, 0, mod_scaled))
 
         self.fire.set_multiple_pad_colors(colors)
 
     def calculate_euclidean_pattern(
-            self, pulses: int, steps: int, offset: int
+        self, pulses: int, steps: int, offset: int
     ) -> List[bool]:
         """Calculate euclidean rhythm boolean pattern using Bjorklund's algorithm"""
-        if pulses > steps:
-            return [True] * steps
-        if pulses == 0:
-            return [False] * steps
+        pattern = []
+        counts = [1] * pulses + [0] * (steps - pulses)
+        while len(set(counts)) > 1:  # Continue until we cannot group anymore
+            min_val = min(counts)
+            idx = 0
+            while idx < len(counts) - 1:
+                if counts[idx] == min_val and counts[idx + 1] != min_val:
+                    counts[idx] += counts.pop(idx + 1)
+                else:
+                    idx += 1
+        return [(i + offset) % steps in counts[:pulses] for i in range(steps)]
 
-        pattern = [False] * steps
-        for i in range(pulses):
-            index = (i * steps // pulses + offset) % steps
-            pattern[index] = True
-        return pattern
-
-    def update_display(self):
-        """Update the OLED display"""
+    def draw_screen(self, screen_data: ScreenData):
+        """Update the OLED screen using ScreenData"""
         self.canvas.clear()
 
         # Draw header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-        header = f"BPM: {self.tempo:.1f} - {self.edit_mode.name}"
-        self.canvas.draw_text(header, 2, 2, color=1)
+        self.canvas.draw_text(screen_data.title, 2, 2, color=1)
 
+        # Draw parameters
+        y_offset = 15
+        for param in screen_data.parameters:
+            self.canvas.draw_text(param, 2, y_offset)
+            y_offset += 12
+
+        # Draw grid if applicable
+        if screen_data.grid:
+            for y, row in enumerate(screen_data.grid):
+                for x, value in enumerate(row):
+                    if value:  # 1 = filled pixel, 0 = empty
+                        self.canvas.set_pixel(10 + x * 5, 40 + y * 5)
+
+        # Draw waveform if applicable
+        # if screen_data.waveform:
+        #     todo: implement
+        #     self.canvas.begin_path()
+        #     for i, value in enumerate(screen_data.waveform):
+        #         self.canvas.line_to(10 + i * 3, 40 + value)
+        #     self.canvas.stroke()
+
+        self.fire.render_to_display()
+
+    def update_display(self):
+        """Update OLED display with current mode-specific content"""
         # Draw mode-specific content
         if self.edit_mode == EditMode.CLIP:
             self._draw_clip_display()
@@ -796,6 +1016,10 @@ class Groovebox:
             self._draw_step_display()
         elif self.edit_mode == EditMode.EUCLIDEAN:
             self._draw_euclidean_display()
+        elif self.edit_mode == EditMode.GENERATIVE:
+            self._draw_generative_display()
+        elif self.edit_mode == EditMode.CHORDS:
+            self._draw_chord_display()
 
         self.fire.render_to_display()
 
@@ -847,13 +1071,70 @@ class Groovebox:
 
         y = 15
         pattern = clip.euclidean
-        self.canvas.draw_text(f"Steps: {pattern.steps} / Offset: {pattern.offset}", 2, y)
+        self.canvas.draw_text(f"Steps: {pattern.steps}", 2, y)
         y += 12
         self.canvas.draw_text(f"Pulses: {pattern.pulses}", 2, y)
         y += 12
-        note_name = MidiUtils.midi_to_note_name(pattern.note)
+        self.canvas.draw_text(f"Offset: {pattern.offset}", 2, y)
 
-        self.canvas.draw_text(f"Root Note: {note_name}", 2, y)
+    def _draw_generative_display(self):
+        """Draw OLED visualization for generative mode"""
+        if not (0 <= self.selected_track < 4 and 0 <= self.selected_clip < 16):
+            return
+
+        clip = self.tracks[self.selected_track][self.selected_clip]
+        if not clip.generative:
+            return
+
+        y = 15
+        pattern = clip.generative
+        self.canvas.draw_text(f"Steps: {pattern.steps} Pulses: {pattern.pulses}", 2, y)
+        y += 12
+        self.canvas.draw_text(f"Prob: {int(pattern.probability * 100)}%", 2, y)
+        y += 12
+        self.canvas.draw_text(
+            f"Mod: {pattern.modulation_type} Depth: {int(pattern.modulation_depth * 100)}%",
+            2,
+            y,
+        )
+
+    def _draw_chord_display(self):
+        """Update OLED for Chord Mode."""
+        chord = self.chord_state
+        screen_data = ScreenData(
+            title="Chord Mode",
+            parameters=[
+                f"Chord: {chord.type}",
+                f"Root: {NOTES[chord.root % 12]}{(chord.root // 12) - 1}",
+                f"Octave: {chord.octave}",
+                f"Inversion: {chord.inversion}",
+            ],
+            grid=None,
+        )
+        self.draw_screen(screen_data)
+
+    def run(self):
+        """Main loop"""
+        try:
+            last_step_time = time.time()
+
+            while True:
+                if self.play_state != PlayState.STOPPED:
+                    current_time = time.time()
+                    step_duration = 60.0 / (self.tempo * 4)  # 16th notes
+
+                    if current_time - last_step_time >= step_duration:
+                        self._process_step()
+                        last_step_time = current_time
+
+                time.sleep(0.001)
+
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+        finally:
+            self.stop_all_notes()
+            self.fire.clear_all()
+            self.fire.close()
 
     def _process_step(self):
         """Process one step of sequencer playback"""
@@ -885,6 +1166,8 @@ class Groovebox:
             self._process_step_clip(clip)
         elif clip.type == ClipType.EUCLIDEAN:
             self._process_euclidean_clip(clip)
+        elif clip.type == ClipType.GENERATIVE:
+            self._process_generative_clip(clip)
 
     def _process_recorded_clip(self, clip: Clip):
         """Process recorded MIDI clip"""
@@ -898,7 +1181,7 @@ class Groovebox:
 
             # Handle note-offs
             if msg.length and abs((msg.timestamp + msg.length) - current_time) < (
-                    step_duration / 2
+                step_duration / 2
             ):
                 # Create note-off message
                 note_off = msg.data.copy()
@@ -960,6 +1243,49 @@ class Groovebox:
                     ]
                 )
 
+    def _process_generative_clip(self, clip: Clip):
+        """Generate notes dynamically based on the generative pattern settings."""
+        if not clip.generative:
+            return
+
+        pattern = clip.generative
+        euclidean_steps = self.calculate_euclidean_pattern(
+            pattern.pulses, pattern.steps, pattern.offset
+        )
+
+        step_idx = self.current_step % pattern.steps
+        if euclidean_steps[step_idx] and random.random() <= pattern.probability:
+            # Generate note based on modulation
+            if pattern.modulation_type == "sine":
+                mod_factor = (
+                    math.sin(self.current_step * pattern.modulation_rate) + 1
+                ) / 2
+            elif pattern.modulation_type == "square":
+                mod_factor = 1 if (self.current_step // 4) % 2 == 0 else 0
+            elif pattern.modulation_type == "random":
+                mod_factor = random.random()
+            else:
+                mod_factor = 1.0
+
+            # Apply modulation to probability
+            prob_adjusted = pattern.probability * (
+                1.0 - pattern.modulation_depth + (pattern.modulation_depth * mod_factor)
+            )
+
+            if random.random() < prob_adjusted:
+                note = random.randint(*pattern.note_range)
+                velocity = random.randint(*pattern.velocity_range)
+
+                self.midi_out.send_message([0x90, note, velocity])
+
+                # Schedule note-off
+                def send_note_off():
+                    if self.play_state != PlayState.STOPPED:
+                        self.midi_out.send_message([0x80, note, 0])
+
+                gate_time = 60.0 / (self.tempo * 4) * pattern.gate_time
+                threading.Timer(gate_time, send_note_off).start()
+
     def _enter_step_mode(self):
         """Enter step sequencer mode"""
         if self.selected_track >= 0 and self.selected_clip >= 0:
@@ -975,6 +1301,7 @@ class Groovebox:
             self.step_edit_param = "note"
             self.step_edit_page = 0
 
+    # noinspection PyTypeChecker
     def _adjust_step_param(self, amount: float):
         """Adjust current step parameter value"""
         if self.step_edit_param == "note":
@@ -1038,34 +1365,7 @@ class Groovebox:
         for note in range(128):
             self.midi_out.send_message([0x80, note, 0])
 
-    def run(self):
-        """Main loop"""
-        try:
-            last_step_time = time.time()
-
-            while True:
-                if self.play_state != PlayState.STOPPED:
-                    current_time = time.time()
-                    step_duration = 60.0 / (self.tempo * 4)  # 16th notes
-
-                    if current_time - last_step_time >= step_duration:
-                        self._process_step()
-                        last_step_time = current_time
-
-                time.sleep(0.001)
-
-        except KeyboardInterrupt:
-            print("\nShutting down...")
-        finally:
-            self.stop_all_notes()
-            self.fire.clear_all()
-            self.fire.close()
-
 
 if __name__ == "__main__":
     groovebox = Groovebox()
     groovebox.run()
-
-
-def core():
-    return None
