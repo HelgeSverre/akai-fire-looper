@@ -1,11 +1,12 @@
+import time
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Optional, Tuple, Dict
-import time
+
+# noinspection PyPackageRequirements
 import rtmidi
 
 from akai_fire import AkaiFire
-from canvas import Canvas, FireRenderer
 
 
 class ScreenMode(Enum):
@@ -66,8 +67,7 @@ class MidiLooper:
 
         # Initialize hardware
         self.fire = AkaiFire()
-        self.canvas = Canvas()
-        self.fire_renderer = FireRenderer(self.fire)
+        self.canvas = self.fire.get_canvas()
 
         # MIDI setup
         self.midi_in = rtmidi.MidiIn()
@@ -196,7 +196,7 @@ class MidiLooper:
         self.fire.clear_all_track_leds()
         self._update_display()
 
-    def _handle_play(self, button_id: int, event: str):
+    def _handle_play(self, event: str):
         """Handle play button press."""
         if event == "press":
             if not self.is_playing:
@@ -204,7 +204,7 @@ class MidiLooper:
             else:
                 self._stop_playback()
 
-    def _handle_stop(self, button_id: int, event: str):
+    def _handle_stop(self, event: str):
         """Handle stop button press."""
         if event == "press":
             self._stop_playback()
@@ -212,7 +212,7 @@ class MidiLooper:
             self.current_step = 0
             self._update_display()
 
-    def _handle_rec(self, button_id: int, event: str):
+    def _handle_rec(self, event: str):
         """Handle record button press."""
         if event == "press":
             if self.recording:
@@ -299,7 +299,7 @@ class MidiLooper:
             except Exception as e:
                 print(f"Error changing MIDI input: {e}")
 
-    def _handle_browser(self, button_id: int, event: str):
+    def _handle_browser(self, event: str):
         """Cycle through main -> input select -> output select screens."""
         if event == "press":
             # Cycle through modes
@@ -319,7 +319,7 @@ class MidiLooper:
 
         self._update_display()
 
-    def _handle_rotary_select_press(self, button_id: int, event: str):
+    def _handle_rotary_select_press(self, event: str):
         """Handle select button press to confirm MIDI port selection."""
         if event == "press":
             if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
@@ -334,7 +334,7 @@ class MidiLooper:
                 self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_OFF)
             self._update_display()
 
-    def _handle_rotary_select(self, encoder_id: int, direction: str, velocity: int):
+    def _handle_rotary_select(self, direction: str, velocity: int):
         """Handle MIDI port selection scrolling."""
         if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
             if direction == "clockwise":
@@ -690,11 +690,11 @@ class MidiLooper:
                 if loop.state == LoopState.PLAYING:
                     loop_position = elapsed % (loop.length * self.bar_duration)
 
-                    # Find messages to play in this frame
+                    # Find messages to play in this frame - 1ms window
                     messages_to_play = [
                         msg
-                        for time, msg in loop.midi_messages
-                        if abs(time - loop_position) < 0.001  # 1ms window
+                        for t, msg in loop.midi_messages
+                        if abs(t - loop_position) < 0.001
                     ]
 
                     for message in messages_to_play:
@@ -718,7 +718,7 @@ class MidiLooper:
         else:
             self._draw_main_screen()
 
-        self.fire_renderer.render_canvas(self.canvas)
+        self.fire.render_to_display()
 
     def _draw_midi_monitor_screen(self):
         """Draw the MIDI monitor screen."""
@@ -884,7 +884,7 @@ class MidiLooper:
             self.fire.set_multiple_pad_colors(step_colors)
 
         # Render canvas to OLED display
-        self.fire_renderer.render_canvas(self.canvas)
+        self.fire.render_to_display()
 
     def _cleanup(self):
         """Clean up all resources."""
@@ -904,7 +904,7 @@ class MidiLooper:
             self.fire.clear_all_button_leds()
             self.fire.clear_all_track_leds()
             self.canvas.clear()
-            self.fire_renderer.render_canvas(self.canvas)
+            self.fire.render_to_display()
 
             # Close MIDI ports
             if self.midi_in.is_port_open():
