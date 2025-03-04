@@ -106,7 +106,7 @@ class Canvas:
         """Fill a circle."""
         for y in range(-radius, radius + 1):
             for x in range(-radius, radius + 1):
-                if x ** 2 + y ** 2 <= radius ** 2:
+                if x**2 + y**2 <= radius**2:
                     self.set_pixel(x0 + x, y0 + y, color)
 
     def draw_line(self, x0: int, y0: int, x1: int, y1: int, color: int = 0):
@@ -233,10 +233,17 @@ class AkaiFire:
 
         # Send to display
         sysex_data = [
-            0xF0, 0x47, 0x7F, 0x43, 0x0E,
+            0xF0,
+            0x47,
+            0x7F,
+            0x43,
+            0x0E,
             (len(bitmap) + 4) >> 7,
             (len(bitmap) + 4) & 0x7F,
-            0, 0x07, 0, 0x7F
+            0,
+            0x07,
+            0,
+            0x7F,
         ]
         sysex_data.extend(bitmap)
         sysex_data.append(0xF7)
@@ -518,10 +525,8 @@ class AkaiFire:
         :param value: One of the LED_* constants (e.g., LED_OFF, LED_HIGH_RED).
         """
         if button_id not in [
-
             self.BUTTON_STEP,
             self.BUTTON_NOTE,
-
             self.BUTTON_DRUM,
             self.BUTTON_PERFORM,
             self.BUTTON_SHIFT,
@@ -745,8 +750,10 @@ class AkaiFire:
             # Handle rotary touch events first (Note On/Off for rotary controls)
             # This needs to come before button handling since they share the same status codes
             if status in [0x90, 0x80] and controller in [
-                self.ROTARY_VOLUME, self.ROTARY_PAN,
-                self.ROTARY_FILTER, self.ROTARY_RESONANCE
+                self.ROTARY_VOLUME,
+                self.ROTARY_PAN,
+                self.ROTARY_FILTER,
+                self.ROTARY_RESONANCE,
             ]:
                 event = "touch" if status == 0x90 else "release"
 
@@ -760,13 +767,27 @@ class AkaiFire:
 
             # Handle button events
             if status in [0x90, 0x80] and controller in [
-                self.BUTTON_SELECT, self.BUTTON_STEP, self.BUTTON_NOTE,
-                self.BUTTON_DRUM, self.BUTTON_PERFORM, self.BUTTON_SHIFT,
-                self.BUTTON_ALT, self.BUTTON_PATTERN, self.BUTTON_PLAY,
-                self.BUTTON_STOP, self.BUTTON_REC, self.BUTTON_BANK,
-                self.BUTTON_BROWSER, self.BUTTON_SOLO_1, self.BUTTON_SOLO_2,
-                self.BUTTON_SOLO_3, self.BUTTON_SOLO_4, self.BUTTON_PAT_UP,
-                self.BUTTON_PAT_DOWN, self.BUTTON_GRID_LEFT, self.BUTTON_GRID_RIGHT
+                self.BUTTON_SELECT,
+                self.BUTTON_STEP,
+                self.BUTTON_NOTE,
+                self.BUTTON_DRUM,
+                self.BUTTON_PERFORM,
+                self.BUTTON_SHIFT,
+                self.BUTTON_ALT,
+                self.BUTTON_PATTERN,
+                self.BUTTON_PLAY,
+                self.BUTTON_STOP,
+                self.BUTTON_REC,
+                self.BUTTON_BANK,
+                self.BUTTON_BROWSER,
+                self.BUTTON_SOLO_1,
+                self.BUTTON_SOLO_2,
+                self.BUTTON_SOLO_3,
+                self.BUTTON_SOLO_4,
+                self.BUTTON_PAT_UP,
+                self.BUTTON_PAT_DOWN,
+                self.BUTTON_GRID_LEFT,
+                self.BUTTON_GRID_RIGHT,
             ]:
                 event = "press" if status == 0x90 else "release"
                 # Call specific button handlers
@@ -791,9 +812,11 @@ class AkaiFire:
 
             # Handle rotary turn events (Control Change)
             if status == 0xB0 and controller in [
-                self.ROTARY_VOLUME, self.ROTARY_PAN,
-                self.ROTARY_FILTER, self.ROTARY_RESONANCE,
-                self.ROTARY_SELECT
+                self.ROTARY_VOLUME,
+                self.ROTARY_PAN,
+                self.ROTARY_FILTER,
+                self.ROTARY_RESONANCE,
+                self.ROTARY_SELECT,
             ]:
                 direction = "clockwise" if value < 0x40 else "counterclockwise"
                 velocity = value if value < 0x40 else (0x80 - value)
@@ -807,6 +830,7 @@ class AkaiFire:
 
         except Exception as e:
             import traceback
+
             traceback.print_exc()
 
     def _listen(self):
