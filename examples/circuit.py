@@ -367,7 +367,12 @@ class CircuitTracks:
         @self.fire.on_button(self.fire.BUTTON_NOTE)
         def handle_synth2(event):
             if event == "press":
-                self.select_track(1)  # Synth 2
+                if self.shift_pressed:
+                    # SHIFT + NOTE button switches to Note View
+                    self.set_view_mode(ViewMode.NOTE)
+                else:
+                    # Without SHIFT, select Synth 2 track
+                    self.select_track(1)
 
         @self.fire.on_button(self.fire.BUTTON_DRUM)
         def handle_midi1(event):
@@ -403,12 +408,22 @@ class CircuitTracks:
         @self.fire.on_button(self.fire.BUTTON_PATTERN)
         def handle_pattern_view(event):
             if event == "press":
-                self.set_view_mode(ViewMode.PATTERN)
+                if self.alt_pressed:
+                    # ALT + PATTERN cycles to the next view mode
+                    self.cycle_view_mode("next")
+                else:
+                    # Normal behavior: set to Pattern view
+                    self.set_view_mode(ViewMode.PATTERN)
 
         @self.fire.on_button(self.fire.BUTTON_BROWSER)
         def handle_mixer_view(event):
             if event == "press":
-                self.set_view_mode(ViewMode.MIXER)
+                if self.alt_pressed:
+                    # ALT + BROWSER cycles to the previous view mode
+                    self.cycle_view_mode("previous")
+                else:
+                    # Normal behavior: set to Mixer view
+                    self.set_view_mode(ViewMode.MIXER)
 
         # Main grid pad press
         @self.fire.on_pad()
@@ -451,6 +466,24 @@ class CircuitTracks:
             @self.fire.on_rotary_turn(rotary)
             def handle_macro(direction, value, macro_idx=i):
                 self.handle_macro_control(macro_idx, direction, value)
+
+    def cycle_view_mode(self, direction="next"):
+        """Cycle to the next or previous view mode."""
+        # Get all view modes as a list to make them indexable
+        view_modes = list(ViewMode)
+
+        # Find the index of the current view mode
+        current_index = view_modes.index(self.view_mode)
+
+        if direction == "next":
+            # Move to the next mode (with wraparound)
+            next_index = (current_index + 1) % len(view_modes)
+        else:  # "previous"
+            # Move to the previous mode (with wraparound)
+            next_index = (current_index - 1) % len(view_modes)
+
+        # Set the new view mode
+        self.set_view_mode(view_modes[next_index])
 
     def handle_note_view_pad(self, pad_idx, velocity):
         """Handle pad press in Note View."""
@@ -761,10 +794,7 @@ class CircuitTracks:
         self.current_step = 0
 
         # Start the sequencer thread if not already running
-        if (
-            not hasattr(self, "sequencer_thread")
-            or not self.sequencer_thread.is_alive()
-        ):
+        if self.sequencer_thread is None or not self.sequencer_thread.is_alive():
             self.sequencer_thread = threading.Thread(target=self.sequencer_loop)
             self.sequencer_thread.daemon = True
             self.sequencer_thread.start()
@@ -2687,7 +2717,7 @@ class CircuitTracks:
         try:
             self.update_grid()
             self.update_leds()
-            self.fire.start_gui()
+            # self.fire.start_gui()
 
             print("Circuit Tracks running...")
             print("Press Ctrl+C to exit")
