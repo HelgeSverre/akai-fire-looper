@@ -3,7 +3,11 @@ from enum import Enum
 
 import rtmidi
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 class PlayState(Enum):
@@ -40,7 +44,7 @@ class MenuOption:
 class RhythmDemo:
     def __init__(self):
 
-        self.fire = AkaiFire()
+        self.fire = get_akai_fire()
         self.canvas = self.fire.get_canvas()
 
         # Sequencer state
@@ -563,6 +567,9 @@ class RhythmDemo:
                         self.update_display()
                         last_step_time = current_time
 
+                if hasattr(self.fire, "process_events"):
+                    if not self.fire.process_events():
+                        break
                 time.sleep(0.001)
 
         except KeyboardInterrupt:

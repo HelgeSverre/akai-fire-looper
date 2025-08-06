@@ -16,13 +16,17 @@ import threading
 import time
 from typing import Set
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 class PadAnimator:
     def __init__(self):
-        # Initialize the AKAI Fire controller
-        self.fire = AkaiFire()
+        # Initialize controller (auto-detects hardware or falls back to mock GUI)
+        self.fire = get_akai_fire()
         self.fire.clear_all_pads()
 
         # Keep track of currently animating pads
@@ -46,8 +50,10 @@ class PadAnimator:
 
     def setup_controls(self):
         """Set up pad listeners for all pads."""
-        # Add listener for all pads (0-63)
-        self.fire.add_global_listener(self.handle_pad_press)
+        # Add listener for all pads
+        @self.fire.on_pad()
+        def on_pad_press(pad_index, velocity):
+            self.handle_pad_press(pad_index)
 
     def handle_pad_press(self, pad_index: int):
         """Handle pad press events by starting animation in a new thread."""
@@ -90,6 +96,10 @@ class PadAnimator:
             print("Running... Press Ctrl+C to exit")
             while True:
                 time.sleep(0.1)  # Small sleep to prevent CPU hogging
+                # Handle mock GUI events if using mock
+                if hasattr(self.fire, "process_events"):
+                    if not self.fire.process_events():
+                        break
 
         except KeyboardInterrupt:
             print("\nShutting down...")

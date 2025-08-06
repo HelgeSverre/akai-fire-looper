@@ -7,8 +7,11 @@ from typing import Dict, List
 # noinspection PyPackageRequirements
 import rtmidi
 
-from akai_fire import AkaiFire
-from mock_gui import MockAkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 class PlayState(Enum):
@@ -167,19 +170,16 @@ class CircuitTracks:
         self.midi_out = rtmidi.MidiOut()
         self.setup_midi()
 
-        # Hardware interface
-        try:
-            self.fire = AkaiFire()
-            self.canvas = self.fire.get_canvas()
-            self.setup_handlers()
+        # Hardware interface - get_akai_fire will automatically fall back to mock if needed
+        self.fire = get_akai_fire()
+        self.canvas = self.fire.get_canvas()
+        self.setup_handlers()
+        
+        # Check if we're using mock or real hardware
+        if hasattr(self.fire, 'is_mock') and self.fire.is_mock:
+            print("Using mock GUI - hardware not found")
+        else:
             print("Akai Fire connected successfully")
-        except Exception as e:
-            print(f"Could not connect to Akai Fire: {e}")
-            # Use a mock implementation for development/testing
-            self.fire = MockAkaiFire()
-            self.canvas = self.fire.get_canvas()
-            self.setup_handlers()
-            print("Using mock Akai Fire interface")
 
         # Initial view update
         self.update_grid()
@@ -2725,6 +2725,9 @@ class CircuitTracks:
             # Main loop - just keep the program running
             # The sequencer runs in its own thread
             while True:
+                if hasattr(self.fire, "process_events"):
+                    if not self.fire.process_events():
+                        break
                 time.sleep(0.1)
 
         except KeyboardInterrupt:

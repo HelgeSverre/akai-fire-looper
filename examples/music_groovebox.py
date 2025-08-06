@@ -10,7 +10,11 @@ import math
 # noinspection PyPackageRequirements
 import rtmidi
 
-from gui import MockAkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 class PlayState(Enum):
@@ -150,8 +154,7 @@ class Clip:
 class Groovebox:
     def __init__(self):
         # Hardware setup
-        # self.fire = AkaiFire()
-        self.fire = MockAkaiFire()
+        self.fire = get_akai_fire()
         self.canvas = self.fire.get_canvas()
 
         # Core state

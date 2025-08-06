@@ -1,10 +1,25 @@
 import threading
 import time
+import traceback
+import logging
 from collections import defaultdict
-from typing import Optional, Union
+from typing import Optional, Union, List, Tuple, Callable, Dict, Any
 
 import rtmidi
 from PIL import Image, ImageDraw, ImageFont
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+
+class AkaiFireError(Exception):
+    """Base exception for AKAI Fire library."""
+    pass
+
+
+class MIDIConnectionError(AkaiFireError):
+    """Raised when MIDI connection fails."""
+    pass
 
 
 class Canvas:
@@ -26,10 +41,10 @@ class Canvas:
         self.image = Image.new("1", (self.WIDTH, self.HEIGHT), color)
         self.draw = ImageDraw.Draw(self.image)
 
-    def get_pixel(self, x, y):
+    def get_pixel(self, x, y) -> Optional[int]:
         """Get a pixel from the canvas."""
         if 0 <= x < self.WIDTH and 0 <= y < self.HEIGHT:
-            return self.image.getpixel((x, y)).is_integer()
+            return self.image.getpixel((x, y))
         return None
 
     def set_pixel(self, x, y, color: int = 0):
@@ -39,11 +54,15 @@ class Canvas:
 
     def draw_rect(self, x, y, width, height, color: int = 0):
         """Draw rectangle outline."""
-        self.draw.rectangle([x, y, x + width, y + height], outline=color)
+        if width <= 0 or height <= 0:
+            return
+        self.draw.rectangle([x, y, x + width - 1, y + height - 1], outline=color)
 
     def fill_rect(self, x, y, width, height, color: int = 0):
         """Draw filled rectangle."""
-        self.draw.rectangle([x, y, x + width, y + height], fill=color)
+        if width <= 0 or height <= 0:
+            return
+        self.draw.rectangle([x, y, x + width - 1, y + height - 1], fill=color)
 
     def draw_text(self, text, x, y, font=None, color: int = 0):
         """Draw text."""
@@ -58,14 +77,16 @@ class Canvas:
             self.draw_rect(i, i, self.WIDTH - 2 * i, self.HEIGHT - 2 * i, color)
 
     def draw_horizontal_line(self, x: int, y: int, length: int, color: int = 0):
-        """Draw a horizontal line."""
-        for i in range(length):
-            self.set_pixel(x + i, y, color)
+        """Draw a horizontal line using PIL's line method for efficiency."""
+        if length > 0 and 0 <= y < self.HEIGHT:
+            x_end = min(x + length - 1, self.WIDTH - 1)
+            self.draw.line([(x, y), (x_end, y)], fill=color)
 
     def draw_vertical_line(self, x: int, y: int, length: int, color: int = 0):
-        """Draw a vertical line."""
-        for i in range(length):
-            self.set_pixel(x, y + i, color)
+        """Draw a vertical line using PIL's line method for efficiency."""
+        if length > 0 and 0 <= x < self.WIDTH:
+            y_end = min(y + length - 1, self.HEIGHT - 1)
+            self.draw.line([(x, y), (x, y_end)], fill=color)
 
     def draw_rectangle(self, x: int, y: int, width: int, height: int, color: int = 0):
         """Draw a rectangle."""
@@ -80,33 +101,14 @@ class Canvas:
             self.draw_horizontal_line(x, y + i, width, color)
 
     def draw_circle(self, x0: int, y0: int, radius: int, color: int = 0):
-        """Draw a circle using the midpoint circle algorithm."""
-        x = radius
-        y = 0
-        decision_over_2 = 1 - x
-
-        while x >= y:
-            self.set_pixel(x0 + x, y0 + y, color)
-            self.set_pixel(x0 + y, y0 + x, color)
-            self.set_pixel(x0 - y, y0 + x, color)
-            self.set_pixel(x0 - x, y0 + y, color)
-            self.set_pixel(x0 - x, y0 - y, color)
-            self.set_pixel(x0 - y, y0 - x, color)
-            self.set_pixel(x0 + y, y0 - x, color)
-            self.set_pixel(x0 + x, y0 - y, color)
-            y += 1
-            if decision_over_2 <= 0:
-                decision_over_2 += 2 * y + 1
-            else:
-                x -= 1
-                decision_over_2 += 2 * (y - x) + 1
+        """Draw a circle using PIL's ellipse method."""
+        bbox = [x0 - radius, y0 - radius, x0 + radius, y0 + radius]
+        self.draw.ellipse(bbox, outline=color)
 
     def fill_circle(self, x0: int, y0: int, radius: int, color: int = 0):
-        """Fill a circle."""
-        for y in range(-radius, radius + 1):
-            for x in range(-radius, radius + 1):
-                if x**2 + y**2 <= radius**2:
-                    self.set_pixel(x0 + x, y0 + y, color)
+        """Fill a circle using PIL's ellipse method."""
+        bbox = [x0 - radius, y0 - radius, x0 + radius, y0 + radius]
+        self.draw.ellipse(bbox, fill=color)
 
     def draw_line(self, x0: int, y0: int, x1: int, y1: int, color: int = 0):
         """Draw a line using Bresenham's line algorithm."""
@@ -294,6 +296,11 @@ class Canvas:
 
 # noinspection GrazieInspection
 class AkaiFire:
+    # MIDI Constants
+    NOTE_ON = 0x90
+    NOTE_OFF = 0x80
+    CC = 0xB0
+    
     # Rotary Controls
     ROTARY_VOLUME = 0x10
     ROTARY_PAN = 0x11
@@ -373,13 +380,14 @@ class AkaiFire:
     CONTROL_BANK_USER2 = 0x03
 
     def render_to_display(self, canvas=None):
-        """Render the canvas to the OLED display."""
+        """Render the canvas to the OLED display with optimizations."""
         buffer = canvas if canvas is not None else self.canvas
 
         # For OLED 128x64, calculated as ceil(128*64/7)
         bitmap_size = 1171
         bitmap = [0] * bitmap_size
 
+        # Static mapping table - could be class constant for better performance
         bitmap_pixel_mapping = [
             [13, 0, 1, 2, 3, 4, 5, 6],
             [19, 20, 7, 8, 9, 10, 11, 12],
@@ -390,15 +398,16 @@ class AkaiFire:
             [49, 50, 51, 52, 53, 54, 55, 42],
         ]
 
-        # Convert canvas to bitmap
+        # Convert canvas to bitmap - optimized with direct pixel access
+        pixels = buffer.image.load()  # Direct pixel access is faster
         for y in range(buffer.HEIGHT):
+            y_div_8 = y // 8
+            y_mod_8 = y % 8
             for x in range(buffer.WIDTH):
-                pixel = buffer.image.getpixel((x, y))
-                if pixel == 0:  # Black pixel in PIL = ON in OLED
-                    x_mapped = x + int(buffer.WIDTH * (y // 8))
-                    y_mapped = y % 8
-                    rb = bitmap_pixel_mapping[int(x_mapped % 7)][y_mapped]
-                    index = int((x_mapped // 7) * 8 + (rb // 7))
+                if pixels[x, y] == 0:  # Black pixel in PIL = ON in OLED
+                    x_mapped = x + buffer.WIDTH * y_div_8
+                    rb = bitmap_pixel_mapping[x_mapped % 7][y_mod_8]
+                    index = (x_mapped // 7) * 8 + (rb // 7)
                     bitmap[index] |= 1 << (rb % 7)
 
         # Send to display
@@ -447,37 +456,55 @@ class AkaiFire:
         self.close()
 
     def __init__(self, port_name=None):
-
+        """Initialize AKAI Fire controller with improved error handling."""
+        # Thread safety
+        self._lock = threading.RLock()
         self.listening = False
         self.listening_thread = None
 
         self.canvas = Canvas()
         self.look_for_port = port_name or "FL STUDIO FIRE"
-        self.midi_in = rtmidi.MidiIn()
-        self.midi_out = rtmidi.MidiOut()
-        self.input_port_index, self.output_port_index = self._find_ports()
-
-        if self.output_port_index is None or self.input_port_index is None:
-            raise RuntimeError(
-                "Akai Fire MIDI ports not found. Ensure it is connected."
-            )
-
-        self.midi_out.open_port(self.output_port_index)
-        self.midi_in.open_port(self.input_port_index)
-
+        
         # Modifier state
         self._shift_pressed = False
         self._alt_pressed = False
-
-        # Initialize listener collections
+        
+        # Initialize listener collections (thread-safe)
         self.button_listeners = defaultdict(list)
         self.pad_listeners = defaultdict(list)
         self.rotary_listeners = defaultdict(list)
         self.rotary_touch_listeners = defaultdict(list)
-
+        
+        # Performance optimizations
+        self._last_pad_states = {}  # Track pad states to avoid redundant updates
+        self._batch_threshold = 5  # Use batch updates if updating more than this many pads
+        self._cached_messages = {}  # Will be populated after MIDI init
+        
+        # Initialize MIDI ports
+        try:
+            self.midi_in = rtmidi.MidiIn()
+            self.midi_out = rtmidi.MidiOut()
+            self.input_port_index, self.output_port_index = self._find_ports()
+            
+            if self.output_port_index is None or self.input_port_index is None:
+                ports = self.list_midi_ports()
+                raise MIDIConnectionError(
+                    f"AKAI Fire MIDI ports not found. Looking for: '{self.look_for_port}'. "
+                    f"Available ports: {ports}"
+                )
+            
+            self.midi_out.open_port(self.output_port_index)
+            self.midi_in.open_port(self.input_port_index)
+            
+        except Exception as e:
+            raise MIDIConnectionError(f"Failed to initialize MIDI: {e}")
+        
         # Set up modifier key tracking
         self.add_button_listener(self.BUTTON_SHIFT, self._handle_shift)
         self.add_button_listener(self.BUTTON_ALT, self._handle_alt)
+        
+        # Initialize performance caches
+        self._init_performance_caches()
 
     def on_button(self, button_id=None):
         """
@@ -673,13 +700,53 @@ class AkaiFire:
     def is_alt_pressed(self) -> bool:
         """Returns whether the alt key is currently held down"""
         return self._alt_pressed
+    
+    def _init_performance_caches(self):
+        """Initialize performance optimization caches."""
+        # Pre-compute common sysex messages
+        self._cached_messages['clear_pads'] = self._create_sysex_message(
+            [(i, 0, 0, 0) for i in range(64)]
+        )
+        self._cached_messages['all_white'] = self._create_sysex_message(
+            [(i, 127, 127, 127) for i in range(64)]
+        )
+        self._cached_messages['all_red'] = self._create_sysex_message(
+            [(i, 127, 0, 0) for i in range(64)]
+        )
+        self._cached_messages['all_green'] = self._create_sysex_message(
+            [(i, 0, 127, 0) for i in range(64)]
+        )
+        self._cached_messages['all_blue'] = self._create_sysex_message(
+            [(i, 0, 0, 127) for i in range(64)]
+        )
+    
+    @property
+    def shift_pressed(self) -> bool:
+        """Check if shift is currently pressed."""
+        return self._shift_pressed
+
+    @property
+    def alt_pressed(self) -> bool:
+        """Check if alt is currently pressed."""
+        return self._alt_pressed
 
     def start_listening(self):
-        """Start the listening thread."""
-        if not self.listening:
-            self.listening = True
-            self.listening_thread = threading.Thread(target=self._listen, daemon=True)
-            self.listening_thread.start()
+        """Start the event listening thread with proper thread safety."""
+        with self._lock:
+            if not self.listening:
+                self.listening = True
+                self.listening_thread = threading.Thread(target=self._listen, daemon=True)
+                self.listening_thread.start()
+                logger.debug("Started listening thread")
+    
+    def _send_midi_safe(self, message: List[int]) -> bool:
+        """Send MIDI message with error handling."""
+        try:
+            self.midi_out.send_message(message)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send MIDI message {message}: {e}")
+            return False
 
     def _find_ports(self):
         """Find the Akai Fire MIDI input and output ports."""
@@ -707,14 +774,15 @@ class AkaiFire:
         self.midi_in.close_port()
         self.midi_out.close_port()
 
-    def clear_all(self):
-        """Turns off all LEDs, Pads, Buttons and the Screen."""
-        self.clear_all_track_leds()
-        self.clear_all_button_leds()
-        self.clear_all_pads()
+    def clear_all(self) -> bool:
+        """Clear all LEDs and display."""
+        success = True
+        success &= self.clear_all_pads()
+        success &= self.clear_all_button_leds()
+        success &= self.clear_all_track_leds()
+        success &= self.clear_control_bank_leds()
         self.clear_display()
-        self.clear_control_bank_leds()
-        self.close()
+        return success
 
     @staticmethod
     def _create_sysex_message(pad_colors):
@@ -744,133 +812,198 @@ class AkaiFire:
 
         return sysex_header + [length_high, length_low] + payload + [0xF7]
 
-    def set_pad_color(self, index, red, green, blue):
-        """Lights up a single pad with the specified RGB color."""
+    def set_pad_color(self, index: int, red: int, green: int, blue: int) -> bool:
+        """
+        Set pad color with validation.
+        
+        Args:
+            index: Pad index (0-63)
+            red: Red component (0-127)
+            green: Green component (0-127)
+            blue: Blue component (0-127)
+            
+        Returns:
+            bool: True if successful
+        """
         if not (0 <= index <= 63):
-            raise ValueError("Pad index must be between 0 and 63")
-        if not all(0 <= c <= 127 for c in (red, green, blue)):
-            raise ValueError("Color values must be between 0 and 127")
+            logger.warning(f"Invalid pad index: {index}")
+            return False
+        
+        # Clamp color values
+        red = max(0, min(127, red))
+        green = max(0, min(127, green))
+        blue = max(0, min(127, blue))
+        
+        # Check if color actually changed (performance optimization)
+        state_key = f"{index}:{red}:{green}:{blue}"
+        if state_key in self._last_pad_states:
+            return True  # No need to update
+        self._last_pad_states[state_key] = True
 
         sysex_message = self._create_sysex_message([(index, red, green, blue)])
-        self.midi_out.send_message(sysex_message)
+        return self._send_midi_safe(sysex_message)
+    
+    def set_pad_color_fast(self, index: int, red: int, green: int, blue: int) -> bool:
+        """
+        Fast path for setting pad color - assumes valid inputs.
+        
+        Use this when you know inputs are valid (0-63 for index, 0-127 for colors).
+        Skips validation for better performance in tight loops.
+        
+        Args:
+            index: Pad index (0-63) - MUST be valid
+            red: Red component (0-127) - MUST be valid
+            green: Green component (0-127) - MUST be valid
+            blue: Blue component (0-127) - MUST be valid
+            
+        Returns:
+            bool: True if successful
+        """
+        sysex_message = self._create_sysex_message([(index, red, green, blue)])
+        return self._send_midi_safe(sysex_message)
 
-    def set_multiple_pad_colors(self, pad_colors):
-        """Lights up multiple pads with specified colors."""
-        sysex_message = self._create_sysex_message(pad_colors)
-        self.midi_out.send_message(sysex_message)
+    def set_multiple_pad_colors(self, pad_colors: List[Tuple[int, int, int, int]]) -> bool:
+        """
+        Set multiple pad colors efficiently.
+        
+        Args:
+            pad_colors: List of (index, red, green, blue) tuples
+            
+        Returns:
+            bool: True if successful
+        """
+        # Validate and clamp values
+        validated_colors = []
+        for pad_data in pad_colors:
+            if len(pad_data) == 4:
+                index, red, green, blue = pad_data
+                if 0 <= index <= 63:
+                    red = max(0, min(127, red))
+                    green = max(0, min(127, green))
+                    blue = max(0, min(127, blue))
+                    validated_colors.append((index, red, green, blue))
+                else:
+                    logger.warning(f"Invalid pad index: {index}")
+        
+        if validated_colors:
+            sysex_message = self._create_sysex_message(validated_colors)
+            return self._send_midi_safe(sysex_message)
+        return False
 
-    def clear_all_pads(self):
-        """Turns off all pads."""
-        pad_colors = [(i, 0, 0, 0) for i in range(64)]
-        self.set_multiple_pad_colors(pad_colors)
+    def clear_pad(self, index: int) -> bool:
+        """Clear a single pad."""
+        return self.set_pad_color(index, 0, 0, 0)
 
-    def reset_pads(self, red=0, green=0, blue=0):
-        """Resets all pads to a specific color or turns them off."""
+    def clear_all_pads(self) -> bool:
+        """Clear all pads efficiently using cached message."""
+        # Use cached clear message for better performance
+        if hasattr(self, '_cached_messages') and 'clear_pads' in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages['clear_pads'])
+        else:
+            # Fallback to creating message
+            pad_colors = [(i, 0, 0, 0) for i in range(64)]
+            sysex_message = self._create_sysex_message(pad_colors)
+            return self._send_midi_safe(sysex_message)
+
+    def reset_pads(self, red: int = 0, green: int = 0, blue: int = 0) -> bool:
+        """Reset all pads to a specific color."""
         pad_colors = [(i, red, green, blue) for i in range(64)]
-        self.set_multiple_pad_colors(pad_colors)
-
-    def set_button_led(self, button_id, value):
+        return self.set_multiple_pad_colors(pad_colors)
+    
+    def set_all_pads(self, color: Tuple[int, int, int]) -> bool:
         """
-        Sets the LED state for a button.
-        :param button_id: One of the BUTTON_LED_* constants.
-        :param value: One of the LED_* constants (e.g., LED_OFF, LED_HIGH_RED).
+        Set all pads to the same color - optimized version.
+        
+        Args:
+            color: Tuple of (red, green, blue) values (0-127)
+            
+        Returns:
+            bool: True if successful
         """
-        if button_id not in [
-            self.BUTTON_STEP,
-            self.BUTTON_NOTE,
-            self.BUTTON_DRUM,
-            self.BUTTON_PERFORM,
-            self.BUTTON_SHIFT,
-            self.BUTTON_ALT,
-            self.BUTTON_PATTERN,
-            self.BUTTON_PLAY,
-            self.BUTTON_STOP,
-            self.BUTTON_REC,
-            self.BUTTON_BANK,
-            self.BUTTON_BROWSER,
-            self.BUTTON_SOLO_1,
-            self.BUTTON_SOLO_2,
-            self.BUTTON_SOLO_3,
-            self.BUTTON_SOLO_4,
-            self.BUTTON_PAT_UP,
-            self.BUTTON_PAT_DOWN,
-            self.BUTTON_GRID_LEFT,
-            self.BUTTON_GRID_RIGHT,
-        ]:
-            raise ValueError(f"Invalid button ID: {button_id}")
-        if not (0x00 <= value <= 0x04):
-            raise ValueError(f"Invalid LED value ({value})")
+        r, g, b = color
+        # Check for cached common colors
+        if r == 0 and g == 0 and b == 0 and 'clear_pads' in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages['clear_pads'])
+        elif r == 127 and g == 127 and b == 127 and 'all_white' in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages['all_white'])
+        elif r == 127 and g == 0 and b == 0 and 'all_red' in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages['all_red'])
+        elif r == 0 and g == 127 and b == 0 and 'all_green' in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages['all_green'])
+        elif r == 0 and g == 0 and b == 127 and 'all_blue' in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages['all_blue'])
+        else:
+            # Fallback to creating message
+            return self.reset_pads(r, g, b)
 
-        self.midi_out.send_message([0xB0, button_id, value])
+    def set_button_led(self, button_id: int, value: int) -> bool:
+        """Set button LED state with validation."""
+        # Validate button ID
+        valid_buttons = [
+            self.BUTTON_PLAY, self.BUTTON_STOP, self.BUTTON_REC,
+            self.BUTTON_SHIFT, self.BUTTON_ALT, self.BUTTON_STEP,
+            self.BUTTON_NOTE, self.BUTTON_DRUM, self.BUTTON_PERFORM,
+            self.BUTTON_PATTERN, self.BUTTON_BROWSER, self.BUTTON_GRID_LEFT,
+            self.BUTTON_GRID_RIGHT, self.BUTTON_BANK, self.BUTTON_SELECT,
+            self.BUTTON_SOLO_1, self.BUTTON_SOLO_2, self.BUTTON_SOLO_3,
+            self.BUTTON_SOLO_4, self.BUTTON_PAT_UP, self.BUTTON_PAT_DOWN
+        ]
+        
+        if button_id not in valid_buttons:
+            logger.warning(f"Invalid button ID: {button_id}")
+            return False
+        
+        value = max(0, min(2, value))
+        message = [self.CC, button_id, value]
+        return self._send_midi_safe(message)
 
-    def clear_all_button_leds(self):
-        """Turns off all button LEDs."""
+    def clear_all_button_leds(self) -> bool:
+        """Clear all button LEDs."""
+        success = True
         for button_id in [
-            self.BUTTON_STEP,
-            self.BUTTON_NOTE,
-            self.BUTTON_DRUM,
-            self.BUTTON_PERFORM,
-            self.BUTTON_SHIFT,
-            self.BUTTON_ALT,
-            self.BUTTON_PATTERN,
-            self.BUTTON_PLAY,
-            self.BUTTON_STOP,
-            self.BUTTON_REC,
-            self.BUTTON_BANK,
-            self.BUTTON_BROWSER,
-            self.BUTTON_SOLO_1,
-            self.BUTTON_SOLO_2,
-            self.BUTTON_SOLO_3,
-            self.BUTTON_SOLO_4,
-            self.BUTTON_PAT_UP,
-            self.BUTTON_PAT_DOWN,
-            self.BUTTON_GRID_LEFT,
-            self.BUTTON_GRID_RIGHT,
+            self.BUTTON_PLAY, self.BUTTON_STOP, self.BUTTON_REC,
+            self.BUTTON_SHIFT, self.BUTTON_ALT, self.BUTTON_STEP,
+            self.BUTTON_NOTE, self.BUTTON_DRUM, self.BUTTON_PERFORM,
+            self.BUTTON_PATTERN, self.BUTTON_BROWSER, self.BUTTON_GRID_LEFT,
+            self.BUTTON_GRID_RIGHT, self.BUTTON_BANK, self.BUTTON_SELECT,
+            self.BUTTON_SOLO_1, self.BUTTON_SOLO_2, self.BUTTON_SOLO_3,
+            self.BUTTON_SOLO_4, self.BUTTON_PAT_UP, self.BUTTON_PAT_DOWN
         ]:
-            self.set_button_led(button_id, self.LED_OFF)
+            if not self.set_button_led(button_id, 0):
+                success = False
+        return success
 
-    def clear_all_track_leds(self):
-        """Turns off all rectangular track LEDs."""
-        for led_number in range(1, 4):
-            self.clear_track_led(led_number)
+    def clear_all_track_leds(self) -> bool:
+        """Clear all track LEDs."""
+        success = True
+        for i in range(1, 5):
+            if not self.set_track_led(i, 0):
+                success = False
+        return success
 
-    def clear_track_led(self, led_number):
-        """
-        Turns off a rectangular LED.
-        :param led_number: Rectangle LED number (1-4).
-        """
-        self.set_track_led(led_number, self.RECTANGLE_LED_OFF)
+    def clear_track_led(self, track_number: int) -> bool:
+        """Clear a single track LED."""
+        return self.set_track_led(track_number, 0)
 
-    def set_track_led(self, track_number, value):
-        """
-        todo: cleanup naming
-        Turns on/off or sets the color of a rectangular LED. (The narrow LED between the solo buttons and the pads, one for each track lane 1-4)
-        :param track_number: Rectangle LED number (1-4).
-        :param value: Brightness or color value:
-                      - 0: Off
-                      - 1: Dull red
-                      - 2: Dull green
-                      - 3: High red
-                      - 4: High green
-        """
-        if track_number < 1 or track_number > 4:
-            raise ValueError("Rectangle LED number must be between 1 and 4.")
+    def set_track_led(self, track_number: int, value: int) -> bool:
+        """Set track LED (1-4) with validation."""
+        if not (1 <= track_number <= 4):
+            logger.warning(f"Invalid track number: {track_number}")
+            return False
+        
+        cc_map = {1: 0x65, 2: 0x66, 3: 0x67, 4: 0x68}
+        value = max(0, min(2, value))
+        message = [self.CC, cc_map[track_number], value]
+        return self._send_midi_safe(message)
 
-        control_change = 0x28 + (track_number - 1)  # CC 0x28 to 0x2B
-        self.midi_out.send_message([0xB0, control_change, value & 0x7F])
+    def clear_control_bank_leds(self) -> bool:
+        """Clear control bank LEDs."""
+        return self.set_control_bank_leds(0)
 
-    def clear_control_bank_leds(self):
-        """Turns off all control bank LEDs."""
-        self.set_control_bank_leds(self.CONTROL_BANK_ALL_OFF)
-
-    def set_control_bank_leds(self, state):
-        """
-        Sets the state of the control bank LEDs.
-        :param state: One of the CONTROL_BANK_* constants.
-        """
-        if not (0x00 <= state <= 0x1F):
-            raise ValueError("Control bank LED state must be between 0x00 and 0x1F.")
-        self.midi_out.send_message([0xB0, 0x1B, state])
+    def set_control_bank_leds(self, state: int) -> bool:
+        """Set control bank LED state."""
+        message = [self.CC, 0x1B, state & 0x7F]
+        return self._send_midi_safe(message)
 
     def add_rotary_listener(self, rotary_id, callback):
         """
@@ -1099,3 +1232,54 @@ class AkaiFire:
             if message:
                 self._process_message(message)
             time.sleep(0.001)  # 1ms loop interval
+
+
+# Convenience functions for device discovery and auto-selection
+def discover_akai_fire() -> Optional[str]:
+    """
+    Discover connected AKAI Fire device.
+    
+    Returns:
+        str: Port name if found, None otherwise
+    """
+    ports = AkaiFire.list_midi_ports()
+    
+    for port in ports["input"]:
+        if "FIRE" in port.upper():
+            return port
+    
+    return None
+
+
+def get_akai_fire(use_mock: Optional[bool] = None, **kwargs) -> Union[AkaiFire, Any]:
+    """
+    Get AKAI Fire instance (hardware or mock).
+    
+    Args:
+        use_mock: True to force mock, False to force hardware, None to auto-detect
+        **kwargs: Additional arguments passed to constructor
+        
+    Returns:
+        AkaiFire instance or mock instance
+    """
+    if use_mock is True:
+        try:
+            from mock_gui_pygame import MockAkaiFire
+            return MockAkaiFire(**kwargs)
+        except ImportError:
+            logger.error("Mock GUI not available")
+            raise
+    elif use_mock is False:
+        return AkaiFire(**kwargs)
+    else:
+        # Auto-detect
+        try:
+            return AkaiFire(**kwargs)
+        except (MIDIConnectionError, Exception) as e:
+            logger.info(f"Hardware not available ({e}), trying mock...")
+            try:
+                from mock_gui_pygame import MockAkaiFire
+                return MockAkaiFire(**kwargs)
+            except ImportError:
+                logger.error("Neither hardware nor mock available")
+                raise

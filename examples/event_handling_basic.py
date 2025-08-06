@@ -1,9 +1,15 @@
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 import time
 
 
 def main():
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+    fire = get_akai_fire()
 
     # # Global button listener
     # @fire.on_button()
@@ -87,6 +93,14 @@ def main():
     try:
         while True:
             time.sleep(1)
+
+            # Handle mock GUI events if using mock
+
+            if hasattr(fire, "process_events"):
+
+                if not fire.process_events():
+
+                    break
 
     except KeyboardInterrupt:
         print("Exiting...")

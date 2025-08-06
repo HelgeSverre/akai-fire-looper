@@ -1,7 +1,11 @@
 import os
 import time
 from enum import Enum
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 class DemoMode(Enum):
@@ -13,7 +17,8 @@ class DemoMode(Enum):
 
 class FireDemo:
     def __init__(self):
-        self.fire = AkaiFire()
+        # Initialize controller (auto-detects hardware or falls back to mock GUI)
+        self.fire = get_akai_fire()
         self.canvas = self.fire.get_canvas()
 
         self.mode = DemoMode.PAINT
@@ -88,13 +93,15 @@ class FireDemo:
                 self.draw_screen()
             elif self.mode == DemoMode.MIXER:
                 # In mixer mode, adjust current track volume
+                # Limit velocity to prevent too rapid changes that cause visual glitches
+                clamped_velocity = min(velocity, 8)
                 if direction == "clockwise":
                     self.track_volumes[self.current_track] = min(
-                        127, self.track_volumes[self.current_track] + velocity
+                        127, self.track_volumes[self.current_track] + clamped_velocity
                     )
                 else:
                     self.track_volumes[self.current_track] = max(
-                        0, self.track_volumes[self.current_track] - velocity
+                        0, self.track_volumes[self.current_track] - clamped_velocity
                     )
                 self._update_mixer_display()
 
@@ -220,11 +227,23 @@ class FireDemo:
         # Update pad visualization
         for i in range(4):
             volume = self.track_volumes[i]
-            num_lit = int((volume / 127) * 16)  # Scale to 16 pads
+            # More precise calculation to avoid rounding issues
+            num_lit = round((volume / 127.0) * 16)
+            # Ensure num_lit is within bounds
+            num_lit = max(0, min(16, num_lit))
+            
             for j in range(16):
                 pad_index = i * 16 + j
                 if j < num_lit:
-                    self.fire.set_pad_color(pad_index, *self.track_colors[i])
+                    # Scale brightness based on how close to the edge
+                    if j == num_lit - 1 and volume < 127:
+                        # Dim the last pad for smoother transitions
+                        fraction = ((volume / 127.0) * 16) - (num_lit - 1)
+                        r, g, b = self.track_colors[i]
+                        r, g, b = int(r * fraction), int(g * fraction), int(b * fraction)
+                        self.fire.set_pad_color(pad_index, r, g, b)
+                    else:
+                        self.fire.set_pad_color(pad_index, *self.track_colors[i])
                 else:
                     self.fire.set_pad_color(pad_index, 0, 0, 0)
 
@@ -268,7 +287,12 @@ class FireDemo:
         elif self.mode == DemoMode.MIXER:
             vol = self.track_volumes[self.current_track]
             self.canvas.draw_text(f"Track {self.current_track +1} Volume: {vol}", 2, 15)
-            self.canvas.fill_rect(0, 32, self.canvas.WIDTH * (vol / 127), 4, color=0)
+            # Draw volume bar with proper bounds checking
+            bar_width = int(self.canvas.WIDTH * (vol / 127.0))
+            if bar_width > 0:
+                self.canvas.fill_rect(0, 32, bar_width, 4, color=0)
+            # Draw empty bar outline
+            self.canvas.draw_rect(0, 32, self.canvas.WIDTH - 1, 4, color=0)
             self.canvas.draw_text("Select track & adjust vol", 2, 39)
 
         self.fire.render_to_display()
@@ -290,6 +314,10 @@ class FireDemo:
             print("Modes: STEP=Paint, NOTE=Piano, DRUM=Steps, PERFORM=Mixer")
             while True:
                 time.sleep(0.1)
+                # Handle mock GUI events if using mock
+                if hasattr(self.fire, "process_events"):
+                    if not self.fire.process_events():
+                        break
 
         except KeyboardInterrupt:
             print("\nShutting down...")

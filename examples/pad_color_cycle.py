@@ -14,7 +14,11 @@ Key Features:
 
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 def main():
@@ -24,7 +28,9 @@ def main():
     and ensures proper cleanup on exit.
     """
     # Initialize the AKAI Fire controller
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+    fire = get_akai_fire()
 
     # Clear any existing pad colors
     fire.clear_all_pads()

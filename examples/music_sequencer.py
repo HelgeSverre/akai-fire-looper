@@ -4,7 +4,11 @@ from dataclasses import dataclass, field
 from typing import List
 import time
 import rtmidi
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 class PlayState(Enum):
@@ -96,7 +100,7 @@ class SequencerApp:
             transitions=SequencerApp.transitions,
             initial="idle",
         )
-        self.fire = AkaiFire()
+        self.fire = get_akai_fire()
         self.play_state = PlayState.STOPPED
         self.screen_mode = ScreenMode.MAIN
 
@@ -230,6 +234,12 @@ if __name__ == "__main__":
     try:
         while True:
             time.sleep(0.1)
+
+            # Handle mock GUI events if using mock
+
+            if hasattr(app.fire, "process_events"):
+                if not app.fire.process_events():
+                    break
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:

@@ -1,6 +1,10 @@
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 def create_color_batch(r, g, b):
@@ -9,7 +13,9 @@ def create_color_batch(r, g, b):
 
 
 if __name__ == "__main__":
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+    fire = get_akai_fire()
     fire.clear_all_pads()
 
     try:

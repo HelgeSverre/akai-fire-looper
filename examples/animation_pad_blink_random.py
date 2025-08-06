@@ -14,7 +14,11 @@ Key Features:
 
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 def main():
@@ -24,7 +28,9 @@ def main():
     Features dynamic wave-like animations on the pads and reversing button LED cycling.
     """
     # Initialize the AKAI Fire controller
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+    fire = get_akai_fire()
 
     # LED states for BUTTON_* LEDs
     button_led_states = [
@@ -92,6 +98,14 @@ def main():
 
             # Brief delay for smoother animation
             time.sleep(0.1)
+
+            # Handle mock GUI events if using mock
+
+            if hasattr(fire, "process_events"):
+
+                if not fire.process_events():
+
+                    break
             frame += 1
 
     except KeyboardInterrupt:

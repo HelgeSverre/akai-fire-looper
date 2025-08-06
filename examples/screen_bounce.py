@@ -14,9 +14,16 @@ Key Features:
 
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-fire = AkaiFire()
+from akai_fire import get_akai_fire
+
+# Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+
+fire = get_akai_fire()
 canvas = fire.get_canvas()
 
 

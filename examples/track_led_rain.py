@@ -1,6 +1,10 @@
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire, AkaiFire
 
 
 def animate_track_pads(fire, track_number, color_type="red"):
@@ -43,7 +47,10 @@ def animate_track_pads(fire, track_number, color_type="red"):
 
 if __name__ == "__main__":
 
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+
+    fire = get_akai_fire()
 
     try:
         print("Starting AKAI Fire demo sequence...")

@@ -22,12 +22,18 @@ The script will run 4 rounds of animations, alternating between:
 
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire, AkaiFire
 
 
 def main():
     # Initialize the AKAI Fire controller
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+    fire = get_akai_fire()
 
     # Run 4 rounds of animations
     for round in range(4):

@@ -20,7 +20,11 @@ The script will:
 
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire, AkaiFire
 
 
 def main():
@@ -28,7 +32,9 @@ def main():
     Main function to demonstrate control bank LED management.
     """
     # Initialize the AKAI Fire controller
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+    fire = get_akai_fire()
 
     # === Predefined Constants ===
     print("=== Using Predefined Constants ===")

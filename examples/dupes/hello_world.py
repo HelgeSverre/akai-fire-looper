@@ -1,10 +1,14 @@
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 if __name__ == "__main__":
-    # Initialize the AKAI Fire controller
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+    fire = get_akai_fire()
 
     # Clear any existing pad colors
     fire.clear_all_pads()
@@ -19,6 +23,10 @@ if __name__ == "__main__":
 
                         # Brief delay before the next color
                         time.sleep(0.2)
+                        # Handle mock GUI events if using mock
+                        if hasattr(fire, "process_events"):
+                            if not fire.process_events():
+                                break
     except KeyboardInterrupt:
         # Reset pads when exiting
         fire.clear_all_pads()

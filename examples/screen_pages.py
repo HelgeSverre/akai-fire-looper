@@ -1,7 +1,11 @@
 import os
 import time
 from enum import Enum, auto
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 class ScreenDemo(Enum):
@@ -14,7 +18,7 @@ class ScreenDemo(Enum):
 
 class ScreenLayoutDemo:
     def __init__(self):
-        self.fire = AkaiFire()
+        self.fire = get_akai_fire()
         self.canvas = self.fire.get_canvas()
         self.current_screen = ScreenDemo.BASIC_PAGE
         self.setup_handlers()
@@ -150,6 +154,9 @@ class ScreenLayoutDemo:
 
             # Keep running until interrupted
             while True:
+                if hasattr(self.fire, "process_events"):
+                    if not self.fire.process_events():
+                        break
                 time.sleep(0.1)
 
         except KeyboardInterrupt:

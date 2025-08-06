@@ -1,6 +1,10 @@
 import time
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 """
 Clears the screen, all pads and the button LEDs on the AKAI Fire.
@@ -8,7 +12,9 @@ Clears the screen, all pads and the button LEDs on the AKAI Fire.
 
 
 def main():
-    fire = AkaiFire()
+    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+
+    fire = get_akai_fire()
 
     print("Clearing all pads...")
     time.sleep(0.1)

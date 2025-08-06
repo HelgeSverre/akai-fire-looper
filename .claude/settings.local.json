@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(source:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(pip install:*)",
+      "Bash(./venv/bin/python:*)",
+      "Bash(./venv/bin/pip list)",
+      "Bash(./venv/bin/pip uninstall python-rtmidi -y)",
+      "Bash(./venv/bin/pip install python-rtmidi)",
+      "Bash(../venv/bin/python:*)",
+      "Bash(/Users/helge/code/akai-fire-looper/venv/bin/python -c \"import sys; print(''\\n''.join(sys.path))\")",
+      "Bash(/Users/helge/code/akai-fire-looper/venv/bin/python --version)",
+      "Bash(git log:*)"
+    ],
+    "deny": []
+  }
+}

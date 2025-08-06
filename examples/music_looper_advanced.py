@@ -6,7 +6,11 @@ from typing import List, Optional, Tuple, Dict
 # noinspection PyPackageRequirements
 import rtmidi
 
-from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import get_akai_fire
 
 
 class ScreenMode(Enum):
@@ -66,7 +70,7 @@ class MidiLooper:
         self.selected_clip: Optional[Tuple[int, int]] = None  # (track, loop)
 
         # Initialize hardware
-        self.fire = AkaiFire()
+        self.fire = get_akai_fire()
         self.canvas = self.fire.get_canvas()
 
         # MIDI setup
@@ -925,6 +929,9 @@ class MidiLooper:
         print("Starting MIDI Looper...")
         try:
             while True:
+                if hasattr(self.fire, "process_events"):
+                    if not self.fire.process_events():
+                        break
                 self._process_midi()
                 time.sleep(0.001)  # 1ms loop interval
         except KeyboardInterrupt:

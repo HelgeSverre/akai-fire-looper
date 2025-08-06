@@ -42,13 +42,45 @@ By default, the library looks for a device named "FL STUDIO FIRE". You can custo
 differently:
 
 ```python
-# Defaults to "AKAI FIRE"
+# Defaults to "FL STUDIO FIRE"
 fire = AkaiFire(port_name="MIDI Port name here")
 
 canvas = fire.get_canvas()
 canvas.draw_text("Hello world", 10, 20)
 
 fire.render_to_display()
+```
+
+### Using the Mock GUI (No Hardware Required)
+
+The library includes a Pygame-based mock GUI that simulates the AKAI Fire hardware visually. This allows you to develop and test without the physical device:
+
+```python
+from mock_gui_pygame import MockAkaiFire
+
+# Create mock controller
+fire = MockAkaiFire()
+
+# Use exactly the same API as real hardware
+fire.set_pad_color(0, 127, 0, 0)  # Red pad
+canvas = fire.get_canvas()
+canvas.draw_text("Mock Mode", 10, 10)
+fire.render_to_display()
+```
+
+For scripts that should work with both hardware and mock, use this pattern:
+
+```python
+try:
+    from akai_fire import AkaiFire
+    fire = AkaiFire()
+    print("Connected to real hardware")
+except:
+    from mock_gui_pygame import MockAkaiFire
+    fire = MockAkaiFire()
+    print("Using mock GUI")
+
+# Your code works identically with both
 ```
 
 ### Basic Device Control
@@ -334,6 +366,38 @@ source venv/bin/activate
 # Install the requirements
 pip install -r requirements.txt
 ```
+
+### Mock GUI Requirements
+
+The Pygame mock GUI requires pygame to be installed. Install it in your virtual environment:
+
+```shell
+# Make sure your virtual environment is activated first
+source venv/bin/activate  # or source .venv/bin/activate
+
+# Install pygame
+pip install pygame
+
+# Or install all requirements including pygame
+pip install -r requirements.txt
+```
+
+**macOS Note**: On macOS, the Pygame GUI must run on the main thread. The examples handle this correctly.
+
+The mock GUI provides:
+- Visual representation of all 64 RGB pads
+- Working OLED display with green phosphor simulation
+- All buttons with LED feedback
+- 5 rotary encoders with mouse control
+- Track LEDs and control bank LEDs
+- Full API compatibility with the hardware library
+
+### Mock GUI Controls
+- **Click pads** to trigger press events
+- **Click and drag rotary encoders** to turn them
+- **Click buttons** to press them
+- All visual feedback updates in real-time
+- Close the window to exit
 
 ## Code Formatting
 

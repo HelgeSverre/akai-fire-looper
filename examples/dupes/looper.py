@@ -4,7 +4,11 @@
 #
 # import rtmidi
 #
-# from akai_fire import AkaiFire
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# from akai_fire import get_akai_fire
 #
 #
 # @dataclass
@@ -433,7 +437,7 @@ from typing import List, Optional, Tuple
 
 import rtmidi
 
-from akai_fire import AkaiFire
+from akai_fire import get_akai_fire
 
 
 @dataclass
@@ -482,8 +486,8 @@ class MidiLooper:
         self._update_timing_params()
 
         # Initialize Fire controller
-        self.fire = AkaiFire()
-        self.canvas = Canvas()
+        self.fire = get_akai_fire()
+        self.canvas = self.fire.get_canvas()
 
         # Setup MIDI
         self.midi_in = rtmidi.MidiIn()
@@ -500,6 +504,11 @@ class MidiLooper:
         self.recording_clip = None  # Currently recording clip index
 
         print("Initialization complete")
+    
+    def _update_timing_params(self):
+        """Update timing parameters based on BPM."""
+        self.beat_duration = 60.0 / self.bpm
+        self.bar_duration = self.beat_duration * 4  # 4 beats per bar
 
     def _setup_midi(self):
         """Setup MIDI connections."""
@@ -575,6 +584,33 @@ class MidiLooper:
             self.midi_in.open_port(self.selected_midi_input)
             print(f"Selected MIDI input: {self.midi_inputs[self.selected_midi_input]}")
             self._update_display()
+    
+    def _handle_rec(self, button_id: int, event: str):
+        """Handle record button press."""
+        if event == "press" and self.recording_clip is not None:
+            self._stop_recording(self.recording_clip)
+            
+    def _handle_stop(self, button_id: int, event: str):
+        """Handle stop button press."""
+        if event == "press":
+            for clip_idx, clip in self.clips.items():
+                clip.is_playing = False
+                if clip.is_recording:
+                    self._stop_recording(clip_idx)
+            print("Stopped all clips")
+            
+    def _handle_bpm(self, encoder_id: int, direction: str, velocity: int):
+        """Handle BPM adjustment via volume encoder."""
+        if direction == "clockwise":
+            self.bpm = min(300, self.bpm + velocity)
+        else:
+            self.bpm = max(30, self.bpm - velocity)
+        self._update_timing_params()
+        print(f"BPM: {self.bpm}")
+    
+    def _init_display(self):
+        """Initialize the display."""
+        self._update_display()
 
     def _update_display(self):
         """Update display to show selected MIDI input."""
@@ -595,6 +631,9 @@ class MidiLooper:
         print("Starting looper...")
         try:
             while True:
+                if hasattr(self.fire, "process_events"):
+                    if not self.fire.process_events():
+                        break
                 self._process_midi()
                 time.sleep(0.01)
         except KeyboardInterrupt:
