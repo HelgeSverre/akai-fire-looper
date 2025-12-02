@@ -8,41 +8,62 @@ This is a Python library for interfacing with the AKAI Fire MIDI controller, des
 
 ## Development Commands
 
-This project uses `uv` for Python environment and dependency management.
+This project uses `uv` for Python environment and dependency management, and `just` for common development tasks.
 
 ### Setup Environment
 ```bash
+# Quick setup with just
+just setup
+
+# Manual setup with uv
 uv venv  # Creates .venv directory
 source .venv/bin/activate  # macOS/Linux
 uv pip install -r requirements.txt  # Install from requirements.txt
-# OR
-uv pip sync  # Install from uv.lock for exact reproducibility
 ```
 
 ### Running Tests
 ```bash
-uv run python -m unittest discover tests  # Run all tests
-uv run python -m unittest tests.test_akai_fire  # Run specific test
-uv run python -m unittest discover -v tests  # Verbose output
+just test  # Run all tests
+just test-hardware  # Run tests with comprehensive hardware report
+just test-file tests.test_canvas  # Run specific test file
+
+# Manual with uv
+uv run python -m unittest discover tests -v
 ```
 
 ### Code Formatting
 ```bash
-uv run black .  # Format all Python files
+just format  # Format all Python files
+just format-check  # Check formatting without changes
+
+# Manual with uv
+uv run black .
 ```
 
 ### Running Examples
 ```bash
-uv run python examples/hello_world.py  # Basic example
-uv run python examples/screen_simple.py  # Screen rendering example
-uv run python examples/groovebox/main.py  # Full groovebox application
+just example display_hello_world  # Run specific example
+just examples  # List all available examples
+
+# Manual with uv
+uv run python examples/display_hello_world.py
 ```
 
 ### Managing Dependencies
 ```bash
-uv pip install package-name  # Add new dependency
-uv pip freeze > requirements.txt  # Update requirements.txt
-uv pip sync  # Sync environment with uv.lock
+just install  # Install dependencies
+just freeze  # Update requirements.txt with current packages
+
+# Manual with uv
+uv pip install -r requirements.txt
+uv pip freeze > requirements.txt
+```
+
+### All Available Commands
+```bash
+just  # Show all available commands
+just status  # Show project status
+just clean  # Clean up generated files
 ```
 
 ## Architecture Overview
@@ -60,18 +81,26 @@ uv pip sync  # Sync environment with uv.lock
    - Drawing primitives (pixels, lines, rectangles, circles, text)
    - BMP export for development without hardware
 
-3. **Event System**: Callback-based architecture
-   - `on_pad_press/release(pad_idx, velocity)`
-   - `on_button_press/release(button_idx)`  
-   - `on_encoder_turn(direction)` and `on_encoder_touch/release()`
-   - Register handlers with `@fire.on_event` decorators or `add_listener()`
+3. **MockAkaiFire Class** (`mock_gui_pygame.py`): Pygame-based hardware simulator
+   - Full visual simulation of the AKAI Fire
+   - Same API as AkaiFire for seamless development
+   - Auto-fallback via `get_akai_fire()` when hardware unavailable
+
+4. **ScreenManager** (`screen_manager.py`): High-level screen management
+   - Pre-built screen types: TextScreen, MenuScreen, ProgressScreen, GridScreen, ValueScreen
+   - Screen transitions and lifecycle management
+
+5. **Event System**: Callback-based architecture
+   - Decorator-based: `@fire.on_pad()`, `@fire.on_button()`, `@fire.on_rotary_turn()`
+   - Listener-based: `add_listener()`, `add_button_listener()`, `add_rotary_listener()`
 
 ### Key Design Patterns
 
 - **Hardware Abstraction**: All hardware communication goes through MIDI messages
 - **Canvas Pattern**: Screen updates use a canvas abstraction that can render to hardware or BMP files
 - **Event-Driven**: All user interactions are handled through event callbacks
-- **Mock Support**: Can run without hardware using `mock_gui.py` or BMP screen output
+- **Mock Support**: Can run without hardware using `mock_gui_pygame.py` or BMP screen output
+- **Auto-Detection**: `get_akai_fire()` automatically falls back to mock when hardware unavailable
 
 ### Important Constants
 
@@ -83,11 +112,11 @@ uv pip sync  # Sync environment with uv.lock
 ## Testing Approach
 
 Tests use Python's built-in `unittest` framework with mocked MIDI ports. The test suite includes:
-- Hardware communication tests with mocked MIDI
-- Canvas drawing operations
-- Event handling verification
+- Hardware communication tests with mocked MIDI (`test_akai_fire.py`)
+- Canvas drawing operations (`test_canvas.py`)
+- Screen manager and screen types (`test_screen_manager.py`)
 
-When adding features, ensure tests mock the MIDI ports to avoid hardware dependencies.
+When adding features, ensure tests mock the MIDI ports to avoid hardware dependencies. Use `@patch("rtmidi.MidiIn")` and `@patch("rtmidi.MidiOut")` decorators.
 
 ## Common Development Tasks
 
@@ -98,9 +127,10 @@ When adding features, ensure tests mock the MIDI ports to avoid hardware depende
 
 ### Creating New Examples
 1. Place in `examples/` directory
-2. Import and instantiate `AkaiFire`
-3. Use event decorators or listeners for user input
-4. Update screen using Canvas operations
+2. Use `get_akai_fire()` for auto-detection of hardware/mock
+3. Use context manager pattern: `with get_akai_fire() as fire:`
+4. Use event decorators or listeners for user input
+5. Update screen using Canvas operations
 
 ### Working with the Groovebox Example
 The `examples/groovebox/` directory contains a complete sequencer application demonstrating:
@@ -109,19 +139,11 @@ The `examples/groovebox/` directory contains a complete sequencer application de
 - Settings management
 - Complex event handling
 
-## Dependencies Note
+## Dependencies
 
-The `requirements.txt` file may have encoding issues. Core dependencies are:
+Core dependencies (see `requirements.txt`):
 - `python-rtmidi==1.5.8` - MIDI communication
-- `pillow~=11.1.0` - Image manipulation
+- `pillow~=11.1.0` - Image manipulation for Canvas
+- `pygame==2.6.1` - Mock GUI rendering
 - `black==25.1.0` - Code formatting
-- `transitions~=0.9.2` - State machines
-- `tkdial~=0.0.7` - GUI widgets for mock
-
-## Project Documentation
-
-Additional documentation can be found in the `docs/` directory:
-- `IMPLEMENTATION_ROADMAP.md` - Current development priorities and plans
-- `IMPROVEMENTS.md` - Detailed list of suggested improvements
-- `CHANGELOG.md` - Version history and completed features
-- `performance_improvements.md` - Performance optimization details
+- `transitions~=0.9.2` - State machines (used in examples)

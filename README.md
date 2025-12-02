@@ -1,4 +1,4 @@
-# 🔥 AKAI Fire - Python Library
+# AKAI Fire - Python Library
 
 Python library to interact with the AKAI Fire controller, a MIDI controller for FL Studio.
 
@@ -8,30 +8,24 @@ Here is a simple example that makes all the pads blink in various colors. Use th
 library and device are working:
 
 ```python
-from akai_fire import AkaiFire
+from akai_fire import get_akai_fire
 import time
 
 if __name__ == "__main__":
-    # Initialize the AKAI Fire controller
-    fire = AkaiFire(port_name="FL STUDIO FIRE")
-
-    # Clear any existing pad colors
-    fire.clear_all_pads()
-
-    try:
-        while True:
-            for r in range(4):  # Red intensity (0-3)
-                for g in range(4):  # Green intensity (0-3)
-                    for b in range(4):  # Blue intensity (0-3)
-                        for pad in range(64):  # Loop through all 64 pads
-                            fire.set_pad_color(pad, r, g, b)
-
-                        # Brief delay before the next color
-                        time.sleep(0.1)
-    except KeyboardInterrupt:
-        # Reset pads when exiting
+    # Initialize the AKAI Fire controller (auto-detects hardware or falls back to mock GUI)
+    with get_akai_fire() as fire:
         fire.clear_all_pads()
-        fire.close()
+
+        try:
+            while True:
+                for r in range(4):  # Red intensity (0-3)
+                    for g in range(4):  # Green intensity (0-3)
+                        for b in range(4):  # Blue intensity (0-3)
+                            for pad in range(64):  # Loop through all 64 pads
+                                fire.set_pad_color(pad, r * 42, g * 42, b * 42)
+                            time.sleep(0.1)
+        except KeyboardInterrupt:
+            pass  # Context manager handles cleanup
 ```
 
 ## Usage Guide
@@ -42,6 +36,8 @@ By default, the library looks for a device named "FL STUDIO FIRE". You can custo
 differently:
 
 ```python
+from akai_fire import AkaiFire
+
 # Defaults to "FL STUDIO FIRE"
 fire = AkaiFire(port_name="MIDI Port name here")
 
@@ -49,6 +45,7 @@ canvas = fire.get_canvas()
 canvas.draw_text("Hello world", 10, 20)
 
 fire.render_to_display()
+fire.close()
 ```
 
 ### Using the Mock GUI (No Hardware Required)
@@ -68,133 +65,102 @@ canvas.draw_text("Mock Mode", 10, 10)
 fire.render_to_display()
 ```
 
-For scripts that should work with both hardware and mock, use this pattern:
+### Auto-Detection (Recommended)
+
+For scripts that should work with both hardware and mock, use `get_akai_fire()`:
 
 ```python
-try:
-    from akai_fire import AkaiFire
-    fire = AkaiFire()
-    print("Connected to real hardware")
-except:
-    from mock_gui_pygame import MockAkaiFire
-    fire = MockAkaiFire()
-    print("Using mock GUI")
+from akai_fire import get_akai_fire
 
-# Your code works identically with both
+# Auto-detects: uses hardware if available, falls back to mock GUI
+with get_akai_fire() as fire:
+    fire.set_pad_color(0, 127, 0, 0)
+    canvas = fire.get_canvas()
+    canvas.draw_text("Works everywhere!", 10, 10)
+    fire.render_to_display()
 ```
 
 ### Basic Device Control
 
 ```python
-from akai_fire import AkaiFire
+from akai_fire import get_akai_fire
 
-# Initialize connection
-fire = AkaiFire()
+with get_akai_fire() as fire:
+    # Control pads
+    fire.set_pad_color(0, 127, 0, 0)  # Set first pad to bright red
+    fire.clear_all_pads()  # Turn off all pads
 
-# Control pads
-fire.set_pad_color(0, 127, 0, 0)  # Set first pad to bright red
-fire.clear_all_pads()  # Turn off all pads
-
-# Control buttons
-fire.set_button_led(AkaiFire.BUTTON_PLAY, AkaiFire.LED_HIGH_GREEN)
-fire.clear_all_button_leds()
-
-# Clean up when done
-fire.close()
+    # Control buttons
+    fire.set_button_led(fire.BUTTON_PLAY, fire.LED_HIGH_GREEN)
+    fire.clear_all_button_leds()
 ```
 
 ### Event Handling
 
 ```python
-from akai_fire import AkaiFire
+from akai_fire import get_akai_fire
 
-fire = AkaiFire()
+with get_akai_fire() as fire:
+    # Handle pad presses with decorators
+    @fire.on_pad()
+    def on_any_pad(pad_index, velocity):
+        print(f"Pad {pad_index} pressed with velocity {velocity}")
+        fire.set_pad_color(pad_index, 127, 0, 0)
 
+    # Handle specific button
+    @fire.on_button(fire.BUTTON_PLAY)
+    def on_play(event):
+        print(f"Play button {event}")
+        if event == "press":
+            fire.set_button_led(fire.BUTTON_PLAY, fire.LED_HIGH_GREEN)
+        else:
+            fire.set_button_led(fire.BUTTON_PLAY, fire.LED_OFF)
 
-# Handle pad presses
-def on_pad_press(pad_index):
-    print(f"Pad {pad_index} pressed")
-    fire.set_pad_color(pad_index, 127, 0, 0)  # Light up pressed pad
+    # Handle rotary encoder
+    @fire.on_rotary_turn(fire.ROTARY_VOLUME)
+    def on_volume(direction, velocity):
+        print(f"Volume turned {direction} with velocity {velocity}")
 
-
-fire.add_global_listener(on_pad_press)
-
-
-# Handle button events
-def on_button_event(button_id, event):
-    print(f"Button {button_id} {event}")
-    if event == "press":
-        fire.set_button_led(button_id, AkaiFire.LED_HIGH_RED)
-    else:
-        fire.set_button_led(button_id, AkaiFire.LED_OFF)
-
-
-fire.add_button_listener(AkaiFire.BUTTON_PLAY, on_button_event)
-
-
-# Handle rotary events
-def on_rotary_turn(rotary_id, direction, velocity):
-    print(f"Rotary {rotary_id} turned {direction} with velocity {velocity}")
-
-
-fire.add_rotary_listener(AkaiFire.ROTARY_VOLUME, on_rotary_turn)
-
-# Keep the script running
-try:
+    # Keep running
     input("Press Enter to exit...\n")
-finally:
-    fire.close()
 ```
 
-### Screen Control and Emulation
+### Screen Control
 
-The library now uses a simplified Canvas approach to control the OLED screen.
-
-1. **Direct device control:**
+The library uses a Canvas approach to control the 128x64 OLED screen:
 
 ```python
-from akai_fire import AkaiFire
+from akai_fire import get_akai_fire
 
-fire = AkaiFire()
-canvas = fire.new_canvas()
+with get_akai_fire() as fire:
+    canvas = fire.get_canvas()
 
-# Draw something on the canvas
-canvas.draw_rectangle(0, 0, 128, 64)
-canvas.draw_circle(64, 32, 20)
-canvas.draw_text("Hello, World!", 10, 10)
+    # Drawing operations
+    canvas.clear()
+    canvas.draw_text("Hello Fire", 20, 20)
+    canvas.draw_rect(0, 0, 128, 64)
+    canvas.fill_rect(10, 10, 20, 20)
+    canvas.draw_circle(64, 32, 15)
+    canvas.set_pixel(64, 32, 0)
 
-# Send to device
-fire.render_to_display()
+    # Render to device/mock
+    fire.render_to_display()
 ```
 
-2. **Development without device (Screen Emulation):**
+For development without a device, save the screen content to BMP files:
 
 ```python
-from akai_fire import AkaiFire
 import os
+from akai_fire import AkaiFire
 
 fire = AkaiFire()
 canvas = fire.new_canvas()
+canvas.draw_text("Test Screen", 10, 10)
 
-# Draw on the canvas
-canvas.draw_text("Testing without device", 10, 10)
-canvas.draw_rect(0, 0, 128, 64)
-canvas.fill_rect(10, 10, 20, 20)
-
-# Save as BMP file
+# Save as BMP
 os.makedirs("_screens", exist_ok=True)
 fire.render_to_bmp(os.path.join("_screens", "test_screen.bmp"))
 ```
-
-The simplified Canvas approach is particularly useful for:
-
-- Developing without physical hardware
-- Debugging screen layouts
-- Creating documentation
-- Testing screen designs
-- Sharing screen layouts with others
-
-Generated BMP files will be saved in the specified output directory (defaults to "_screens").
 
 ## API Reference
 
@@ -206,7 +172,13 @@ OLED screen.
 #### Initialization
 
 ```python
+from akai_fire import AkaiFire, get_akai_fire
+
+# Direct connection (requires hardware)
 fire = AkaiFire(port_name="FL STUDIO FIRE")
+
+# Auto-detect with mock fallback (recommended)
+fire = get_akai_fire()
 ```
 
 #### Pad Control
@@ -214,7 +186,7 @@ fire = AkaiFire(port_name="FL STUDIO FIRE")
 - `clear_all_pads()` - Turns off all pad colors
 - `set_pad_color(index, red, green, blue)` - Sets the color of a specific pad (0-63)
 - `set_multiple_pad_colors(pad_colors)` - Sets colors for multiple pads with a list of (index, red, green, blue) tuples
-- `reset_pads(red=0, green=0, blue=0)` - Resets all pads to a specific color
+- `set_all_pads((red, green, blue))` - Sets all pads to the same color
 
 #### Button and LED Control
 
@@ -225,46 +197,35 @@ fire = AkaiFire(port_name="FL STUDIO FIRE")
 - `clear_all_track_leds()` - Turns off all track LEDs
 - `clear_control_bank_leds()` - Turns off all control bank LEDs
 
-#### Input Event Listeners
+#### Event Decorators
 
-- `add_button_listener(button_id, callback)` - Listen for button press/release events
-- `add_global_listener(callback)` - Listen for all pad press events
-- `add_listener(pad_indices, callback)` - Listen for specific pad press events
-- `add_rotary_listener(rotary_id, callback)` - Listen for rotary encoder turns
-- `add_rotary_touch_listener(rotary_id, callback)` - Listen for rotary encoder touch events
+- `@fire.on_pad(pad_index)` - Listen for specific pad press events
+- `@fire.on_pad()` - Listen for all pad press events (receives pad_index, velocity)
+- `@fire.on_button(button_id)` - Listen for button press/release events
+- `@fire.on_rotary_turn(rotary_id)` - Listen for rotary encoder turns
+- `@fire.on_rotary_touch(rotary_id)` - Listen for rotary encoder touch events
+- `@fire.on_solo(solo_number)` - Listen for solo button events (1-4)
 
 #### Screen Control
 
-The AKAI Fire has a 128x64 OLED display controlled using the simplified Canvas approach:
-
 ```python
-from akai_fire import AkaiFire
+canvas = fire.get_canvas()  # Get current canvas
+canvas = fire.new_canvas()  # Create fresh canvas
 
-fire = AkaiFire()
-canvas = fire.new_canvas()
+# Drawing methods
+canvas.clear()
+canvas.draw_text("text", x, y)
+canvas.draw_rect(x, y, width, height)
+canvas.fill_rect(x, y, width, height)
+canvas.draw_circle(x, y, radius)
+canvas.fill_circle(x, y, radius)
+canvas.draw_line(x1, y1, x2, y2)
+canvas.set_pixel(x, y, color)
+canvas.draw_border(thickness=1)
 
-# Drawing
-canvas.draw_text("Hello Fire", 20, 20)
-canvas.draw_rect(0, 0, 128, 64)
-canvas.fill_rect(10, 10, 20, 20)
-canvas.set_pixel(64, 32, 0)
-
-# Render to device
-fire.render_to_display()
-```
-
-For development without a physical device, save the screen content to BMP files:
-
-```python
-import os
-
-fire = AkaiFire()
-canvas = fire.new_canvas()
-canvas.draw_text("Test Screen", 10, 10)
-
-# Save as BMP
-os.makedirs("_screens", exist_ok=True)
-fire.render_to_bmp(os.path.join("_screens", "test_screen.bmp"))
+# Render
+fire.render_to_display()  # Send to device
+fire.render_to_bmp("file.bmp")  # Save to file
 ```
 
 #### General Methods
@@ -274,8 +235,6 @@ fire.render_to_bmp(os.path.join("_screens", "test_screen.bmp"))
 
 ### Constants
 
-The library provides several constants for working with the device:
-
 #### LED Values
 
 ```python
@@ -284,8 +243,23 @@ LED_DULL_RED = 0x01
 LED_HIGH_RED = 0x02
 LED_DULL_GREEN = 0x01
 LED_HIGH_GREEN = 0x02
-LED_DULL_YELLOW = 0x01
-LED_HIGH_YELLOW = 0x02
+```
+
+#### Button IDs
+
+```python
+BUTTON_PLAY, BUTTON_STOP, BUTTON_REC
+BUTTON_PATTERN, BUTTON_BROWSER, BUTTON_GRID_LEFT, BUTTON_GRID_RIGHT
+BUTTON_MUTE_1 through BUTTON_MUTE_4
+BUTTON_SOLO_1 through BUTTON_SOLO_4
+BUTTON_SELECT, BUTTON_STEP, BUTTON_NOTE, BUTTON_DRUM, BUTTON_PERFORM
+BUTTON_SHIFT, BUTTON_ALT
+```
+
+#### Rotary Encoders
+
+```python
+ROTARY_VOLUME, ROTARY_PAN, ROTARY_FILTER, ROTARY_RESONANCE, ROTARY_SELECT
 ```
 
 #### Control Bank States
@@ -301,90 +275,117 @@ LED_HIGH_YELLOW = 0x02
 ### Control Bank Examples
 
 ```python
-from akai_fire import AkaiFire
+from akai_fire import get_akai_fire
 import time
 
-fire = AkaiFire()
+with get_akai_fire() as fire:
+    # Using predefined states
+    fire.set_control_bank_leds(fire.CONTROL_BANK_ALL_ON)
+    time.sleep(1)
 
-# Using predefined states
-fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_ALL_ON)
-time.sleep(1)
+    # Combining fields manually
+    custom_state = fire.FIELD_BASE | fire.FIELD_USER1 | fire.FIELD_USER2
+    fire.set_control_bank_leds(custom_state)
+    time.sleep(1)
 
-fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_CHANNEL_AND_MIXER)
-time.sleep(1)
-
-# Combining fields manually
-custom_state = AkaiFire.FIELD_BASE | AkaiFire.FIELD_USER1 | AkaiFire.FIELD_USER2
-fire.set_control_bank_leds(custom_state)
-time.sleep(1)
-
-# Turn everything off
-fire.clear_control_bank_leds()
-fire.close()
+    fire.clear_control_bank_leds()
 ```
 
 ## Examples
 
-The `examples` directory contains several scripts to demonstrate the library's capabilities:
+The `examples` directory contains scripts demonstrating the library's capabilities:
 
-- [blink_random.py](examples/blink_random.py) - Randomly blinks pads
-- [control_bank_leds.py](examples/control_bank_leds.py) - Demonstrates control bank LED states
-- [events.py](examples/events.py) - Demonstrates event handling with decorators (WIP)
-- [hello_world.py](examples/hello_world.py) - All pads lights up in a uniform color
-- [hello_worlder.py](examples/hello_worlder.py) - All pads lights up in a uniform color, but brighter
-- [looper.py](examples/looper.py) - Old Attempt at building a MIDI clip recorder/looper
-- [looper2.py](examples/looper2.py) - Attempt at building a MIDI clip recorder/looper
-- [clear_all.py](examples/clear_all.py) - Clears all the LEDs, Buttons, Pads, and Screen
-- [pad_color_cycle.py](examples/pad_color_cycle.py) - Lights up one pad at a time, cycling through colors.
-- [pad_toggle_on_press.py](examples/pad_toggle_on_press.py) - Showcases how to handle pad press events
-- [screen_animated_wave.py](examples/screen_animated_wave.py) - Shows a pleasing animated graphic on the OLED screen.
-- [screen_bounce.py](examples/screen_bounce.py) - Bouncing ball animation on the OLED screen.
-- [screen_showcase.py](examples/screen_showcase.py) - Demonstrates various animations on the OLED screen.
-- [screen_simple.py](examples/screen_simple.py) - Shows "Hello, World!" on the OLED screen.
-- [screen_snow.py](examples/screen_snow.py) - Shows static snow on the OLED scree (randomly black and white pixels).
-- [track_led_cycle.py](examples/track_led_cycle.py) - Cycles through the track LEDs.
-- [track_led_rain.py](examples/track_led_rain.py) - Cycles through each track and lights up the SOLO, Track led, and
-  each pad in a sequence.
+### Getting Started
+- `display_hello_world.py` - Smooth color fading across all pads
+- `clear_all.py` - Clears all LEDs, buttons, pads, and screen
+- `pad_color_cycle.py` - Cycles through pad colors one at a time
+- `pad_toggle_on_press.py` - Toggle pad colors on press
 
-### Experimental Examples
+### Event Handling
+- `event_handling_basic.py` - Basic event handling with decorators
+- `event_handling_comprehensive.py` - Complete event handling examples
 
-- [batching.py](experiments/batching.py) - Batched pad color updates
-- [batching_animated.py](experiments/batching_animated.py) - Batched pad color updates with animation (smoother)
-- [batching_water.py](experiments/batching_water.py) - Batched pad color updates with a water animation and interaction
-  with the pads, rotary encoders, and buttons.
-- [non_batch_water.py](experiments/non_batch_water.py) - Same-ish but not batched to compare performance.
+### Animations
+- `animation_pad_blink_random.py` - Random pad blinking
+- `animation_water_ripple_interactive.py` - Interactive water ripple effect
+- `batch_animation.py` - Smooth animations using batch updates
+- `batch_performance.py` - Performance comparison of batch vs single updates
+
+### Screen Examples
+- `screen_animated_wave.py` - Animated wave on OLED screen
+- `screen_bounce.py` - Bouncing ball animation
+- `screen_showcase.py` - Various screen drawing demos
+- `screen_snow.py` - Static snow effect
+- `screen_pages.py` - Multi-page screen navigation
+
+### LED Control
+- `control_bank_leds.py` - Control bank LED states
+- `track_led_cycle.py` - Cycle through track LEDs
+- `track_led_rain.py` - Track LED rain animation
+
+### Music Applications
+- `music_sequencer.py` - Basic step sequencer with state machine
+- `music_groovebox.py` - Complete groovebox application
+- `music_looper_advanced.py` - Advanced MIDI looper
+- `music_circuit_sequencer.py` - Circuit Tracks style sequencer
+
+### Run an Example
+
+```bash
+# Using just
+just example display_hello_world
+
+# Or directly with uv
+uv run python examples/display_hello_world.py
+```
 
 ## Setup for Development
 
-```shell
-# Create a virtual environment
-python3 -m venv venv
+This project uses [`uv`](https://github.com/astral-sh/uv) for Python package management and [`just`](https://github.com/casey/just) for development commands.
 
-# Activate the virtual environment
-source venv/bin/activate
-
-# Install the requirements
-pip install -r requirements.txt
-```
-
-### Mock GUI Requirements
-
-The Pygame mock GUI requires pygame to be installed. Install it in your virtual environment:
+### Quick Setup
 
 ```shell
-# Make sure your virtual environment is activated first
-source venv/bin/activate  # or source .venv/bin/activate
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install pygame
-pip install pygame
+# Install just (if not already installed)
+# macOS: brew install just
+# Other platforms: https://github.com/casey/just#installation
 
-# Or install all requirements including pygame
-pip install -r requirements.txt
+# Setup development environment
+just setup
+
+# Activate virtual environment
+source .venv/bin/activate  # macOS/Linux
+
+# See all available commands
+just
 ```
 
-**macOS Note**: On macOS, the Pygame GUI must run on the main thread. The examples handle this correctly.
+### Manual Setup
 
-The mock GUI provides:
+```shell
+uv venv
+uv pip install -r requirements.txt
+source .venv/bin/activate
+```
+
+### Development Commands
+
+```shell
+just format        # Format code with black
+just test          # Run all tests
+just test-hardware # Run tests with hardware report
+just example NAME  # Run specific example
+just examples      # List all examples
+just check         # Check code quality
+just clean         # Clean up generated files
+```
+
+## Mock GUI Features
+
+The mock GUI (`mock_gui_pygame.py`) provides:
 - Visual representation of all 64 RGB pads
 - Working OLED display with green phosphor simulation
 - All buttons with LED feedback
@@ -399,25 +400,13 @@ The mock GUI provides:
 - All visual feedback updates in real-time
 - Close the window to exit
 
+**macOS Note**: On macOS, the Pygame GUI must run on the main thread. The examples handle this correctly.
+
 ## Code Formatting
 
 ```shell
-pipx run black .
-
-# or windows after `pip install`
-black */**.py
-```
-
-### 🧠 Quick-Tips for `requirements.txt`
-
-To automatically generate `requirements.txt`:
-
-```shell
-pipx pipreqs . --force
-
-# or the traditional way
-pip install pipreqs
-pipreqs . --force
+just format       # Format all Python files
+just format-check # Check formatting without changes
 ```
 
 ## Credits
@@ -426,4 +415,3 @@ Built upon the work done by others:
 
 - ["Segger - Decoding the AKAI Fire"](https://blog.segger.com/decoding-the-akai-fire-part-1/)
 - Uses the [python-rtmidi](https://pypi.org/project/python-rtmidi/) library
-
