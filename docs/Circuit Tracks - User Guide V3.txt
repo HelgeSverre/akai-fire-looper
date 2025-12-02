@@ -1,0 +1,6602 @@
+Version 3
+1
+
+Contents
+Introduction...............................................................................................................................5
+Key Features. ..................................................................................................................................6
+About this manual...........................................................................................................................7
+What’s In The Box. ..........................................................................................................................7
+Getting Up and Running.................................................................................................................8
+If you’re on a Mac:. .......................................................................................................................................................................8
+If you’re on Windows:...................................................................................................................................................................8
+
+Novation Components Overview. ..................................................................................................8
+Getting Started with Circuit Tracks. ................................................................................................9
+Having Trouble?..............................................................................................................................9
+Power Requirements.......................................................................................................................9
+Hardware Overview................................................................................................................11
+Glossary. .......................................................................................................................................11
+Top View. ......................................................................................................................................15
+Rear view.......................................................................................................................................18
+Basics.......................................................................................................................................19
+Powering the unit on.....................................................................................................................19
+Getting started..............................................................................................................................21
+Loading and Saving. .....................................................................................................................22
+Starting from Scratch. ...................................................................................................................24
+The Synths...............................................................................................................................27
+Playing a Synth..............................................................................................................................27
+Expanded Note View..................................................................................................................................................................28
+
+Scales............................................................................................................................................30
+Scale selection. ...........................................................................................................................................................................31
+Root note.....................................................................................................................................................................................32
+
+Selecting Patches..........................................................................................................................33
+Patch Preview. .............................................................................................................................................................................33
+External Patch Select..................................................................................................................................................................34
+
+Exploring the Macros....................................................................................................................34
+Recording a synth pattern in real time..........................................................................................35
+Recording Knob Movements.....................................................................................................................................................36
+Non-quantised record................................................................................................................................................................37
+Recording from an external controller. .....................................................................................................................................38
+
+Step editing. .................................................................................................................................38
+Deleting notes.............................................................................................................................................................................40
+Inserting notes. ...........................................................................................................................................................................40
+
+Clear and Duplicate......................................................................................................................40
+Clearing Steps.............................................................................................................................................................................40
+Duplicating Steps. ......................................................................................................................................................................40
+
+Velocity, Gate and Probability.......................................................................................................41
+Velocity.........................................................................................................................................................................................41
+Gate. ............................................................................................................................................................................................45
+Probability....................................................................................................................................................................................47
+Micro step edit............................................................................................................................................................................48
+Tied / Drone Notes.....................................................................................................................................................................51
+
+Pattern Settings. ...........................................................................................................................53
+Start and End points...................................................................................................................................................................53
+
+2
+
+Play order.....................................................................................................................................................................................55
+Pattern Sync rate.........................................................................................................................................................................55
+
+Mutate...........................................................................................................................................56
+The MIDI Tracks.......................................................................................................................57
+Introduction. .................................................................................................................................57
+Selecting Templates......................................................................................................................57
+Default Templates.......................................................................................................................................................................58
+Setting Up Templates in Components......................................................................................................................................58
+
+Connecting to external hardware via MIDI Out............................................................................59
+The Drums. ..............................................................................................................................60
+Playing Drums...............................................................................................................................60
+Expanded Drum View.................................................................................................................................................................61
+
+Selecting Samples.........................................................................................................................62
+Using the Macros for drum design. ..............................................................................................63
+Recording a Drum Pattern. ...........................................................................................................64
+Non-quantised record................................................................................................................................................................64
+
+Manual hit entry and step editing.................................................................................................64
+Micro step edit............................................................................................................................................................................66
+Velocity.........................................................................................................................................................................................68
+Probability....................................................................................................................................................................................70
+
+Recording Knob Movements........................................................................................................71
+Clear and Duplicate......................................................................................................................72
+Patterns...................................................................................................................................73
+Patterns View. ...............................................................................................................................73
+Clearing Patterns. .........................................................................................................................74
+Duplicating Patterns. ....................................................................................................................75
+Step Page and 16/32-step Patterns..............................................................................................75
+Chaining Patterns..........................................................................................................................76
+Pattern Octave..............................................................................................................................79
+View Lock......................................................................................................................................80
+Scenes...........................................................................................................................................81
+Assigning Patterns to Scenes. ...................................................................................................................................................81
+Chaining Scenes to create an arrangement.............................................................................................................................83
+Queuing Scenes..........................................................................................................................................................................84
+Clearing Scenes. .........................................................................................................................................................................84
+Duplicating Scenes.....................................................................................................................................................................84
+
+Tempo and Swing....................................................................................................................85
+Tempo...........................................................................................................................................85
+External clock..............................................................................................................................................................................85
+Tap Tempo...................................................................................................................................................................................86
+
+Swing. ...........................................................................................................................................86
+Click track......................................................................................................................................87
+Analogue Sync Out.......................................................................................................................87
+Mixer.......................................................................................................................................88
+FX Section. ..............................................................................................................................90
+Reverb...........................................................................................................................................91
+Delay.............................................................................................................................................91
+Master Compressor.......................................................................................................................92
+3
+
+Side Chains..............................................................................................................................93
+The Filter Knob........................................................................................................................94
+Projects. ..................................................................................................................................95
+Switching Projects.........................................................................................................................95
+Clearing Projects...........................................................................................................................95
+Saving Projects to new slots. ........................................................................................................96
+Changing Project Colours..........................................................................................................................................................96
+
+Packs. ......................................................................................................................................97
+Loading a Pack..............................................................................................................................98
+Duplicating Packs..........................................................................................................................98
+Using microSD Cards....................................................................................................................99
+Components..........................................................................................................................101
+About Components & Navigating to Circuit Tracks....................................................................101
+Appendix...............................................................................................................................102
+Firmware Updates.......................................................................................................................102
+Setup View..................................................................................................................................102
+Brightness..................................................................................................................................................................................103
+MIDI Channels...........................................................................................................................................................................103
+MIDI I/O.....................................................................................................................................................................................104
+Clock settings............................................................................................................................................................................105
+Analogue clock rates................................................................................................................................................................105
+
+Advanced Setup View.................................................................................................................106
+Easy Start Tool (Mass Storage Device)....................................................................................................................................106
+MIDI Thru configuration...........................................................................................................................................................106
+Master Compressor. .................................................................................................................................................................106
+
+Save Lock....................................................................................................................................107
+Project loading problems............................................................................................................107
+MIDI parameters.........................................................................................................................107
+Bootloader Mode. ......................................................................................................................108
+
+4
+
+Introduction
+Circuit Tracks is an agile groovebox for creating and performing electronic music quickly and easily.
+Its acclaimed, hands-on sequencer gives you a seamless workflow and its two refined, polyphonic
+digital synth tracks let you expand your sonic capabilities. The four drum tracks let you load your own
+samples and shape them to perfection. Two dedicated MIDI tracks permit seamless interconnectivity
+with other equipment. With a built-in, rechargeable battery you can unplug and create music
+anywhere. Let your creativity thrive!
+Circuit Tracks is both a compositional tool and a live performance instrument. It’s an eight track
+instrument - two for the polyphonic synths, four for samples and two for interfacing with external
+MIDI devices like analogue synths. It lets you create music fast: getting patterns together is rapid and
+intuitive. If you’re working in the studio, Novation’s superior sound quality means you can use Circuit
+Tracks as the basis of your finished track.
+The playing grid is a set of 32 illuminated, velocity-sensitive pads, which act as synth keys, drum pads,
+sequencer steps and perform numerous other functions. The pads’ internal illumination is intelligently
+RGB colour-coded*, so you can see at a glance what’s going on.
+Eight rotary controls are provided to let you tweak the synth and drum sounds to perfection and the
+Master Filter control is always available to further enhance your performance. There are a host of
+other quickly-accessible features: synth patches and drum samples to choose from, a choice of musical
+scales, adjustable tempo, swing and note length, and more. You can start with a simple pattern of 16
+or 32 steps and then rapidly assemble these together into more complex patterns of great length.
+You can save your work in one of 64 internal Project memories. Additionally, Circuit Tracks’ powerful
+Packs feature lets you access, create, and save thousands of Projects, synth patches and samples on a
+removable microSD card.
+Circuit Tracks integrates totally with Novation Components, a powerful software application which lets
+you download, edit, and create synth patches, swap out your samples, create MIDI track templates,
+and store your work in the cloud.
+For additional information, up to date support articles and a form to contact our Technical Support
+Team please visit the Novation Help Centre at: support.novationmusic.com
+* RGB LED illumination means that each pad has internal red, blue and green LEDs, each of which can light at different
+intensities. By combining the three colours at different brightness levels, almost any colour of illumination can be achieved.
+
+5
+
+Key Features
+•
+
+Two synth tracks with 6-voice polyphony
+
+•
+
+Two MIDI tracks with programmable CC output
+
+•
+
+Four sample-based drum tracks
+
+•
+
+RGB grid with 32 velocity-sensitive pads for playing and displaying information
+
+•
+
+Eight customisable macro encoders for further “tweaking” of sounds
+
+•
+
+Hands-on sequencing with eight chainable 32-step patterns, non-quantised record, step
+probability, pattern mutate, sync rates, and more
+
+•
+
+Reverb, delay and side chain FX
+
+•
+
+DJ-style master filter (Low pass/High pass)
+
+•
+
+microSD support – save thousands of synth patches, samples and projects across 32 packs.
+
+•
+
+Built-in rechargeable battery with 4 hours of battery life
+
+•
+
+Novation Components integration – full synth engine editing, sample upload and project
+backup
+
+•
+
+Full size 5-pin MIDI In, Out and Thru
+
+•
+
+Analogue sync out
+
+•
+
+2 mono audio inputs – mix external audio with native sounds, apply FX too
+
+•
+
+Stereo audio output
+
+•
+
+Headphone output
+
+6
+
+About this manual
+We’ve tried to make this manual as helpful as possible for all types of user, both newcomers to
+electronic music making and those with more experience, and this inevitably means some users will
+want to skip over certain parts of it, while relative novices will want to avoid certain parts of it until
+they’re confident they’ve mastered the basics.
+However, there are a few general points that are useful to know about before you continue
+reading the manual. We’ve adopted some graphical conventions within the text, which we hope
+all types of user will find helpful in navigating through the information to find what they need to
+know quickly:
+
+Abbreviations, conventions, etc.
+Where we refer to top panel controls or rear panel connectors, we’ve used a number thus: X to
+cross-reference to the top panel diagram, and thus: X to cross-reference to the rear panel diagram.
+(See pages 16 and 19 ). We’ve used Bold text to name physical things – the top panel controls and
+rear panel connectors, and have made a point of using the same names used on Circuit Tracks itself.
+We’ve used smaller Bold italics to name the various Views that the grid can display.
+
+Tips
+These do what it says on the tin: we include bits of advice, relevant to the topic being
+discussed that should simplify setting up Circuit Tracks to do what you want. It’s not
+mandatory that you follow them, but generally they should make life easier.
+
+What’s In The Box
+Circuit Tracks has been carefully packed in the factory and the packaging was designed to withstand
+rough handling. Should the unit appear to have been damaged in transit, do not discard any of the
+packing material and notify your music dealer.
+If practical, save the packing materials for future use in case you ever need to ship the unit again.
+Please check the list below against the contents of the packaging. If any items are missing or
+damaged, contact the Novation dealer or distributor where you purchased the unit.
+•
+
+Novation Circuit Tracks Groovebox
+
+•
+
+USB Type A to Type C cable (1.5 m)
+
+•
+
+Safety information sheet
+
+•
+
+AC adaptor: 5 V DC, 2 A; includes interchangeable AC plugs
+7
+
+Getting Up and Running
+We’ve made getting up and running with Circuit Tracks as easy as possible, whether you’re a
+brand new beatmaker or a seasoned producer.
+To access the Easy Start Tool, first connect your Circuit Tracks to your computer with the USB-A to
+USB-C cable supplied.
+
+If you’re on a Mac:
+1.
+
+On your Desktop, find and open the folder named TRACKS.
+
+2.
+
+Inside the folder, click the file Circuit Tracks – Getting Started.
+
+3.
+
+Click Novation Components to access the full potential of your Circuit Tracks, or click Register
+Circuit Tracks to access your downloads.
+
+Alternatively, if you have Google Chrome open when you connect Circuit Tracks, a pop-up will
+appear that will take you straight to the Easy Start tool.
+
+If you’re on Windows:
+1. Click the pop-up you see prompting you to open the drive TRACKS. If you don’t see a pop-up
+open File Explorer and click TRACKS in the left pane.
+2. Inside the drive, click the link Click Here to Get Started.html.
+3. You’ll be taken to the Easy Start Tool where we’ll get you set up.
+
+Novation Components Overview
+Visit Novation Components at components.novationmusic.com to unlock the full potential of
+Circuit Tracks. Use Components software to delve into Circuit Tracks’ powerful synth engines,
+upload your own samples to your unit, set up MIDI templates for your external gear, and back up
+your projects.
+
+8
+
+Getting Started with Circuit Tracks
+If you’re brand new to Circuit, you can follow our Easy Start Guide to get up and running. To access
+the Easy Start Guide, connect your Circuit to your Mac or PC, and click on the Tracks folder. Inside
+you’ll find two files named Click Here to Get Started.url and Circuit Tracks - Getting Started.html.
+Click on the .url file to be taken straight to the Easy Start Guide, or open the .html file to learn more
+about it.
+
+Having Trouble?
+In case you’re having any trouble getting set up, don’t hesitate to contact our support team!
+You can find more information and answers to FAQs in the Novation Help Centre at
+support.novationmusic.com.
+
+Power Requirements
+Circuit Tracks can be powered in any of three ways:
+•
+
+from a computer with a USB 3.0 port, via the USB-C connection
+
+•
+
+from AC mains, using the supplied AC adaptor and the USB-C connection
+
+•
+
+from the internal lithium-ion battery.
+
+Powering from a computer
+Circuit Tracks can be powered from a computer or laptop via the USB connection. Use the supplied
+cable to connect the unit to a Type ‘A’ USB port on the computer or laptop. The internal battery will
+be charged while the unit is connected (provided that the computer or laptop itself is powered on).
+
+Using the AC adaptor
+The AC adaptor supplied with the unit is a 5 V DC, 2 A type with a Type ‘A’ USB output, and can
+operate on mains voltages from 100 V to 240 V, 50 or 60 Hz. The adaptor has interchangeable slidein AC plug heads; different plug heads are supplied which make the adaptor compatible with AC
+outlets in many different countries. Plug heads can be easily swapped if necessary by pressing the
+spring-loaded semi-circular button in the centre of the adaptor and sliding the plug head upwards
+to separate it from the adaptor body. Then slide in the correct plug head (as shown by the arrows),
+ensuring that it locks firmly in place.
+Use the supplied cable to connect the AC adaptor to the Type ‘C’ USB port on the rear panel of
+Circuit Tracks ( 6 on page 18).
+
+9
+
+The use of AC adaptors of a type other than that supplied is not recommended. Please contact your
+Novation dealer for advice on alternative PSUs if necessary.
+
+Using the internal battery
+Circuit Tracks will also operate from its internal Lithium-ion battery. The battery is non-removable and
+non-replaceable. Circuit Tracks will operate for up to 4 hours, depending on battery state. When the
+battery capacity drops below 15%, a Low Battery symbol will be displayed:
+
+The battery will be charged while Circuit Tracks is connected to the AC mains via the AC adaptor, or
+to a computer’s USB 3.0 port: charging time is up to 4 hours, again depending on initial battery state.
+To indicate that Circuit Tracks is charging, the power button ( 8 on page 18) will light green.
+See also the Important Safety Instructions packed with the product for information regarding battery
+disposal: this information can also be downloaded from the Novation website.
+
+10
+
+Hardware Overview
+Glossary
+Some of the terms used in this manual have a specific meaning as applied to Circuit Tracks. Here is a
+list:
+
+Term
+
+Expanded View
+
+Button
+
+Shift + Note
+
+Fixed
+
+Shift + Velocity
+
+FX View
+
+FX
+
+Definition
+Doubles the area of performance pads for the Synths,
+and allows you create patterns on all drum tracks
+simultaneously, using the currently selected samples.
+Allows the velocity response of the grid pads to be
+disabled.
+Allows the user to add reverb and delay to individual
+tracks.
+The Gate value of a note is how many steps it sounds
+
+Gate View
+
+Gate
+
+for. Gate View allows the length of a step to be edited.
+Individual gate values can be set for each note assigned
+to a single step by using live record.
+One of the 32 pads making up the main performance
+
+Grid pad
+
+Live Record
+
+area.
+
+Record
+
+Lets you add synth notes in real time while a pattern
+is playing. Also records any movements of the Macro
+controls.
+Eight rotary controls whose function varies with the
+
+Macro Controls
+
+currently selected View; primarily used to “tweak” the
+synth and drum sounds.
+Assignment of synth notes to specific step in a pattern.
+
+Manual Note
+
+With a step pad pressed, press the performance pad for
+
+Entry
+
+the note to be added. Can be done with the sequencer
+either running or stopped.
+
+Micro step
+
+Shift + Gate
+
+The interval between consecutive Steps is further
+subdivided into six micro steps; these may be used for
+“off-beat” timing of synth notes and drum hits.
+11
+
+Term
+
+Button
+
+Mutate
+
+Shift + Duplicate
+
+Note View
+
+Note
+
+Definition
+Randomises the Steps of a Pattern at which the assigned
+synth notes or drum hits will play.
+The View that is used to enter synth notes, MIDI data
+and drum hits.
+A complete set of Projects, Patches and Samples. Up
+
+Pack
+
+to 32 Packs can be exported to a Micro SD card for
+external storage.
+
+Patch
+
+Preset (with
+Synth track
+selected)
+
+One of the 128 patches (four pages of 32) which can be
+selected for each synth track.
+
+A repeating cycle of synth notes and/or drum hits of up
+Pattern
+
+to 32 steps. Includes per-step data for velocity, gate,
+probability and automation.
+A cyclic set of Patterns played continuously one after
+
+Pattern Chain
+
+the other.
+Where a Pattern is stored; there are eight per track in
+
+Pattern memory
+
+Pattern Settings
+View
+
+each Project.
+
+Pattern Settings
+
+A View that lets you set Pattern start and end points,
+Pattern rate relative to the BPM and Pattern play
+direction.
+This View displays the eight Pattern memories per
+
+Patterns View
+
+Patterns
+
+track (as two pages of four), and allows their selection
+individually or as a Pattern Chain, deletion and
+duplication.
+
+Performance Pad
+
+The grid pads used to enter synth notes or drum hits.
+In playback, the white pad which moves through the
+
+Playback Cursor
+
+pattern display, indicating which step is currently being
+played. Changes to red in Record Mode.
+
+Playback Mode
+
+Circuit Tracks’ operating mode with the sequencer
+running; the Play button will be lit bright green.
+
+12
+
+Term
+
+Button
+
+Definition
+A parameter of each step in a Pattern which defines how
+
+Probability
+
+likely it is that the synth note, MIDI note data or drum
+hit assigned to the step will be played.
+
+Probability View
+
+Shift +
+
+Pattern Settings
+
+Lets you assign Probability values to each active step in
+a track.
+A set of all necessary data for full playback of all tracks,
+
+Project
+
+including Patterns, Sequences, automation data, etc. Up
+to 64 Projects can be saved as a Pack in flash memory.
+Circuit Tracks’ operating mode when synth notes can be
+added to the Pattern, or when adjustments using the
+
+Record Mode
+
+Macro controls can be saved. The Record button will be
+lit bright red.
+
+Scale View
+
+Scales
+
+Project View
+
+Projects
+
+Sample
+
+Preset (with
+Drum track
+selected)
+
+Scene
+
+Hold Shift (while
+Mixer View is
+selected)
+
+Secondary View
+
+Shift + button,
+
+Allows the user to select one of 16 musical scales for the
+synth and also to transpose the scales.
+The View used to save and load Projects.
+
+One of the 64 samples (two pages of 32) which can be
+selected for each drum track.
+
+One of 16 memories to which multiple Patterns and
+Pattern Chains can be assigned, so that a longer
+sequence can be triggered by a single pad. Scenes can
+be further chained to create a Sequence.
+All views accessed via using Shift in combination with
+another button are referred to as secondary views.
+
+or double-tap a
+
+These views may also be accessed by pressing the
+
+button
+
+corresponding button repeatedly to toggle between the
+secondary and primary views.
+
+Sequence
+
+A set of chained Scenes.
+Allows control of MIDI clock and Tx / Rx settings, MIDI
+
+Setup Page
+
+Shift + Save
+
+channel selection for each track and pad brightness
+adjustment. Normal operation is suspended while Setup
+Page is open.
+13
+
+Term
+
+Button
+
+Side Chain
+
+Shift + FX
+
+Definition
+A method of allowing the hits of a drum track to modify
+the dynamics of Synth notes.
+Each Track in a Pattern is initially based on 16 or 32
+
+Step
+
+Steps, though shorter Patterns of any length my be
+defined in Pattern Settings View. See also Micro step.
+Collective name for the button group comprising the
+
+Step buttons
+
+Note, Velocity, Gate and Probability buttons.
+
+Circuit Tracks’ operating mode when the sequencer is
+
+Stop Mode
+
+Template
+
+not running.
+Preset (with MIDI
+track selected)
+
+One of the eight templates which can be selected for
+each MIDI track.
+One of the eight elements which may contribute to a
+Project: Synths 1 and 2, MIDI 1 and 2. Drums 1 to 4.
+
+Track
+
+When you press a Track button, you always go to Note
+View for that track.
+
+Velocity View
+
+Velocity
+
+Allows editing of the velocity of a step.
+One of various ways the 32 grid pads can be used to
+
+View
+
+display information and allow user interaction.
+A function that maintains the Step display of the
+
+View Lock
+
+Shift + Patterns
+
+currently selected Pattern while letting you select a
+different Pattern, or playing other Patterns in a Pattern
+Chain.
+
+14
+
+Top View
+
+4
+
+3
+
+2
+
+16
+
+18
+
+9
+
+15
+
+14
+
+5
+
+10
+
+6
+
+1
+
+11
+
+8
+
+17
+
+19
+
+20
+
+12
+
+13
+
+7
+
+1 32-pad playing grid – a 4 x 8 matrix of pads; internally illuminated with RGB LEDs.
+Depending on the view selected, the grid may be “split” into logical areas with different
+functions.
+2 Master Filter – rotary control with a centre detent and RGB LED: controls filter frequency of
+the entire mix, like on an analogue synth. It is always active.
+
+3 Macro controls 1 to 8 – eight multi-functional rotary encoders, with associated RGB LED. The
+availability and function of these controls varies with Circuit Track’s various views: however,
+
+the panel legends describe in general terms each encoder’s function as applied to the synth
+tracks for the default Patches. The movement of Macro controls in performance may be
+recorded and replayed.
+4 Master Volume – controls the overall level of Circuit Tracks’ audio outputs.
+
+15
+
+Most of the remaining buttons select the 32-pad grid to display a specific View. Each View
+provides information and control of a particular aspect of a particular track, pattern or sound
+selection, timing adjustments, etc. Note also that several buttons have an additional ‘Shift’
+function, indicated on (or above) the button by a legend in a smaller font.
+Many buttons - including G Record - have both a momentary (long press) and a latching (short
+press) mode. A long press will temporarily display that button’s view, but only while the button is
+held down. When released the view will revert to whatever it was before the button was pressed.
+A short press on a button will switch the grid view to that programmed into the button. The
+Record button is a special case as it does not invoke an alternative grid display, but its momentary
+action allows rapid punch-in and punch-out of Record Mode.
+5 Track buttons: Synth 1 and 2/MIDI 1 and 2 /Drum 1 to 4 – these eight buttons select
+different grid Views. Their operation varies slightly depending on other user actions.
+
+6 Step buttons: Note, Velocity, Gate and Probability – these switch the grid to further Views,
+and allow the parameters of each step of the pattern to be individually entered, deleted or
+modified, for the currently selected track. Note that Probability is the Shift function of the
+Pattern Settings button.
+
+7 Pattern Settings – switches the grid to a View that allows adjustment of pattern length,
+playback rate and direction for the currently selected track.
+
+8 Step Page (1-16/17-32) – selects whether the Pattern for the currently selected track is
+
+initially 16 or 32 steps in length. When a 32-step Pattern is selected, the colour of the button
+legend changes when the sequence is running to indicate which “half” of the sequence the
+grid is currently displaying. You can choose to have a 16- or 32-step Pattern on any track.
+
+9 Scales – opens Scales View: allows the selection of one of sixteen different music scales for
+
+the synth keyboard, and also lets you transpose the synth keyboard to a higher or lower key.
+
+10 Patterns – opens Patterns View: lets you store multiple patterns for each synth, MIDI and
+drum track, and to join them together to make a pattern Chain.
+
+11 Mixer – enables the Mixer View, where you can mute or adjust the level of each synth, drum
+
+and audio input making up the sequence, and also to pan each track across the stereo image.
+
+12 FX – opens the FX View; lets you add reverb and delay effects to each synth, drum and audio
+input individually.
+
+13 G Record and H Play – these two buttons start and stop the sequence (Play), and enter
+
+Record mode (Record). In Play mode anything you play on the grid will be heard; in Record
+mode, anything you play will be heard and also added to the sequence.
+
+14 Preset – opens the Preset View for the currently selected track. Each synth track can use any
+of 128 Patches, each MIDI track can use any of eight MIDI templates, and each drum track
+
+can use any of 64 percussion samples. The synth and drum Presets are arranged in pages of 32.
+
+16
+
+15 J and K - these two buttons have different actions (and colours) depending on the
+currently selected View. In Note View they let you shift the pitch of the synth pads or the
+MIDI tracks up by one to five octaves, or down by one to six octaves when entering notes:
+the pitch range of each track is adjustable independently. In some other Views, they allow
+the selection of a second page,
+e.g., in Pattern View this lets you select from eight Patterns per track although only four are
+displayed at a time.
+16 Tempo and Swing – Tempo lets you set the BPM (tempo) of the sequence, using Macro
+
+control 1; Swing alters the timing between steps to change the ‘feel’ of a pattern, using
+Macro 2 for adjustment. In this mode, Macro 5 adjusts the level of Click track.
+
+17 Clear – allows deletion of individual sequence steps, stored Macro control movements,
+Patterns or Projects.
+
+18 Duplicate – operates like a copy-and-paste function for patterns and individual steps.
+19 Save and Projects – let you save your current Project and open a previously-saved one.
+20 Shift – several of the buttons have a “second function”, accessed by holding down the Shift
+
+button and pressing the button in question. To avoid holding the Shift button you can enable
+‘Sticky Shift’. When you press Shift it acts as if it is held until it you press it a second time.
+To enable Sticky Shift, enter Setup View and press Shift. Sticky Shift is on when the Shift
+button is bright green.
+
+17
+
+Rear view
+
+9
+8
+
+6
+
+2
+
+7
+
+1
+
+3
+
+5
+
+4
+
+1 Outputs - L/Mono and R – Circuit Tracks’ main audio outputs on two ¼” TS jack sockets.
+
+Max. output level is +5.3 dBu (+/-1.5 dBu). With no plug in the R socket, the L/Mono socket
+carries a mono mix of L and R channels.
+
+2 Sync – a 3.5 mm TRS jack socket supplying a clock signal of 5 V amplitude, at a rate
+
+proportional to the tempo clock: the actual ratio can be set in Setup View. The default rate is
+two pulses per quarter note.
+
+3
+
+(Headphones) – connect a pair of stereo headphones here. The main outputs 1 remain
+active when a plug is inserted. The headphone amplifier can drive +5 dBu into a pair of 150
+ohm stereo headphones.
+
+4 MIDI In, Out and Thru – standard set of three MIDI connectors on 5-pin DIN sockets. Allows
+
+external equipment to be triggered by Circuit Tracks’ MIDI sequences, or external controllers
+to play Circuit Tracks’ synths and alter synth and FX parameters. Note that the MIDI Thru
+port may be configured in Advanced Setup View to act as a clone of the MIDI Out port; see
+page 106 for details.
+
+5 Inputs 1 and 2 – two external audio inputs: line level signals connected here can be mixed
+
+with the internally-generated sounds, and can be individually treated by the FX section. They
+can also be ducked by the drum tracks. The inputs are unbalanced on ¼” TS jack sockets.
+
+6
+
+– USB-C port. This is also the DC power input to the unit for external powering and
+battery charging. A Type C-to-Type A cable is supplied with the unit. Connect to computers
+to interface with Novation Components. The port is MIDI class compliant; connect to other
+devices supporting MIDI via USB to transmit and receive MIDI data. Also used for firmware
+updates. NOTE – Circuit Tracks’ USB port does not carry audio.
+
+7 microSD – plug a compatible microSD card in here to save or import Packs of Projects.
+8
+
+– “soft” on/off switch; to prevent inadvertent power up/down, a press of approx. one
+second is needed to turn the unit on or off. The button has an integral LED which lights
+green to indicate that the internal battery is charging.
+
+9 Kensington MiniSaver – secure your Circuit Tracks to a suitable structure if desired.
+
+18
+
+Basics
+Powering the unit on
+Connect the supplied AC adaptor to the USB port 6 using the cable supplied and plug the
+adaptor into the AC mains. This will ensure that the internal lithium battery becomes fully charged.
+Connect the main outputs to a monitoring system (powered speakers or a separate amplifier and
+passive monitors); alternatively plug in a pair of headphones if you prefer.
+Long-press the POWER button 8 , and the grid will show the boot-up display for approximately
+five seconds:
+
+After initial boot-up, the display will change colour from pale red to bright green sequentially from
+top left to bottom right, indicating Pack loading.
+
+19
+
+After boot-up, the grid display will change to something like that shown below:
+
+Step where
+sequencer is
+stopped pulses
+blue/white
+
+20
+
+Getting started
+We’ve pre-loaded 16 demo Projects into the memories to give you an idea of how Circuit Tracks
+works. Press the
+
+Play button 13 ; you should hear the first demo Session.
+
+If it’s not already lit, press the Synth 1 button 5 ; Circuit Tracks is now displaying Note View for
+Synth 1. The two lower rows – the synth pads – is the “Play Area” where notes may be triggered,
+
+while the two upper rows – the Pattern steps - show the progression through the Pattern.
+Press Synth 2 to view Synth 2’s Play Area and Patterns. Note that the notes of Synth 1 are coded
+violet and those of Synth 2 pale green; when a Pattern step that includes a note is pressed, the
+pad corresponding to the note changes to white. Similarly, the Pattern pads are pale blue, but turn
+white as the “play cursor” moves through the Pattern.
+Now press the Drum 1 button: the displays for the drums are very similar to those for the synths.
+The two upper rows are the Pattern steps and the two lower rows are one of four pages of
+percussion samples: you can select the other pages with the J and K buttons. You’ll find that
+each page represents a kit. Drums 1 and 2 are kick drums, 3 and 4 are snares, 5 and 6 are closed hi
+hats, 7 and 8 are open hi hats, 9 through 12 tend to be additional percussion, and 13 through 16
+are melodic sounds.
+On the Drum tracks, triggers may be entered at steps by tapping the dim blue pads that occupy
+the top half of the grid. A step that contains a trigger will be lit bright blue (or pink, if the step
+contains a flipped sample). To remove a trigger from a step, tap the corresponding pad again.
+You’ll also have noticed by now that the various tracks use different colours for rapid identification:
+this principle applies throughout most Circuit Tracks Views. The colours are (approximately):
+Track
+
+Pad colour
+
+Synth 2
+
+Pale Green
+
+MIDI 2
+
+Pink
+
+Synth 1
+MIDI 1
+
+Blue
+
+Drum 1
+
+Orange
+
+Drum 3
+
+Purple
+
+Drum 2
+Drum 4
+Press the
+
+Violet
+
+Yellow
+Aqua
+
+Play button to stop.
+
+Later in the manual, we explain how you can choose the synth and drum sound you want in your
+pattern, and also how you can manipulate the sounds in real-time.
+
+21
+
+Loading and Saving
+When you press
+
+Play for the first time after powering on, the Project which Circuit Tracks
+
+plays will be the last one used when it was powered off. The factory demo described in the
+previous section was loaded in to Memory Slot 1.
+To load a different Project, you use Projects View. Press Projects 19 to open this:
+
+There are 64 memory slots, arranged as two pages of 32. Use the J and K buttons to scroll
+between the pages. Each pad corresponds to one of the memory slots. The pad’s colour indicates
+the slot’s status:
+•
+
+White – the currently selected Project (only one pad will be white)
+
+•
+
+Bright blue – slot contains either a Project saved by the user* or a factory demo Project
+
+•
+
+Dim blue – slot is empty
+
+* But see paragraph on “Changing Project Colours” on page 96.
+
+If you’re still experimenting, you can select a different factory demo to listen to and play around
+with. You can jump between saved Projects while in Play mode: the current Project will complete
+its current Pattern before the new Project starts. (If you hold down Shift while selecting a different
+Project, it will commence to play immediately.)
+
+Projects loaded when the sequencer is not running will play at the tempo that was in force
+when the Project was saved.
+Projects loaded while the sequencer is running will play at the tempo that is currently set.
+This means that you can recall different Projects sequentially with the confidence that the tempo will
+remain constant.
+
+22
+
+There’s nothing special about the slots containing factory demo Projects: you can overwrite these if
+you wish: you can always re-load them by using Novation Components.
+You don’t need to be in Projects View to save a Project you’ve been working on. If you press Save 19 , the
+button flashes white; if you press it a second time, it briefly flashes green rapidly to confirm the save
+process. However, in this case, your work will be saved in the last selected Project memory, which will
+most likely be the one that held an earlier version; the earlier version will be overwritten.
+To save your work in a different Project memory (leaving the original version unchanged), enter
+Projects View . Press Save; both Save and the pad for the currently selected Project will flash white.
+
+Press a different memory pad: all the other pads will go dark, and the selected pad will flash green
+rapidly for a second or so to confirm the save process.
+To make identifying Projects easier, you can assign one of 14 colours to any of the pads in Projects
+View. See “Changing Project Colours” on page 96.
+
+23
+
+Starting from Scratch
+If you’re already familiar with producing music using hardware, you can probably skip this section!
+But if you’re a novice, you may find it useful.
+
+Once you’ve experimented with the factory demo patterns for a while, you will probably want to
+create a pattern from scratch.
+Select Projects and select an empty memory slot. Now select Drum 1 in Note View. When you press
+
+º Play you’ll see the white pad (the play cursor) progressing across the 16 Pattern steps:
+
+PLAY
+
+Pads 1-16: Pattern Steps
+
+Default drum sample
+
+Pads 17-32: Drum samples
+(One page of four)
+
+You won’t hear anything just yet.
+
+NOTE: On Circuit Tracks, Patterns are 16 steps long by default. This can be changed to 32 steps for
+any or all of the eight tracks. This topic is explained in “Step Page” at page 75.
+For simplicity, the discussion in this section uses 16-step Patterns as examples. (In fact, Patterns can
+have any number of steps up to 32; Pattern Length is discussed later in the User Guide.)
+To make a “four-on-the-floor” kick drum, select a drum sound you like from sample slots 1 or 2 of a kit
+using the two lower rows of pads: the selected pad lights brightly. Then short-press* pads 1, 5, 9 and
+13 on the two upper rows as shown, and press Play:
+*Many of Circuit Tracks’ buttons produce different behaviours depending on whether the button is “short-pressed” (half a
+second or less) or “long-pressed”. In this case, a long press on a step pad will arm the step for a sample flip: this feature is
+discussed on page 62.
+
+24
+
+PLAY
+
+Pads 1-16: Pattern Steps
+
+Pads 17-32: Drum samples
+
+New drum sample
+
+You can select a different drum sample while the Pattern is playing by simply pressing a different pad
+on the lower two rows: you can use any of the four sample pages.
+Now add a snare drum to other steps in the sequence in the same way by selecting Drum 2 in
+Note View and choosing a different drum sample; snare drums are mainly in sample slots 3 or 4 of
+
+a kit.. You can of course, have hits from Drum 1 and Drum 2 on the same step if you wish. Adding
+further drum hits on tracks Drum 3 and Drum 4 is the same process.
+If you want to delete a drum hit, just press its pad again: you can do this while the sequence is
+playing or stopped. The brightly lit pads tell you where the hits are.
+Now you can add synth notes. Press Synth 1 to open Synth 1 Note View. The lower two rows
+represent a music keyboard, the upper two show you where you are in the sequence. When Play
+is pressed, you can see the white pad progressing through the steps (and hear any drums you’ve
+already programmed).
+
+25
+
+With all scales (see “Scales” on page 30) except Chromatic, the grid display looks like this:
+
+PLAY
+
+Pads 1-16: Pattern Steps
+
+Pads 17-32: Synth keyboard
+
+The “keyboard” is two octaves, with the “paler” pads representing the root notes. While the
+Record button is lit, anything you play in either of the Synth Views (Synth 1 or Synth 2) will be
+recorded to the steps in the pattern.
+When you’re in Note View for one of the synths, The K and J buttons 15 alter the pitch range of
+the currently selected synth keyboard, by one octave each time they are pressed. If you press both
+K and J together, the keyboard resets to the default octave for the Patch.
+The root note of the default octave is ‘middle C’ on a standard piano keyboard.
+For a conventional piano keyboard, select Scales 9 and then press Pad 32 (the bottom
+right one), which will light brightly. This gives the keyboard Chromatic scaling, and the
+layout differs from that in the other scales:
+
+PLAY
+
+Pads 1-16: Pattern Steps
+
+C#
+
+D#
+
+F#
+
+G#
+
+A#
+
+Pads 17-32: Synth keyboard
+C
+
+D
+
+E
+
+F
+
+G
+
+A
+
+B
+
+C’
+
+Chromatic scaling offers all twelve notes in the octave; to accommodate them, the keyboard “size” is
+reduced to one octave.
+26
+
+The Synths
+Each synth track employs a powerful and versatile synth engine. Circuit Tracks gives you a simple
+user interface that allows you to conjure great sounds very rapidly. The synth section comes
+loaded with 128 great factory patches to give you a wide range of sounds to start from.
+This section of the User Guide discusses the synth features in greater detail.
+
+Playing a Synth
+The two synth tracks – Synth 1 and Synth 2 - operate identically. The only difference is the pad
+colour – Synth 1 keys are illuminated violet and Synth 2 keys are pale green; the high and low
+notes in each octave are a paler colour than the intermediate keys in both cases. This colour
+coding is consistent in other Views.
+To play a synth in real time, select one of the synth tracks Synth 1 or Synth 2 5 and then Note 6 .
+This places the grid in Note View for the selected synth. Note will illuminate in violet or pale green
+according to which synth track is selected. The two lower rows of the grid constitute the synth
+keyboard, while the two upper rows show the 16 steps of the pattern*. Note these are illuminated
+pale blue apart from the “cursor”, which flashes white.
+
+Synth 1
+selected
+
+Current step
+pulses blue/white
+
+Synth 1
+
+1
+
+MIDI 1
+
+Synth 2
+
+PLAY
+
+Drum 1
+
+MIDI 2
+
+2
+
+3
+
+9
+
+10
+
+11
+
+17
+
+18
+
+19
+
+25
+
+26
+
+27
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+20
+
+21
+
+22
+
+23
+
+24
+
+28
+
+29
+
+30
+
+31
+
+32
+
+Pattern display
+
+Synth 1 keyboard
+
+*You can also have Patterns of up to 32 steps – see page 75.
+
+27
+
+Synth 2
+selected
+Step where
+sequencer is
+stopped pulses
+blue/white
+
+Synth 1
+
+PLAY
+
+Synth 2
+
+MIDI 1
+
+Drum 1
+
+MIDI 2
+
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+17
+
+18
+
+19
+
+25
+
+26
+
+27
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+20
+
+21
+
+22
+
+23
+
+24
+
+28
+
+29
+
+30
+
+31
+
+32
+
+Pattern display
+
+Synth 2 keyboard
+
+With the exception of the Chromatic scale (see “Scales”, page 30), the upper row of the synth
+keyboard contains notes one octave above those in the second row. The highest note of the lower
+octave (Pad 32) is the always the same as the lowest note of the higher octave (Pad 17). Thus to
+play the notes over two octaves in ascending order, start with Pads 25 to 32, then 18 to 24.
+When Circuit Tracks is powered up and an empty Project selected, it is possible to alter the
+keyboard ‘layout’ so that the bottom note in an octave is something other than C – see page 32.
+The synth has a total range of 10 octaves; you can access higher or lower pairs of octaves by using
+the J and K buttons 15 . Note that at the lowest octave setting, the ‘size’ of the keyboard is
+limited.
+
+Expanded Note View
+To obtain a keyboard with a wider range, hold down Shift 20 and press Note 6 ; Note now
+illuminates gold. This is called Expanded Note View, and removes the pattern display in the two
+upper rows of the grid, replacing it with keys for the next two higher octaves of the selected scale.
+Alternatively, press Note when already in Note View to toggle between Note View and Expanded
+Note View.
+
+28
+
+Synth 1
+selected
+
+Synth 1
+
+MIDI 1
+
+Synth 2
+
+Drum 1
+
+MIDI 2
+
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+17
+
+18
+
+25
+
+Synth 2
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+19
+
+20
+
+21
+
+22
+
+23
+
+24
+
+26
+
+27
+
+28
+
+29
+
+30
+
+31
+
+32
+
+MIDI 1
+
+MIDI 2
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+Synth 1 keyboard
+
+Synth 2
+selected
+
+Synth 1
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9
+
+10
+
+11
+
+12
+
+13
+
+14
+
+15
+
+16
+
+17
+
+18
+
+19
+
+20
+
+21
+
+22
+
+23
+
+24
+
+25
+
+26
+
+27
+
+28
+
+29
+
+30
+
+31
+
+32
+
+Synth 2 keyboard
+
+This View is very useful when recording synth notes in real time.
+Expanded Note View can be cancelled by pressing Note again; the upper two rows of the grid will
+
+resume the pattern’s step display.
+
+29
+
+Scales
+Circuit Tracks is extremely flexible in how it lets you configure the note pads in the playing grid to
+suit different musical ideas in both key and scale. There are two aspects to specifying how the note
+pads are laid out: the scale and the root note.
+Up to 16 musical scales are available: these include those common in western musical styles such
+as major, natural minor, pentatonic and chromatic as well as more unusual scales (or modes) such as
+Dorian and Mixolydian. Not all these scales contain eight notes, though the only one that has more
+than eight is Chromatic, with 12.
+You don’t need to understand musical theory to make use of different scales. Because
+Circuit Tracks lets you alter the scale in use after you’ve created a pattern, it’s easy to get
+an idea of their effect and their differences. Record a simple pattern of synth notes, and
+then play it back using different scales. You’ll notice that with some scales certain notes shift up or
+down a semitone, and that this gives the “melody” you’ve composed quite distinct “moods” or
+“feels”, some of which will be more suited to what you’re trying to achieve than others.
+
+Furthermore, although the default keyboard is based on a note of C (as described in the previous
+section), it is possible to redefine the lowest sounding note to be any note of the chosen scale.
+Both scale and root note are set using the Scales View, accessed by pressing the Scales button 9 .
+The Scales View will look similar to that shown below:
+
+Currently-selected
+starting note
+
+1
+
+C
+
+9
+
+NATURAL
+MINOR
+
+17
+
+Currently-selected
+scale
+BLUES
+
+25
+
+C#
+
+D
+
+2
+
+10
+
+MAJOR
+
+D#
+
+E
+
+3
+
+11
+
+DORIAN
+
+18
+
+19
+
+MINOR
+PENTATONIC
+
+HUNGARIAN
+MINOR
+
+26
+
+27
+
+4
+
+F#
+
+5
+
+G#
+
+Keynote selection
+F
+
+12
+
+PHRYGIAN
+
+20
+
+G
+
+13
+
+MIXOLYDIAN
+
+21
+
+A
+
+28
+
+MARVA
+
+29
+
+14
+
+A#
+
+B
+
+7
+
+8
+
+15
+
+16
+
+MELODIC
+MINOR
+
+HARMONIC
+MINOR
+
+BEBOP
+DORIAN
+
+TODI
+
+WHOLE
+TONE
+
+CHROMATIC
+
+22
+
+Scale selection
+UKRANIAN
+DORIAN
+
+6
+
+30
+
+23
+
+31
+
+24
+
+32
+
+30
+
+Scale selection
+In Scales View, the lower two rows allow selection of one of the 16 available musical scales. These
+are given in the table below, which also lists the notes that each scale includes when the lowest note
+in the scale is C:
+Pad
+
+Scale
+
+C
+
+17
+
+Natural Minor
+
+18
+
+C#
+
+D
+
+D#
+
+
+
+
+
+
+
+Major
+
+
+
+
+
+19
+
+Dorian
+
+
+
+
+
+20
+
+Phrygian
+
+
+
+21
+
+Mixolydian
+
+
+
+
+
+22
+
+Melodic Minor (ascending)
+
+
+
+
+
+23
+
+Harmonic Minor
+
+
+
+
+
+24
+
+Bebop Dorian
+
+
+
+
+
+25
+
+Blues
+
+
+
+
+
+
+
+26
+
+Minor Pentatonic
+
+
+
+
+
+
+
+27
+
+Hungarian Minor
+
+
+
+
+
+
+
+
+
+
+
+28
+
+Ukranian Dorian
+
+
+
+
+
+
+
+
+
+
+
+
+
+29
+
+Marva
+
+
+
+
+
+
+
+
+
+
+
+30
+
+Todi
+
+
+
+
+
+
+
+
+
+31
+
+Whole Tone
+
+
+
+32
+
+Chromatic
+
+
+
+
+
+G
+
+G#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+F
+
+
+
+
+
+
+
+E
+
+
+
+
+
+
+
+
+F#
+
+
+
+
+
+A#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+B
+
+
+
+
+
+
+
+
+A
+
+
+
+
+
+
+
+
+The scale you choose to play in will be saved when you save the Project.
+You will see that when you select a different scale in Scales View, the illumination of the pads
+in the upper two rows changes. If you are familiar with a piano keyboard, you will see that the
+arrangement of pads simulates the layout of keys over one octave (initially starting at C), with
+Row 2 representing the white notes and Row 1 the black notes. Note that Pads 1, 4, 8 and 16 are
+always disabled in this view, to allow pads 2 and 3, and 5, 6 and 7 to act as the black notes. The
+brightly lit pads are those that belong to the selected scale, the dim ones are the notes that don’t
+belong.
+When you exit Scales View by pressing Note again, the lower two rows in Note View now contain
+the notes in the selected scale, over two octaves. There is one exception to this – Chromatic scale.
+With this scale selected all 12 notes in the scale are available, which means that only a one-octave
+keyboard is possible to accommodate them. The synth keyboard pads in Note View now have the
+
+31
+
+same layout as the keynote selection pads in Scales View. In Expanded Note View with Chromatic
+scale selected, a two-octave keyboard is presented:
+
+C#
+
+D#
+
+F#
+
+G#
+
+A#
+
+G
+
+A
+
+B
+
+F#
+
+G#
+
+A#
+
+A
+
+B
+
+Upper octave (Cn to Cn+1)
+Cn
+
+D
+
+E
+
+F
+
+C#
+
+D#
+
+Cn+1
+
+Lower octave (C n-1 to C n)
+Cn-1
+
+D
+
+E
+
+F
+
+G
+
+Cn
+
+Chromatic Scale in Extended Note View (Synth 1)
+
+Root note
+The default root note for all scales is C. In the Scales View shown at page 30, Pad 9,
+corresponding to C, is lit a darker blue than the other pads. To change the keyboard root note
+in Note View, press a different keynote selection pad in Scale View. (Note that the keynote
+selection pads always show an octave from C to B.) When a different root note is selected, the pad
+illumination changes to indicate the notes available in the currently selected scale for the new key.
+For example, if you are working in the Major scale, and select G as the root note, the Scales View
+will look this:
+
+G selected as root
+note
+
+1
+
+C
+
+Major scale
+selected
+
+9
+
+C#
+
+D
+
+2
+
+10
+
+D#
+
+E
+
+3
+
+11
+
+17
+
+18
+
+19
+
+25
+
+26
+
+27
+
+4
+
+F#
+
+5
+
+G#
+
+Keynote selection
+F
+
+12
+
+G
+
+13
+
+A
+
+6
+
+14
+
+A#
+
+B
+
+7
+
+8
+
+15
+
+16
+
+20
+
+21
+
+22
+
+23
+
+24
+
+28
+
+29
+
+30
+
+31
+
+32
+
+Scale selection
+
+The upper two rows now show the notes making up the G major scale: G, A, B, C, D, E, and F#.
+32
+
+In Note View, each of the two lower rows (or each of all four rows in Expanded Note View) will now
+sound the notes of the G major scale, running from G to G’ (where G’ denotes a note one octave
+above G). The same principle can be applied to re-scale the synth note pads in the Note Views to any
+desired root key.
+If you have already created a Project including synth notes, you can change the keynote to transpose
+the notes, even while the Project is playing. You can also change the scale itself for an existing
+Project. In this case, some notes present when was created may not exist in the new scale. In such
+a case, Circuit Tracks makes an intelligent decision as to which note to play instead, which will
+normally be either one semitone above or below the original note. Changing scale in this way is not
+destructive: you can revert to the original scale and the notes will sound as they did before.
+
+Selecting Patches
+Each of the two synth tracks can use any one of 128 pre-loaded Patches, which have been developed
+specifically for Circuit Tracks. The Patches are arranged as four pages of 32 in Patch View.
+To open Patch View for the currently selected synth (i.e., Synth 1 or Synth 2), press Preset 14 . This
+opens Patch View Page 1 if Synth 1 is selected and Patch View Page 3 if Synth 2 is selected. In each
+case, you can select the other pages by using the J and K buttons 15 . Note that the brightness of
+the J and K button symbols change to indicate which page you’re on.
+The pad corresponding to the currently selected Patch will be illuminated white and the others will be
+violet (Synth 1) or pale green (Synth 2). Patch 1 (Pad 1 on Page 1) is the default Patch for Synth 1 and
+Patch 33 (Pad 1 on Page 2) is the default Patch for Synth 2.
+To select a different Patch, press its pad. The synth (1 or 2) will now adopt the sound defined by
+the new Patch. You can change Patch while a Pattern is running, though the transition may not be
+absolutely smooth, depending on the point in the Pattern when the pad is pressed. Changing the
+Patch does not alter the Patch originally saved with the Pattern, unless the Project is re-saved.
+You can use Components to load Patches onto Circuit Tracks; in this way, you have control over the
+starting Patch for new Projects.
+
+Patch Preview
+You can hear what the Patches sound like while in Patch View by using Circuit Tracks’ Patch Preview
+feature. Patch Preview takes into account the current Scale and Root Note setting when auditioning a
+Patch.
+33
+
+If you hold down Shift while pressing a pad in Patch View, Preview is disabled; this may be desirable
+in live performance when you know which patch you’re using and don’t need to hear it on selection.
+Patch Preview is disabled when Circuit Tracks is in Record Mode and playback is active.
+
+External Patch Select
+Synth Patches may also be recalled from an external MIDI controller by sending Circuit Tracks MIDI
+Program Change (PGM) messages: the default MIDI channels are Channel 1 (Synth 1) and Channel 2
+(Synth 2), though MIDI channels may be reassigned in Setup View. Additionally, Circuit Tracks must be
+set to receive Program Change messages: again, this is the default setting, but see page 103 for full
+information.
+The separate downloadable document Circuit Tracks Programmer’s Reference Guide contains full
+details.
+
+Exploring the Macros
+You can modify Circuit Tracks’ synth sounds extensively with the Macro controls 3 . Each of the 128
+factory Patches available for each synth can have up to four of its parameters “tweaked” by each Macro
+control to alter the sound. The primary function of each Macro is indicated below the knob, but the
+audible effect of any adjustment will depend to a large degree on the source Patch itself: on some
+Patches the effect of a given Macro will be more obvious than on others.
+Each Macro has an RGB LED below the knob, which illuminates in either violet or pale green according
+to which synth is selected. The rotary controls are ‘endless’; the LEDs therefore provide an indication
+of the parameter value, with the LEDs’ brightness indicating the current value of the parameter as the
+knob is turned.
+With certain Patches, some Macros will be assigned a function quite different to their
+normal one. This is also likely to be the case with Patches other than the default factory
+ones, such as those created using Novation Components’ Synth Editor.
+
+By far the best way of understanding the effect of each Macro control is to load some different
+Patches, and experiment with the controls while listening. You will find that with certain Patches,
+turning some of the Macro controls will have an audibly different effect when other Macro controls
+have different settings. Try moving pairs of controls together to create unusual and interesting sonic
+variations. However, it must be emphasised that the effects of the Macros will vary to a greater or
+lesser degree with different Patches, and that there is no substitute for experimentation!
+
+34
+
+You can use the Macros while a pattern is playing to alter synth sounds in real time. If Record Mode
+is active, the LEDs change to red as soon as the knob is turned, and parameter variations will now be
+recorded to the Project. See page 36 for more details.
+The Macros can also be varied by an external MIDI controller of any kind. Circuit Tracks’ MIDI I/O
+configuration will need to be set to receive MIDI Control Change (CC) data – this is the default
+setting, but see page 103 for full information. Macro parameter variations originating in an external
+MIDI controller can be recorded in Circuit Tracks in exactly the same way as the physical knob
+movements described above.
+
+Recording a synth pattern in real time
+To record a synth pattern in real time, you will probably first want to record a drum track. Drum
+patterns are discussed in full detail in a later chapter, but an easy starting point for a rhythm “bed”
+is to select Drum 1, choose a bass drum sample from sample slots 1 or 2 of a kit, and press Pads 1,
+5, 9 and 13. Then when you press
+
+Play, you will hear a simple 4/4 bass drum. You can add some
+
+additional percussion - snare hits on or off the kick drum beat or some 1/8 or 1/16 hi-hat if you wish by selecting one or more of the other drum tracks entering some hits into the pattern.
+You can enable the click track for guidance if you wish: hold Shift and press Clear.
+Repeat to cancel. More details at page 87.
+
+Enter Note View for Synth 1 or Synth 2 (press Note and then Synth 1 or Synth 2 if not already
+selected) and run the pattern. If you want your synth notes to extend over four octaves rather than
+two (or two rather than one if you’ve selected Chromatic scale), select Expanded Note View instead
+(Shift + Note). You can “audition” the synth notes simply by playing them against the click track and/
+or your other tracks a few times until you’re happy – they won’t be recorded until you press the
+G Record button. When you’re ready to save them to the pattern, press Record and carry on playing;
+after the pattern has completed, the notes will be replayed. Circuit Tracks’ synth engines are “six-note
+polyphonic” – that is, you can assign up to six notes to any step in the pattern, if the Patch you’ve
+selected is suitably polyphonic.
+While you’re in Record Mode, the step cursor (normally white) changes to red as it progresses through
+the pattern as an additional reminder that you are now about to alter the pattern.
+Once you’ve played the required notes, press Record again to stop recording. You can also delete or add
+notes “manually” – that is, while the pattern isn’t running. If you’re working to a fast tempo, this is often
+easier. This topic is discussed in detail in the “Step Editing” section of the User Guide (page 38).
+
+35
+
+The G Record button has the dual momentary/latching action available on several other
+buttons. If you hold the button down for more than half a second, Circuit Tracks will drop
+out of Record Mode as soon as you release it. This means that you can punch-in and
+punch-out of record very easily with a single action.
+
+The factory default Projects load with monophonic sounds for Synth 1 and polyphonic
+sounds for Synth 2. This means you can easily use Synth 1 for a bass line, and Synth 2 for
+keyboard sounds. But you can, of course, change this at will.
+As you will normally decide which octave you’re going to play in at the time of recording, the two
+Octave buttons 15 have no effect on the pitch of the notes when you replay the pattern. If you want
+to alter the octave of the pattern after recording, hold down Shift and then press an Octave button.
+As with all changes, shifting an octave in this way does not alter the stored Project, until it is saved
+manually.
+The two parameters in Scales View – Scale and Root Note – can both be altered during playback as
+well, so if you like the pattern, but it’s in the wrong key to fit with another musical element, you can
+just press Scales and select a different root note. The selected scale and root note apply to both
+Synth tracks, and also both MIDI tracks.
+Playing the same note in different octaves at the same step can add great depth and character to the
+sound. Circuit Tracks’ six-note polyphony lets you play any six notes from each synth, and they don’t
+all need to be in the same octave.
+You can also experiment with different Patches once you’ve recorded a simple pattern. Enter Patch
+View while the pattern is playing (see page 33) and choose some different Patches; you’ll hear their
+
+effect as soon as the next note is triggered. If you hold down Shift while doing this, you won’t hear
+the low root note that is used to audition Patches.
+
+Recording Knob Movements
+You can tweak the synth sounds in real time using any of the eight Macro controls 3 . Circuit Tracks
+features automation, which means you can add the effect of these tweaks to the recorded pattern by
+entering Record Mode (by pressing G Record 13 ) while moving the knobs.
+On entering Record Mode, the LEDs below the Macro controls initially retain the colour and
+brightness they had previously, but as soon as you make an adjustment, the LED turns red to confirm
+that you are now recording the knob movement.
+
+36
+
+In order for the knob movements to be replayed, you must exit Record Mode before the sequence
+loops, otherwise Circuit Tracks will overwrite the automation movements you’ve just recorded with
+that corresponding to the new knob position. Provided you do this, you’ll hear the effect of the Macro
+control being replayed when the sequence next loops round, at the point in the pattern where you turned
+the control.
+You can also record Macro control changes when the sequence isn’t playing; in Note View, press
+G Record, select the step at which the change should occur by pressing and holding the pad
+corresponding to the step; this will play the synth note(s) at that step. Then adjust the Macro
+control(s) as desired; the new value(s) will be written to the automation data; press Record again
+to exit Record Mode. When the sequence is running, you will hear the effect of the Macro knob
+movements at that step. In the same manner, you may also edit the automation of Macro controls for
+specific steps in this way while the sequencer is playing back. With Record Mode enabled, simply hold
+down a step pad and turn a Macro control.
+You can delete any Macro automation data you don’t want to keep by holding down Clear and moving
+the knob in question by at least 20% of its rotation – the LED below the knob will turn red to confirm.
+But note this will clear the automation data for that Macro for the whole Pattern, not just at the
+sequencer’s current step.
+
+Non-quantised record
+When you record synth notes in real time as described above, Circuit Tracks will “quantise” your
+timing and assign the notes you play to the nearest step. Six “finer” intervals – or “micro steps” – in
+between adjacent pattern steps can be made available in live record mode by disabling quantised
+recording.
+Quantised recording is disabled by holding down Shift and pressing G Record (note the button is
+also legended Rec Quantise). Now your notes will be time-aligned to the nearest micro step. You
+can always check to see whether quantised record is enabled by pressing Shift: if the Record button
+illuminates green, quantisation is enabled; if it is red, recording will be non-quantised.
+You can also adjust your synth notes to micro step intervals after you’ve recorded them. This is
+discussed in “Step Editing” at page 38.
+
+37
+
+Recording from an external controller
+You can also create a synth pattern in Circuit Tracks by sending it MIDI note data from an external
+controller. This gives you the ability to play Circuit Tracks’ synth patches from a standard music
+keyboard. The default settings are: MIDI note data Receive is ON; Synth 1 uses MIDI Channel 1 and
+Synth 2 uses MIDI Channel 2. These settings may be changed in Setup View, see page 103 for full
+information on setting up how Circuit Tracks sends and receives MIDI data generally.
+Note that the selected Scale and Root Note still takes effect when Circuit Tracks receives MIDI note data.
+
+If a note which does not occur in the currently selected Scale is played on an external
+controller, Circuit Tracks will ‘snap’ to the nearest note in the current Scale. Any possible
+“wrong notes” resulting from this can be avoided by selecting Chromatic Scale: this will
+ensure that all notes on a normal keyboard will be available.
+
+Step editing
+Step editing operations in Circuit Tracks may either be done with the Pattern running (i.e., in Play
+mode) or not running (i.e., in Stop mode).
+All the following details apply equally – and independently - to Synth 1 and Synth 2; use the Synth 1
+or Synth 2 buttons to see the individual contributions of the two tracks to the overall Pattern.
+In Note View (note – not Expanded Note View), the two upper rows of grid pads is the 16-step pattern
+display and the two lower rows constitute the synth keyboard. When a pattern is played, you can
+see the white pad moving through the 16 steps. Where a step has a note present, the keyboard pad
+corresponding to the note being played illuminates white while the note is sounding (but see below
+regarding octaves).
+In Stop mode, you can listen to the notes assigned to each step and alter the pattern manually. In Play
+mode, you will only hear the notes associated with each step when the sequence reaches the step.
+(But if you mute the synth track in Mixer View while the sequence is playing, you can press any of the
+illuminated pattern step pads to hear the note(s) assigned to a step .)
+The pads for the steps which have notes associated with them will be illuminated bright blue. One
+step pad will flash white/blue: this shows where the pattern had reached when it was stopped. This is
+shown in the first diagram below. However, note that when you press
+
+Play again, the pattern will
+
+restart from Step 1: however, this may be overridden by holding down Shift while pressing Play; in
+this case the pattern will continue from the step at which it was stopped.
+38
+
+These two steps have
+synth notes associated
+with them
+
+One step pad blinks
+blue/white to show where
+pattern is stopped
+
+Hold pad down to see which
+note(s) play at this step
+
+(HOLD)
+
+Keyboard pad(s) illuminate
+red to indicate note at the
+selected step
+
+If a bright blue step pad (i.e., one corresponding to a synth note) is pressed and held, it illuminates
+red, the note(s) at that step will sound, and the keyboard note(s) will also illuminate red (it will be two
+pads if it’s the highest note in the lower octave or vice versa). This is shown in the second diagram
+above. The pads stay red and the note(s) sound(s) for as long as the step pad is held down.
+If you press a brightly-lit step pad but no keyboard pad illuminates red, it means that the note you are
+hearing – the one recorded for that step – lies in another octave. Use the Octave buttons 15 to find
+where the note is: a keyboard pad (or pads) will light red when you hit the right octave.
+
+39
+
+Deleting notes
+To delete a note from a step, press the step pad (lights red) and then press the unwanted keyboard
+pad (also lights red). The keyboard pad will resume the native colour of the other (unplayed) notes.
+
+Inserting notes
+You can add a synth note to a step by holding down the step pad and pressing the desired note. Note
+that Record Mode does not need to be enabled. Now when you run the pattern, you will find that the
+note has been added. You can add multiple notes to the same step if you wish.
+
+Clear and Duplicate
+Clearing Steps
+You can delete all assigned synth notes from a step in one go using the Clear button 17 . This has the
+advantage that you don’t have to search through several octaves to find all the notes assigned to the step.
+Press and hold Clear; the button shows bright red to confirm Clear Mode. Now press the step pad; it will
+turn red and all notes at this step for the currently selected synth track will be deleted. The step pad will
+revert to its dim “unassigned” illumination when this has been done. Release the Clear button.
+The Clear button has an additional function in both Patterns View (see page page 84) and Projects
+View; (see page 95). Also note that you cannot clear steps when in Pattern Settings View.
+
+Duplicating Steps
+The Duplicate button 18 performs “copy-and-paste” actions on steps.
+Use Duplicate to copy all the synth notes on a step, together with their various attributes, to a
+different step in the pattern.
+To copy a synth note from one step to another, press and hold Duplicate: it shows bright green. Press
+the pad in the Pattern display corresponding to the step to be copied (the ‘source’ step); it will turn
+green and the note(s) assigned to it will turn red (providing they are in the currently selected octave).
+Now press the pad corresponding to the step where the data is to be copied to (the ‘destination’
+step); this will give a single red blink. All the note information in the source step will now have
+been duplicated in the destination. Any pre-existing note information in the destination step will
+be overwritten. If you want to copy the note data to several steps, you can continue to hold the
+Duplicate button down, and simply repeat the “paste” part of the operation to the other steps.
+40
+
+Velocity, Gate and Probability
+Every step in a pattern has three further parameters that are available to you to adjust. These are
+Velocity, which determines how the volume of a note is related to how hard the pad is struck; Gate,
+which sets the duration of the note; and Probability, which determines how likely a step is to trigger.
+By default, the values of these three parameters will apply to every note assigned to that step, though
+it is also possible to assign different Velocity values to different notes at the same step (see Per-note
+Velocity at page 44).
+Because values of Velocity, Gate and Probability are assigned to the step rather than the notes at the
+step, they will be retained if you change a note on the step, provided that you add the new note first,
+then delete the unwanted note. In this way, the new note adopts the Velocity, Gate and Probability
+parameter values of the previous note.
+Note also that Velocity, Gate and Probability values may be set independently for the same pattern
+step on each synth.
+
+Velocity
+In most synths, the Velocity parameter determines the relationship between the speed of movement
+and the volume of the note. A high value for Velocity means that the note will be loud; a low value
+means that the note will be lower in volume. Velocity values are saved to each step along with the
+note data, either as you play the synth pads, or assign notes to steps manually (i.e., in Stop Mode).
+You can subsequently alter the Velocity parameter of each step. Circuit Tracks lets you assign one
+of 16 Velocity values to a step after you’ve created a pattern. This is done in Velocity View, which is
+selected by pressing Velocity 6 . Note the button text now shows the track colour.
+
+41
+
+One step pad pulses
+blue/white; this is the step
+whose Velocity value is
+displayed
+
+These three steps have
+synth notes associated
+with them
+
+Pattern step display
+
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Velocity value display
+
+This indicates a Velocity
+value of 11
+
+In Velocity View, the two upper rows of the grid represent the pattern steps. In the example shown
+above, Steps 4, 14 and 16 are brightly lit, indicating that these steps have notes associated with them.
+One pad in the Pattern step display will flash alternate white/blue: this is the step whose Velocity
+value is being displayed.
+The two lower rows of the grid make up a 16-pad “fader”; the number of pads illuminated “sand” is the
+Velocity value for the selected step. In the example shown, the displayed Velocity value is 11 (equivalent
+to an actual Velocity value of 88 – see page 44): the remainder of the Velocity value display is unlit.
+If you record in real time – i.e., while the sequencer is running and recording – the velocity value is set
+internally to 7-bit accuracy: a value between 0 and 127. However, Velocity View can only display the
+Velocity value to a resolution of 16 increments of 8 value steps each (because there are only 16 pads
+available). This means that you are likely to see the “last” pad in the display lit at a lower brightness.
+For example, if the Velocity value is 100, you will see Pads 1 to 12 fully lit, and Pad 13 dimly lit,
+because the value of 100 lies midway between two multiples of eight.
+
+42
+
+The table below shows the relationship between actual Velocity values and the pad display:
+No. of lit pads
+
+Velocity value
+
+No. of lit pads
+
+Velocity value
+
+1
+
+8
+
+9
+
+72
+
+2
+
+16
+
+10
+
+80
+
+3
+
+24
+
+11
+
+88
+
+4
+
+32
+
+12
+
+96
+
+5
+
+40
+
+13
+
+104
+
+6
+
+48
+
+14
+
+112
+
+7
+
+56
+
+15
+
+120
+
+8
+
+64
+
+16
+
+127
+
+You can change Velocity value by pressing the pad in the Velocity value display corresponding to the
+Velocity value. If you wanted the note(s) at Step 4 in the example above to have a Velocity value of 48
+instead of 88, you would press pad 6 in row 3; Pads 1 to 6 will then illuminate sand.
+You can also use Velocity View to change Velocity values while a pattern is playing. In this case, you
+need to press and hold the pad for the step to have its Velocity value changed; you can do this at any
+point in the pattern. The held step pad will illuminate red, and the two lower rows will “freeze” to
+display the Velocity value of the selected step. Press the Velocity pad corresponding to the new value
+required. The pattern continues to play, so you can experiment with different Velocity values in real
+time and hear the differences.
+
+Fixed Velocity
+You may sometimes prefer to disable Velocity; then the notes comprising your synth sequence will
+have a more “mechanical” feel to them regardless of how you hard you actually strike the pads.
+Circuit Tracks has a Fixed Velocity function, which sets Velocity at a value of 96.
+You can toggle Fixed Velocity mode on and off by pressing Velocity while holding down Shift. Fixed
+Velocity is confirmed by the Velocity button illuminating green while Shift is pressed; in variable
+Velocity mode, it illuminates red while Shift is pressed.
+With Fixed Velocity selected, you will find that all synth notes you play have a Velocity value of 96 (12
+pads lit).
+Note that setting Velocity to Fixed does not alter the Velocity values of any notes previously recorded.
+
+43
+
+Per-note velocity
+It is also possible for synth notes on the same step to have different Velocity values, provided Circuit
+Tracks is not in Fixed Velocity Mode. When notes are inserted manually, the velocity value that each
+note is struck with will be saved to the step. For example, if you hit a synth note with a high velocity,
+the velocity value for the note will be saved; if then - with the same step selected - you hit a different
+note using a low velocity, the velocity value for this note is saved independently of the first.
+The velocity value for one of the notes can be changed by simply deleting that note from the step and
+hitting the note again with the desired velocity.
+The range of velocity values present at a single step can be seen in Velocity view. The brightly lit pads
+represent the lowest velocity value at the step, while the dimly lit pads represent the highest velocity
+value at the step. The example below shows that a range of Velocity values are applicable to notes
+assigned to Step 12, from 56 (7 pads brightly lit) to 104 (Pads 8 to 13 dimly lit):
+
+Pattern step display
+
+The lowest velocity
+value of a note at
+step 12 is 56 (=7 x 8)
+
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Velocity value display
+
+The highest velocity
+value of a note at step
+12 is 104 (=13 x 8)
+
+44
+
+Gate
+Gate is essentially the duration of the note at a Step, in units of steps. The Gate parameter is not
+restricted to integer values, fractional values are also allowed: It may have any value between onesixth and 16, in increments of one-sixth of a Step, giving a total of 96 possible values. The number
+represents the time – as the number of steps - for which the notes at the step will sound.
+Gate values are assigned to each note as you play the synth pads; Circuit Tracks quantises them to the
+nearest of the 96 possible values. A short stab at a pad will result in a low Gate value; if you hold a
+pad down for longer, the Gate value will be higher. A Gate value of 16 means that notes at that step
+will sound continuously for an entire 16-step pattern.
+Circuit Tracks lets you change the Gate value of a step after you’ve created a pattern. This is done in
+Gate View, which is selected by pressing Gate 6 .
+
+These two steps have
+synth notes associated
+with them
+
+One step pad blinks
+blue/white; this is the step
+whose Gate value is
+displayed
+
+Pattern step display
+
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+This indicates a Gate
+value of 2
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Gate value display
+
+In Gate View, the two upper rows of the grid represent the pattern steps. In the 16-step example
+shown above, Steps 1 and 4 are brightly lit, indicating that these steps have notes associated with
+them. One pad in the Pattern step display will flash alternate white/blue: this is the step whose Gate
+value is being displayed.
+The two lower rows show the Gate value for the selected step in a similar manner to Velocity: in Gate
+View, the number of illuminated pads is the duration of the note in units of pattern steps. In the
+
+example shown above, the Gate value is 2: the remainder of the Gate value display is unlit.
+
+45
+
+You can change the Gate value by pressing the pad in the Gate value display that corresponds to
+the Gate value; that is, the number of pattern steps that the note at the step should sound for. If you
+wanted the note at Step 1 in the example above to sound for four steps instead of two, you would
+press pad 4; Pads 1 to 4 then illuminate sand (off white). You can either lengthen or shorten the note
+in this way.
+Fractional Gate values are assigned by pressing the highest-numbered illuminated pad in the Gate
+value display an additional number of times: this will always shorten the Gate time. Each additional
+press reduces the Gate time by one sixth of a step, and the illumination dims incrementally at each press.
+Thus if a Gate duration of 3.5 was required for Step 1, the example above would look like this:
+
+Step whose Gate
+value is displayed
+
+Pattern step display
+
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Gate value display
+
+Pad 4 is dimly lit indicating
+Gate value is now
+between 3 and 4
+
+After the fifth press on the pad, the Gate time reverts to the former integral value on the sixth, and
+the pad resumes its original full brightness.
+You can also use Gate View to change Gate values while a pattern is playing. In this case, you need to
+press and hold the pad for the step to have its Gate value changed; you can do this at any point in the
+pattern. The held step pad will illuminate red, and the Gate value display will “freeze” to display the Gate
+value of the selected step. Press the pad corresponding to the new value required. The pattern continues
+to play, so you can experiment with different Gate values in real time.
+Pattern steps with no notes have a zero Gate value; all Gate pads in Gate View for such steps will be
+unlit. You can’t edit a step’s Gate Value if there are no notes assigned to that step.
+
+46
+
+Probability
+You can introduce a degree of random variation into a pattern with Circuit Tracks’ Probability function.
+Probability is essentially a further step parameter, which decides whether or not the notes on the step
+will be played during each pass of the Pattern.
+All steps are initially assigned with a Probability value of 100%, meaning that all notes will always be
+played, unless their Probability value is reduced: this is done using Probability View.
+Probability View is the secondary view of the Pattern Settings button 7 . Open by holding Shift and
+
+pressing Pattern Settings, or press Pattern Settings a second time if already in Pattern Settings View
+to toggle the View. Select the step in the Pattern display for which it is wished to alter the probability
+of the notes at that step. Pads 17 – 24 constitute a “probability meter”: initially all eight pads will be
+lit, with the colour deepening from 17 to 24.
+
+These three steps have
+synth notes associated
+with them
+
+The pulsing pad is the step
+whose Probability value is
+displayed
+
+Pattern step display
+With all eight pads lit, the
+probability at the selected
+step is 100%
+Probability value display
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+There are eight possible values of Probability determining the likelihood that the notes on the chosen
+step will play in any one pass through the Pattern. The number of lit pads indicates the Probability
+value: the higher pads in the row will be dark. The possible Probability values are:
+Lit pads
+
+Probability
+
+Lit pads
+
+Probability
+
+1–8
+
+100%
+
+1-4
+
+50%
+
+1–7
+
+87.5%
+
+1-3
+
+37.5%
+
+1-6
+
+75%
+
+1-2
+
+25%
+
+1-5
+
+62.5%
+
+1 only
+
+12.5%
+47
+
+To assign a Probability to a step in Stop Mode, press and release the pad for the step you wish to edit
+and press the pad in Row 3 corresponding to the Probability value. To assign Probability to a step
+while in Play Mode, you must keep the step pad held while you set a probability. All notes assigned
+to the step will have a collective chance of being played according to the percentages above. This
+means that either all of the notes at the step will play, or none of them will.
+•
+
+A Probability of 100% means that the notes at the step will always be played.
+
+•
+
+A Probability of 50% means that on average, the notes at the step will be played in half of the
+patterns.
+
+•
+
+A Probability of 25% means that on average, the notes at the step will be played in a quarter of
+the patterns.
+
+Clearing steps, Patterns and Projects will also reset all Probabilities to 100%. Live recording of a new
+note to a step will also reset the probability at that step to 100%.
+
+Micro step edit
+You’re not limited to your synth notes only being played precisely on the pattern step they’re
+assigned to. You can take your music ‘off the grid’ by delaying individual notes on a step by between
+one and five ‘ticks’, where a tick is a sixth of a step. This lets you create more complex rhythms that
+would not be possible otherwise, for example, triplets across the beat.
+Micro Step View is the secondary view of the Gate button 6 . Open by holding Shift and pressing
+
+Gate, or press Gate a second time if already in Gate View to toggle the View. In Micro Step View,
+select a step to see the location of the note(s) on the step: the first six pads of the third grid row will
+display this. By default, whether the note was entered in Stop Mode or via live recording (with Rec
+Quantise enabled), the first pad will be lit. This means the note(s) have an initial delay of zero, and will
+be heard exactly on the step.
+
+48
+
+Selected step
+pulses blue/white
+PLAY
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+0
+
+1
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Pattern step display
+
+2
+3
+4
+Synth micro-nudge steps
+
+5
+
+25
+
+Play note at selected step.
+Pads 26+ will also
+illuminate if multiple notes
+are present at the step.
+
+The fourth grid row will show one or more pads in the track colour. These let you choose which
+note at the step is to have a delay altered: if only one note is assigned, only one pad will be
+lit. Multiple notes are displayed left to right in the order they were assigned, meaning that the
+first note that was assigned to the step is the leftmost pad, the next note assigned will be to its
+right, and so on. There may be up to 6 notes assigned to a single step. Selecting a note here will
+audition it, so you can be sure which note you’re adjusting. The selected note will be lit brightly,
+while the others will be dim.
+With a note selected, use the synth micro step pads to set the Micro step on which the note will
+trigger. The pad for the selected Micro step will be lit brightly, while the other micro step pads
+will be dim. Each note may trigger only once per step unless multiples of the same note are liverecorded on a single step.
+
+49
+
+Select required
+step (shows red
+while pressed,
+then blinks white)
+
+1
+
+PLAY
+
+9
+
+0
+
+(PRESS)
+
+2
+
+3
+
+10
+
+11
+
+1
+
+25
+
+One of three notes at
+selected step. Pads 26+
+also illuminate if multiple
+notes are present at the step.
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Pattern step display
+
+2
+3
+Synth micro steps
+
+27
+
+4
+
+5
+
+28
+
+Selected note at
+the step is now
+delayed by 3 ticks
+
+Multiple notes can be selected by pressing their pads simultaneously or by holding down one pad
+and tapping others. All the notes assigned to a step are selected by default before manual note
+selection is made.
+When multiple notes are selected, the micro steps on which the selected notes trigger are all
+displayed. This is shown in the Gate View image below – four notes are selected, some of which
+trigger on micro step 1 while others trigger on micro step 4. Each individual note can then be
+selected to determine which micro step it triggers on.
+
+50
+
+1
+
+PLAY
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+14
+
+15
+
+16
+
+Pattern step display
+9
+
+10
+
+0
+
+1
+
+25
+
+11
+
+12
+
+13
+
+2
+3
+4
+Synth micro-nudge steps
+
+26
+
+27
+
+5
+
+28
+
+There are four notes at the
+selected step; some of
+them are at micro step 0
+(no delay), others at micro
+step 3 (3 ticks delay)
+
+When auditioning a step that contains notes with different micro steps, playback of the notes will be
+staggered according to their micro step delays. This allows for the playback of “strummed” chords.
+The step will play back at the current Pattern tempo - lowering this can help with hearing each note
+individually.
+
+Tied / Drone Notes
+It is possible to tie notes together in order to create drone notes and long ambient pads.
+Each step may have a tie-forward setting. This feature is accessed using Gate View. In Gate View,
+select a step that contains the note that you want to tie-forward.
+Select Micro Step View (see previous section), and you will see the following:
+
+Selected step
+pulses blue/white
+PLAY
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Pattern step display
+
+Tie-forward on/off
+Micro steps
+
+24
+
+25
+
+51
+
+You can now turn the tie-forward setting on/off for this step by pressing pad 24 as shown above.
+To make the tied note work you need to set the gate length so that the note ends just before the
+next note is played or overlaps with it.
+In this example, the note to tie is on the first step so setting the gate length to 16 steps means that it
+will end just before the next pattern is triggered as follows:
+
+Selected step
+pulses blue/white
+PLAY
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+17
+
+18
+
+19
+
+25
+
+26
+
+27
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+20
+
+21
+
+22
+
+23
+
+24
+
+28
+
+29
+
+30
+
+31
+
+32
+
+Pattern step display
+
+Gate length display
+
+Press Pad 32 to
+set a Gate length
+of 16 steps
+
+If this pattern is the only one selected to play in Patterns View then the note will now play
+indefinitely. Alternatively create a new note of the same pitch at the beginning of the next pattern to
+play in the pattern chain and the two notes will be tied together.
+In Note View, tied notes are shown as orange when the steps are held down as opposed to the usual
+red. If notes are added to a step that already has a tied note assigned, they will not inherit the tieforward setting and will be shown in red. This ensures that overdubbing on a step with a tied note
+does not result in multiple ties.
+It is also the case that newly added notes will have their own gate lengths, which may be different
+to the length of any pre-existing notes.
+If you do want to add a new note to the tie then simply use Gate View to select the step and turn the
+tie-forward setting off and back on again to apply the tie-forward setting to all the notes on the step
+just as when you edit the gate length on a step, all notes inherit the same new gate length.
+
+52
+
+Pattern Settings
+Although default Pattern lengths are either 16 or 32 steps (see also “Step Page and 16/32-step
+Patterns” at page 75), it is possible for the Pattern in any track to be any other number of steps in
+length, up to the maximum of 32 steps. Furthermore, the start and end points of a Pattern may be
+independently defined, so that sub-sections of a Pattern, of any length, may be played against other
+tracks with different Pattern lengths, creating some very interesting effects. You can also choose
+Pattern play order and set the speed of the track relative to that of other tracks.
+All these options are set in the Pattern Settings View; press Pattern Settings to open this:
+
+Press Shift to
+toggle Pattern Start
+point with Pattern
+End point
+
+These four steps have
+notes/hits associated with
+them
+
+Start
+point
+Pattern step display
+End
+point
+
+Pattern is stopped at
+the blue/white pulsing
+step (Synth & MIDI
+tracks only)
+1
+
+2
+
+3
+
+Sync rate display
+4
+
+5
+
+6
+
+7
+
+8
+
+Play order selection
+
+Any alterations to the track Pattern made in Pattern Settings View can be saved to the Project in the
+usual way.
+
+Start and End points
+The upper two rows of the Pattern Settings View show the Pattern steps for the currently selected
+track. If no adjustments have yet been made to Pattern length, Pad 16 will be illuminated sand: this
+indicates the last step in the Pattern. However if the Pattern length is 32 steps, you will need to press
+the Step Page button 8 to open Page 2 in order to see the end step indication. To see which step
+is currently the Pattern start point, press and hold Shift. The end point step returns to blue and a
+different step pad lights sand: this will be Pad 1 if Pattern length has not yet been altered.
+You can change the end point for the track– and hence shorten the Pattern length - by pressing a
+different Pattern step pad. The new end point is indicated by a sand illumination, and the “higher”
+pads either go dark or dim red, the latter indicating that note/hit data has previously been assigned
+to that step. If you reselect the original end point, this data will still be there and will be played.
+53
+
+Repositioned end
+point – Pattern length
+is now 12 steps
+
+Dim red pad indicates that
+note/hit data still exists for
+this step
+
+Pattern step display
+End
+point
+
+1
+
+2
+
+3
+
+Sync rate display
+4
+
+5
+
+6
+
+7
+
+8
+
+Play order selection
+
+Altering the start point is exactly the same process, except that Shift needs to be held down while
+selecting the new start point:
+
+Dim red pad indicates that
+note/hit data still exists for
+this step
+
+Press Shift to see and Repositioned start point –
+move the start point Pattern length is now 13
+steps
+Start
+point
+Pattern step display
+End
+point
+
+1
+
+2
+
+3
+
+Sync rate display
+4
+
+5
+
+6
+
+7
+
+8
+
+Play order selection
+
+If you are working with 32-step Patterns, be careful about which of the two Step Pages you
+are on. The colour of the Step Page button 8 always indicates this – blue for Page 1
+(Steps 1 to 16) and orange for Page 2 (Steps 17 to 32).
+
+54
+
+Play order
+Pads 29 to 32 in Pattern Settings View let you choose the play order the currently selected Pattern will
+use. The pad for the selected play order illuminates brightly: the default play order is forwards (i.e.,
+normal), indicated by Pad 29.
+
+Play order selection
+29
+
+30
+
+Reverse
+
+Forwards
+(Default)
+
+31
+
+32
+
+Ping-pong
+
+Random
+
+Alternatives to the normal forward play order are:
+•
+
+Reverse (Pad 30). The Pattern starts playing at the end point, plays the steps in reverse order to
+the start point, and repeats.
+
+•
+
+Ping-pong (Pad 31). The Pattern plays forwards from start to end, reverses back to the start
+point, and repeats.
+
+•
+
+Random (Pad 32). The Pattern steps are played randomly, though still at step intervals.
+
+If the play order is changed in Play Mode, the Pattern always completes its current cycle before starting
+a cycle with the new direction. This applies regardless of the current Pattern length or Step Page
+selection.
+
+Pattern Sync rate
+The third row of Pattern Settings View determines the speed at which the track plays relative to the
+Project’s BPM. It is effectively a multiplier/divider of the BPM.
+
+(Default)
+Sync rate display
+1
+
+1/4
+
+2
+
+1/4 T
+
+3
+
+1/8
+
+4
+
+1/8 T
+
+5
+
+1/16
+
+6
+
+1/16 T
+
+7
+
+1/32
+
+8
+
+1/32 T
+
+55
+
+The selected sync rate is indicated by the brightly-lit pad: the default rate is “x1” (pad 5 in row 3),
+which means the track will play at the set BPM. Selection of a higher-numbered pad increases the
+rate at which the play cursor progresses through the Pattern relative to the previous one. Similarly
+the lower-numbered pads will decrease the play rate. The sync rates available are 1/4, 1/4T, 1/8, 1/8T,
+1/16, 1/16T, 1/32, 1/32T, with T representing triplets.
+1/16 is the default sync rate, where each step corresponds to a 16th note. Increasing the sync rate is
+a great way to increase the sequencer’s step resolution at the cost of overall playback time. Reducing
+the sync rate is useful for creating longer patterns that don’t require quite as fine detail, such as long,
+evolving pads.
+If the sync rate is changed in Play Mode, the Pattern always completes the current cycle at the
+existing rate, and changes to the new rate at the end of the cycle. This applies regardless of the
+current Pattern length or Step Page selection.
+
+Mutate
+Mutate is a feature that lets you introduce further random variations into individual Patterns on a pertrack basis. Mutate “shuffles” the notes or hits in the current Pattern, to different steps. The number of
+notes/hits in the Pattern, and the synth notes or drum samples themselves are both unchanged, they
+are merely reassigned to different steps. All step parameters are reassigned by Mutate, including micro
+steps, gate values, sample flips, probability and automation data.
+To mutate a Pattern, hold Shift 20 and press Duplicate 18 . You can do this in any View that has a
+Pattern steps display, i.e., Note View, Velocity View, Gate View or Pattern Settings View. Mutate only
+affects the Pattern currently playing, so if it is part of a Pattern Chain, the other Patterns in the chain
+will be unaffected. The reassignment of notes/hits will take account of the Step Page length. You can
+apply Mutate as many times as you wish for any one Pattern by repeatedly pressing Shift + Duplicate:
+the notes/hits in the Pattern will be randomly reassigned each time.
+Note that Mutate cannot be “undone”; it is a good idea to save the original Project so that you can
+return to it after applying Mutate.
+
+56
+
+The MIDI Tracks
+Introduction
+The two MIDI tracks behave just like the Synth tracks and support all the same sequencer functions,
+but have a couple of key differences. They do not control an internal synth engine but are intended to
+control external equipment or software via MIDI. Note data is transmitted from the performance pads in
+Note View , and from the sequencer just like the synth tracks. CC data is also transmitted by the Macro
+
+knobs, depending on the selected MIDI template. These controls can be automated just like the synth
+macros. Currently, each MIDI template defaults to eight CC indexes with values 1, 2, 5, 11, 12, 13, 71
+and 74 respectively.
+As with the Synth and Drum tracks, the MIDI tracks use the Macro knobs to set volume and pan
+levels in Mixer View and FX send levels for delay and reverb in the FX View. However, on the MIDI
+tracks, these act on the analogue audio signal applied at the two audio Inputs 5 on the rear panel.
+The recommended workflow is to send MIDI data from Circuit Tracks to your external synth or drum
+machine, while routing the audio outputs of that device back into Circuit Tracks’ audio inputs: this
+gives you full control of the external device’s contribution to the overall mix from the MIDI tracks. You
+can control and automate the volume, pan and effects just like your other internal tracks.
+Of course this is only one possible routing option and you can use the audio inputs for any other
+purpose, but the external input signals are always routed through the Mixer and FX sections.
+
+Selecting Templates
+Select a MIDI track and press Preset 14 to access Template View. Eight MIDI templates are stored
+within Circuit Tracks, represented by the top row of blue pads. Each template defines the MIDI CC
+messages that are transmitted by the Macro controls; select a template that matches the MIDI spec of
+your your external equipment. These templates can be edited and backed up in Components Editor.
+Select a new template by pressing a pad; it lights white. A different set of messages will now be sent
+by the Macro controls when that track is selected. Each track can use a different template. The controls
+will transmit their data on the MIDI channel defined for the MIDI track in Setup View (see page 102).
+MIDI template parameters can be automated just like any other parameter (press Play, Record and move
+the knob). Note that automated MIDI template controls will send data to the MIDI Out DIN port as well as
+the USB port, unlike parameters on the other tracks, which are only sent to the USB port.
+When a new template is selected, any existing automation data is not erased and will be applied to
+the new MIDI message now assigned to the Macro control that was used to record it.
+
+57
+
+Default Templates
+The eight default MIDI templates are identical. Select any one and use Components Editor to make any
+changes that are needed to make the Macro controls work effectively with your external equipment.
+You may find that the default settings are usable, as many synths use the same CC messages to adjust
+similar parameters: furthermore, many synths allow internal re-mapping of CC messages.
+With the default templates, the Macro controls transmit MIDI CC messages as per the table:
+Macro Control
+
+MIDI CC
+
+Normal use
+
+Remarks
+
+1
+
+CC1
+
+Modulation wheel
+
+Often re-mappable in a synth
+
+2
+
+CC2
+
+Breath control
+
+Often re-mappable in a synth
+
+3
+
+CC5
+
+Portamento time
+
+4
+
+CC11
+
+Expression
+
+5
+
+CC12
+
+Effect control 1
+
+6
+
+CC13
+
+Effect control 2
+
+7
+
+CC71
+
+Resonance
+
+8
+
+CC74
+
+Filter frequency
+
+Often re-mappable in a synth
+
+You can download various pre-made templates from Novation Components; these cover a range of
+Novation products as well as those from other manufacturers.
+
+Setting Up Templates in Components
+MIDI Template Control Range
+Using Components Editor, you can define the start and end values of each control in the template.
+The start value sets the value that will be output when the control is rotated fully anti-clockwise and
+the end value sets the value that will be output when the control is rotated fully clockwise.
+
+MIDI Template Control Polarity
+Components Editor also lets you define each Macro control as either unipolar or bipolar. This only affects
+the response of the LED below the control and does not affect the transmitted messages. When unipolar
+is selected, the brightness of the LED will move linearly from dim to bright as you move the control from
+one limit of its range to the other. When set to bipolar, the LED will illuminate in its dim state in the centre
+of the range, increasing in brightness as the control is rotated in either direction.
+
+58
+
+Connecting to external hardware via MIDI Out
+To sequence and control external equipment from Circuit Tracks, connect a 5-pin MIDI cable from
+Circuit Tracks’ MIDI Out port (or MIDI Thru if set to duplicate the MIDI Out port, see Setup View,
+page 102). If notes, clock, or CC messages are not being received by your external hardware, make
+sure that all eight pads in the bottom row are brightly lit in Setup View (accessed by holding down
+Shift while pressing Save.) You can read more about the function of these pads in the Appendix
+section on Setup View.
+
+59
+
+The Drums
+Circuit Tracks has four separate drum tracks, Drum 1 to Drum 4. The grid displays for the drum tracks
+are similar to those for the synth tracks in that the upper two rows show the same Pattern display.
+Each of the 16 pads of the lower two rows triggers a different percussion sample: there are four pages
+of these (each with 16 samples), which can be selected with the J and K buttons 15 . Note that the
+intensity of illumination of these indicate the page currently in use. You can also use Preset View to
+select the sample to use (see page 62).
+Each of the four drums may be selected and programmed independently using the Track buttons
+Drum 1 to Drum 4 5 . The tracks use colour coding for the sample pads and elsewhere for ease of
+identification (see page 21).
+The default sample page allocation is:
+Drum 1:		
+
+Page 1, slot 1 (Kick 1)
+
+Drum 2:		
+
+Page 1, slot 3 (Snare 1)
+
+Drum 3:		
+
+Page 1, slot 5 (Closed hi hat 1)
+
+Drum 4:		
+
+Page 1, slot 9 (Additional percussion 1)
+
+Each page represents a kit. Drums 1 and 2 are kick drums, 3 and 4 are snares, 5 and 6 are closed hi
+hats, 7 and 8 are open hi hats, 9 through 12 tend to be additional percussion, and 13 through 16 are
+melodic sounds.
+
+Playing Drums
+The Note Views for the four drum tracks are the same, apart from the colour coding; the example below
+shows Drum 1:
+
+PLAY
+
+Pattern step display
+
+Sample pads – colour coding:
+Drum samples
+(one page of four)
+
+Drum 1
+Drum 2
+Drum 3
+Drum 4
+
+Currently active sample
+
+60
+
+You can audition the samples by pressing the sample pads. To change the active sample, give a
+different sample pad a quick tap: a longer press will play the sample but leave the previous sample
+assigned as the active one.
+To assign the active sample to Pattern steps in Stop Mode or Play Mode, tap the Pattern step pads
+that correspond to where you want drum hits to be triggered. The steps with hits will illuminate bright
+blue. The step pads are toggles – to delete the drum hit from a step, tap the step pad again.
+The short/long press logic of the pads lets you play additional drum hits from a different sample pad
+over the Pattern: pressing (as opposed to tapping) a different pad will play its sample but the Pattern
+will not assume the new sample. If you tap a different sample pad while the Pattern is playing, the
+Pattern will continue with the new sample.
+Drum hits programmed in Stop or Play Modes as described above will be assigned to steps with
+default Velocity, Micro Step and Probability values: these parameters can subsequently be edited. If
+you use Record Mode to record on the drum tracks, you play the hits in real time on the sample pad.
+In this case, the velocity of the hit is assigned to the step and its value can be inspected in Velocity
+View.
+
+Expanded Drum View
+You can enter a drum pattern for all drum tracks simultaneously on a dedicated set of four pads – one
+for each drum track – by using Expand View. Expanded Drum View is the secondary view of the Note
+button 7 . Open by holding Shift and pressing Note, or press Note a second time if already in Note
+View to toggle the View. In this View, all the grid pads except 29-32 are disabled, as shown:
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9
+
+10
+
+11
+
+12
+
+13
+
+14
+
+15
+
+16
+
+17
+
+18
+
+19
+
+20
+
+21
+
+22
+
+23
+
+24
+
+25
+
+26
+
+27
+
+28
+
+29
+
+30
+
+31
+
+32
+
+Playing Pads for Drums 1 - 4
+
+61
+
+The samples played by each of the four pads is the current active sample for each drum track.
+You can play the drum pads in Expanded Note View freely in real time, or record them into a pattern
+if you press G Record. If Rec Quantise is enabled, Circuit Tracks will quantise the timing to place the
+drum hits precisely on a pattern step; if Rec Quantise is disabled, they will be placed at one of the six
+ticks between adjacent steps.
+You can also use Expanded Note View while a pre-existing pattern is playing, to record additional hits.
+
+Selecting Samples
+Each of the four drum tracks in Circuit Tracks can use any one of 64 pre-loaded samples. You can
+either audition and select the samples in Note View, four pages of 16 at a time, or use Preset View,
+which is opened by pressing the relevant track button, then Preset 14 . In Preset View for the drum
+tracks, the samples are arranged as two pages of 32: they are in the same order as when accessed
+through Note View. Preset View will open at the location of the active sample for each track. If Drum 1
+or Drum 2 is selected, Preset View opens at Page 1, If Drum 3 or Drum 4 is selected, it opens at Page
+2. Use the J and K buttons to swap pages.
+The sample selected will immediately become the active sample for the selected drum track, and in
+Note View, the sample pads assume the page (block of 16) that includes the sample.
+
+Drum Patches may also be recalled using an external MIDI controller by sending MIDI CC messages
+on MIDI Channel 10. Circuit Tracks must be configured to receive CC messages: this is the default
+setting, but see page page 103 for full information.
+The separate downloadable document Circuit Tracks Programmer’s Reference Guide contains full
+details.
+
+Sample Flip
+If you hit G Record 13 , you can play a selection of drum samples in real time, and Circuit Tracks
+will record your performance. This feature is called Sample Flip, and you can do it either in the drum
+track’s Note View, or in its Preset View (which gives you access to twice the number of samples at
+once). You can do this independently for each of the four drums: this is a very powerful feature as
+it overcomes the one-sample-per-track restriction and lets you use the full palette of drum samples
+throughout the Pattern. It may be helpful to record a basic pattern on a different track to give a
+timing reference when you do this.
+
+62
+
+You can also apply a sample flip to a step in a similar way to assigning synth notes. Press and hold the
+pad for the required sample (it turns red) and then press the step pads in the Pattern display where
+you want to place that sample in the pattern – they also turn red. When you run the pattern, the new
+sample will play at the steps it was assigned to instead of the one that was assigned previously.
+The Pattern display differentiates between steps that are sample flipped: steps with hits of the active
+sample illuminate bright blue, but any that have been flipped illuminate pink.
+
+Using the Macros for drum design
+You can use the Macro controls 3 to tweak drum sounds in the same way as you can with synth sounds.
+Unlike the synth Macros, the functions are fixed for drums, but the actual sonic nature of moving the
+knobs will vary greatly with the sample being used. As with the synth sounds, we recommend that you
+load different drum sounds and experiment with the Macros to hear what they can do.
+Only the even-numbered Macros are active when a drum track is selected.
+
+Macro LEDs illuminate
+with drum track’s code
+colour; brightness is
+related to Macro setting
+
+Only Macros 2, 4, 6 & 8 are active
+
+2 Oscillator Mod
+
+1 Oscillator
+
+4 Filter Envelope
+
+3 Amp Envelope
+
+6 Resonance
+
+5 Filter Frequency
+
+8 FX
+
+7 Modulation
+
+The table below summarises the functions of each Macro control as applied to the drum tracks:
+Macro
+
+Function
+
+2
+
+Pitch
+
+4
+
+Decay envelope time
+
+6
+
+Distortion
+
+8
+
+EQ
+
+63
+
+Recording a Drum Pattern
+Creating a drum pattern is a slightly different procedure from creating a synth pattern. When you’re in
+Record Mode and Note View for a drum track, just hitting the sample pads in real time establishes hits
+at those steps in the Pattern, and Pattern step pads light bright blue.
+Note that the Pattern must be running (press
+
+Play) in order for you to hear the hits; unlike the synth
+
+tracks, you won’t hear anything in Note View if you hit a bright blue step pad with the Pattern stopped.
+(However, you can hear the hits in this way using Velocity View or Gate View – see page 68.)
+A 16-step drum Pattern is created simply by entering Record Mode and hitting some sample pads.
+You can switch between the four drum tracks at will. It’s not a bad idea to establish a basic drum
+Pattern using the default drum sounds; once you think you’re getting somewhere with the groove,
+you can experiment with different drum sounds either in Note View or Preset View, and/or using the
+Macros.
+The Pattern you make will constitute Pattern 1 (of eight) for the currently active Project. There are
+eight Patterns for each of the eight tracks – two synths, two MIDI and four drums. Pattern 1 is the
+default Pattern in all Projects, and will be the one you record to and the one you’ll hear when you hit
+Play. You can create longer sequences by chaining Patterns together, this is explained on page 76.
+
+Non-quantised record
+Live playing of drum samples may be recorded quantised or non-quantised. Quantised recording
+will place drum hits on the closest step when recorded, while non-quantised recording will place hits
+directly on the intermediate micro steps. To toggle between quantised and non-quantised recording,
+hold Shift and press G Record. If Record Quantise is enabled, the Record button will light bright
+green when Shift is held. If Record Quantise is disabled (non-quantised), the Record button will light
+dim red when Shift is held.
+
+Manual hit entry and step editing
+Although you can’t hear the drum hits by pressing lit step pads in Note View when the Pattern isn’t
+running (i.e., Stop Mode), Circuit Tracks lets you add or delete individual drum hits to/from a pattern,
+effectively “off-line”.
+
+64
+
+In Note View, one sample pad will always be lit, though it may not be on the currently visible page of
+four. This is the current default sample: if you tap (short-press) a step pad, the default sample will be
+assigned to that step, and the step pad will show bright blue.
+If you long-press a step pad, it will show red: now you can press any sample pad, that sample will now
+be assigned to the chosen step, and the step pad will show pink.
+
+Steps with samples other than
+the current default are lit pink
+
+Steps with the default
+sample are lit bright blue
+
+PLAY
+
+Pattern step display
+(HOLD)
+
+Drum samples
+(one page of four)
+
+Press and hold a pink pad
+to see which sample it
+triggers
+
+Current default sample
+
+Sample flip is operative in Stop and Play Modes: hold down a step pad: the pad with the currently assigned
+sample will illuminate red. Select an alternative sample and the step will now trigger the new sample.
+Pressing a lit step pad will clear the drum hit at that step.
+
+65
+
+Micro step edit
+When quantised recording is not enabled, the timing of drum hits recorded in real time is assigned to
+one of six “micro steps” in between adjacent Pattern steps. Any drum hits added “off-line” (i.e., in Stop
+Mode, see preceding section) will always be assigned to the step’s first micro step, which is on the exact
+beat of the step.
+
+PATTERN DIRECTION
+BEAT n
+
+Micro step 1
+
+BEAT n+1
+
+Micro step 3
+
+Micro step 2
+
+BEAT n+2
+
+BEAT n+3
+
+Micro step 5
+Micro step 6
+
+Micro step 4
+
+As with synth tracks you can shift drum hits to micro step intervals, but you can also choose to have
+duplicate hits assigned to other micro steps within the same interval.
+To adjust the micro step values, press Gate View for the relevant drum track. Pads 17 to 22 display
+the micro step values. Press the step pad whose micro step values are to be adjusted and one of the
+micro step pads illuminates brightly.
+
+66
+
+Press a lit step pad to
+display the micro step
+value at the step
+
+(PRESS)
+
+PLAY
+
+Pattern step display
+
+1
+
+2
+
+Drum micro steps
+3
+4
+
+5
+
+6
+
+When only micro step 1 is
+bright, the drum hit at the
+selected step will be
+exactly on the beat
+
+PLAY
+
+Pattern step display
+(PRESS)
+
+1
+
+2
+
+Drum micro steps
+3
+
+4
+
+5
+
+6
+
+Micro step 4 is bright: the
+drum hit at the selected
+step will be delayed by
+three ticks (half a step
+interval)
+
+If the first pad is illuminated (as in the first example above), it indicates that the drum hit at the
+selected step will be precisely “on the beat” at the pattern step. In the second example above,
+deselecting micro step 1 and selecting micro step 4 delays the hit by three-sixths of the interval
+between steps.
+
+67
+
+You are not limited to tweaking drum hit timing – you can have the hit on as many micro steps as you
+want: each micro step pad can be turned “on” or “off”. In the example below, Step 5 will trigger the
+sample assigned to it three times, once on the beat and twice more two and four ticks later.
+
+(PRESS)
+
+PLAY
+
+Pattern step display
+
+Drum micro steps
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+The selected step now
+triggers three separate
+hits, two ticks apart
+
+If you are entering drum hits in Record Mode (with Rec Quantise disabled) and can play fast enough,
+you can (depending on the BPM!) generate multiple hits within a single step. Inspect the micro step
+display to see this.
+Using micro steps can add a whole new range of rhythmic possibilities to any pattern, and can create
+subtle rhythmic effects, or dramatically wonky grooves. As with many other aspects of Circuit Tracks, we
+urge you to experiment!
+Note that you can modify elements of a drum pattern from within Micro Step View, and also add
+additional hits by adding micro step values to empty steps: these will be populated with the current
+default sample for the drum track in use.
+Note also that all micro step hits adopt the velocity value and sample assigned to the major step (see
+below).
+
+Velocity
+As with synth tracks, Drum hits entered in Note View may use Fixed or Variable Velocity. Variable
+Velocity is the default setting; if you press Shift, you will see that Velocity 6 illuminates red
+confirming this. With Variable Velocity selected, drum hits recorded live using the sample pads will
+68
+
+have Velocity values determined by how hard the sample pads are struck. This applies both to normal
+Note View and Expanded Note View.
+
+To select Fixed Velocity, hold Shift and press Velocity: the Velocity button changes colour to green.
+Now all drum hits entered using the sample pads will always have a fixed velocity of 96 (12 pads lit in
+Velocity View – see below). This also applies both to normal Note View and Expanded Note View.
+
+Drum hits programmed using the pattern step pads will always use Fixed Velocity, regardless of the
+selected velocity mode. Note that the selection of fixed or variable velocity is global, i.e., it applies to
+all tracks.
+You can change the Velocity value of a step after you’ve created a pattern. This is done in Velocity
+View, which is selected by pressing Velocity 6 .
+
+These four steps have
+drum hits associated with
+them
+One step pad pulses
+blue/white; this is the step
+whose Velocity value is
+displayed
+
+This indicates that Step 10
+has a Velocity value of 5
+
+Pattern step display
+
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+4
+
+5
+
+6
+
+7
+
+8
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Velocity value display
+
+In Velocity View, the two upper rows of the grid represent the 16-step pattern for the currently selected
+drum, while the two lower rows represent a 16-segment “fader”, spilt across two rows; the number of
+pads illuminated sand represent the Velocity value for the selected step.
+In the example above, Steps 4, 8,10 and 16 are brightly lit, indicating that these steps have drum hits
+associated with them. One pad in the Pattern step display will flash alternate blue/white: this is the
+step whose Velocity value is being displayed. In the example, the Velocity value for this step is 40; the
+first five pads of Row 3 are lit sand (because 5 x 8 = 40), the remainder of the Velocity value display is
+unlit. If the Velocity value is not a multiple of 8, the “last” pad in the Velocity display will be dimly lit.
+Note also that you hear the drum hit at the step when you press the step pad.
+69
+
+You can change Velocity value by pressing the pad in the Velocity value display rows that corresponds
+to the Velocity value. If you wanted the hit at Step 12 in the example above to have a Velocity value of
+96 instead of 40, you would press pad 12; Pads 1 to 12 now illuminate sand. If you want to decrease a
+Velocity value, press the pad corresponding to the required value.
+
+No. of lit pads
+
+Velocity value
+
+No. of lit pads
+
+Velocity value
+
+1
+
+8
+
+9
+
+72
+
+2
+
+16
+
+10
+
+80
+
+3
+
+24
+
+11
+
+88
+
+4
+
+32
+
+12
+
+96
+
+5
+
+40
+
+13
+
+104
+
+6
+
+48
+
+14
+
+112
+
+7
+
+56
+
+15
+
+120
+
+8
+
+64
+
+16
+
+127
+
+You can also use Velocity View to change Velocity values while a pattern is playing. In this case, you
+need to press and hold the pad for the step to have its Velocity value changed; you can do this at
+any point in the pattern. The held step pad will illuminate red, and the other two rows will “freeze”
+to display the Velocity value of the selected step. Press the pad corresponding to the new value
+required. The pattern continues to play, so you can experiment with different Velocity values in real
+time.
+You can also add drum hits in Velocity View. Hold down the pad corresponding to the step
+where a hit is to be added, and press a pad on the two lower rows; the pad defines the
+velocity of that hit. This is great for adding a series of “ghost” hits at low volume.
+
+Probability
+Circuit Tracks’ Probability function can be applied to individual steps on any of the Drum tracks
+in exactly the same manner as it is to individual steps on either Synth track. Note that as regards
+the drum tracks, probability is applied per step, not per micro step, so if there are multiple hits on
+different micro step, either all they will all trigger, or none of them will.
+Probability View is the secondary view of the Pattern Settings button 7 . Open by holding Shift and
+
+pressing Pattern Settings, or press Pattern Settings a second time if already in Pattern Settings View
+to toggle the View.
+A full description of Probability can be found in the Synth section of the User Guide: see page 47.
+70
+
+Recording Knob Movements
+As with synth sounds, you can tweak the drum sounds in real time using the Macro controls 3
+. Circuit Tracks features automation, which means you can add the effect of these tweaks to the
+recorded pattern by entering Record Mode (by pressing G Record 13 ) while moving the knobs. On
+the drum tracks, only the even-numbered Macro controls are used, and knob movements are only
+recorded when Velocity View, Gate View or Probability View are selected.
+On entering Record Mode, the LEDs below the active Macro controls initially retain the colour and
+brightness they had previously, but as soon as you make an adjustment, the LED turns red to confirm
+that you are now recording the knob movement.
+In order for the knob movements to be retained, you must drop out of Record Mode before the
+sequence loops right round, otherwise Circuit Tracks will overwrite the automation data with that
+corresponding to the new knob position. Provided you do this, you’ll hear the effect of the Macro
+control being replayed when the sequence next loops round, at the point in the pattern where you
+turned the control.
+You can also record Macro control changes when the sequence isn’t playing; in Velocity View, Gate
+View or Probability View, press G Record, select the step at which the change should occur by
+
+pressing and holding the pad corresponding to the step; this will play the drum hit at that step. Then
+adjust the Macro control(s) as desired; the new value(s) will be written to the automation data; press
+Record again to exit Record Mode. When the sequence is running, you will hear the effect of the
+Macro knob movements at that step. In the same manner, you may also edit the automation of Macro
+controls for specific steps in this way while the sequencer is playing back. With Record Mode enabled,
+simply hold down a step pad and turn a Macro control.
+Note that automation data is recorded independently of Pattern data. This means that any changes
+made to Drum Macros which are recorded as part of the Pattern will be retained even if the drum
+sample is changed during the Pattern (see “Sample Flip” at page 62). You can tweak the drum sound
+at a specific step and then change the sample at that step: the tweak will still be effective.
+You can delete any Macro automation data you don’t want to keep by holding down Clear 17 and
+moving the knob in question anticlockwise by at least 20% of its rotation – the LED below the knob
+will turn red to confirm. But note this will clear the automation data for that Macro for the whole
+Pattern, not just at the sequencer’s current step.
+
+71
+
+Clear and Duplicate
+The Clear and Duplicate buttons perform the same functions with drum tracks as they do with synth
+notes (see page 40), although as altering a drum pattern is such a simple process to perform in
+Note View, you probably won’t ever use them to simply add or remove drum hits.
+
+Note that clearing a step will delete all parameters (Velocity, Micro steps and Probability) that were
+assigned to the step.
+
+72
+
+Patter ns
+Each Project in Circuit Tracks has memory space for eight separate Patterns per track, so you can
+create eight Patterns for each synth, eight Patterns for each drum and eight Patterns for each of two
+external MIDI instruments within a project.
+The true potential of Circuit Tracks begins to be realised when you start to create interesting
+variations of a Pattern, save them, and then segue them together to be played out as a complete
+chain of up to 256 (8 x 32) steps. Furthermore, not all the Patterns for each track need to be chained
+in the same way: you could have 64-step drum patterns for each drum track combined with a longer
+sequence of bass and/or synth lines, for example. There is no restriction on how you combine the
+Patterns from different tracks (though there is a restriction on how the Patterns for individual tracks
+are chained; this is explained in page 76).
+
+Patterns View
+To arrange and organise your Patterns, use Patterns View, accessed by pressing Patterns 10 . The first
+time you open Patterns View in a new Project, it will look like this:
+
+Page 1 (of 2) shown; Page 2 selects
+Patterns 5 to 8 of each track
+
+Pattern 1 for each
+track pulses dim/bright
+(at a rate proportional
+to current tempo)
+
+Synth 1
+
+Synth 2
+
+MIDI 1
+
+MIDI 2
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+
+2
+
+2
+
+2
+
+2
+
+2
+
+2
+
+2
+
+2
+
+3
+
+3
+
+3
+
+3
+
+3
+
+3
+
+3
+
+3
+
+4
+
+4
+
+4
+
+4
+
+4
+
+4
+
+4
+
+4
+
+Patterns View has two pages, selected by the J and K buttons 15 . The pages are identical and the
+
+Pattern memories arranged vertically; on Page 1 the pads select Patterns 1 to 4 for each track, on
+Page 2 they select Patterns 5 to 8.
+
+73
+
+How each pad is lit indicates its status. A dim pad means that the Pattern is not currently selected to
+play. One pad per track will be pulsing slowly between dim and bright: this is the Pattern that was
+playing when Play was last stopped. Initially (i.e., when a new Project is started), Pattern 1 in each
+track will be in this state with all the other memories empty, and the pads dimly lit.
+To select a different Pattern for any track, simply press its pad. You can do this in Stop or Play Mode.
+An important feature of pattern switching is that if you select a Pattern while another is already
+playing you can choose to “queue” the next Pattern to play at the end of current one, or to switch
+to another Pattern immediately. The default is for the current Pattern to play to its end before the
+new Pattern starts playing. This gives you a smooth transition between patterns. In this case, the pad
+for the next Pattern will flash quickly while it is being “queued”, until it starts to play. However, if
+you hold down Shift while selecting the next Pattern memory, it will start playing immediately from
+the corresponding Pattern step, thereby ensuring that the overall timing maintains continuity. For
+example, if the current Pattern had reached Step 11 when you press a second Pattern’s pad while
+holding down Shift, Circuit Tracks will remember where the cursor is, and the second Pattern will start
+playing from Step 12.
+Once you’ve selected two Patterns in this way, they will loop round as a pair every time you press
+Play until you deselect one of them. This is the simplest example of Pattern Chaining, which is
+discussed in full detail at page 76.
+The currently selected Pattern is the one you will hear in either Play or Record Mode: this makes
+operation very simple and transparent. The current contents of the selected Pattern will play when
+you press Play, and if you add extra track information – synth notes, drum hits or MIDI data – it will be
+saved in the same Pattern memory.
+Every time you press
+
+Play, the Pattern restarts from Step 1 (or the chosen Start point – selectable
+
+in Pattern Settings View). If you want to continue the Pattern from the point at which the sequencer
+was last stopped, press Shift and Play together.
+
+Clearing Patterns
+Pattern memories may be cleared in Patterns View by holding down Clear 17 and pressing the
+corresponding pad. Both Clear and the pad itself will light bright red while you press them to confirm
+deletion. While playback is stopped, if the Pattern that is cleared is not the currently active Pattern
+(indicated by the track colour pulsing), and is not part of a Pattern Chain, it will light white. This
+indicates that this Pattern will be displayed in all step views for the track. This matches the behaviour
+of View Lock, see page 80.
+
+74
+
+Duplicating Patterns
+In Patterns View, the Duplicate button 18 can be used to perform a simple copy-and-paste function,
+letting you copy a Pattern from one memory to another. This is a very useful function, as it lets you
+use an existing Pattern as the basis for another, slightly different one: it is often easier to modify an
+existing Pattern to be how you want it than create a new one from scratch.
+To copy a Pattern from one memory to another, hold down Duplicate (it lights green), press the pad
+with the Pattern you want to copy (it lights green while you press it), and then press the pad for the
+memory where you want the copy to be stored (it will light red, then, if playback is stopped, it will
+turn white once you release Duplicate, indicating that this Pattern will be displayed when you switch
+to a step view). You now have an identical copy of the Pattern. If you want to copy the Pattern data
+to several memories, you can continue to hold the Duplicate button down, and simply repeat the
+“paste” part of the operation to the other steps.
+
+IMPORTANT:
+You can copy a Pattern from one Synth or MIDI track to the other, or between a Synth track and a
+MIDI track using Duplicate: you can also use it to copy a Pattern from one Drum track to another,
+but you cannot copy data from a Synth or MIDI track to a Drum track, or vice-versa.
+
+Step Page and 16/32-step Patterns
+The default length of a Pattern in Circuit Tracks is 16 steps, but you can double the length to 32
+steps with the Step Page button 8 (legended 1-16/17-32). A Pattern length of 16 steps or fewer is
+indicated by the Step Page button showing dim blue. To extend the length of the Pattern currently
+being viewed beyond 16 steps, press the Step Page button: it now shows bright blue for Page 1 while displaying Steps 1 to 16, and orange for Page 2 - while displaying Steps 17 to 32.
+This feature lets you create more interesting and varied loops within the scope of a single Pattern.
+If some tracks are 16 steps long and some 32 steps long, the 16-step Patterns will repeat after Step
+16, while the 32-step Patterns will continue for Steps 17 to 32, so you will hear two repetitions of the
+shorter tracks for every one of the longer.
+
+75
+
+Pressing Step Page (1-16/17-32) while a 32-step Pattern is playing changes the display to the other
+page but does not interrupt the Pattern. You can quickly set a Pattern length back to the default of
+16 steps by holding down Clear and pressing the Step Page button: the Pattern will now revert to 16
+steps in length. Notes/hits assigned to the all 32 steps are preserved, though you will only hear those
+assigned to the first 16 steps after using Clear. If you extend the Pattern length to 32 steps once
+again, all notes/hits previously assigned to steps 17 to 32 will still be there.
+You can also use Duplicate with the Step Page button. Holding down Duplicate and pressing the
+Step Page button will extend the Pattern length for the currently selected track to 32 steps, and copy
+all data at steps 1 to 16 to steps 17 to 32 respectively, including automation data. Any data already
+present on Page 2 will be overwritten by this operation.
+
+Chaining Patterns
+Once you’ve created several Patterns for one or more tracks, you can start to chain them together to
+make a longer sequence. Press Patterns 10 to open Patterns View.
+Patterns can be chained on a per-track basis. When Patterns are chained, they play sequentially, e.g.,
+a Pattern Chain comprising four Patterns will play them in numerical order one after the other, and
+then repeat. If they are all 32-step Patterns, the chain will be 128 steps in length. Another track with
+just a single 32-step Pattern will be played four times during each chain; a 16-step Pattern will be
+played eight times.
+To create a Pattern Chain, press and hold the pad for the lowest-numbered Pattern required and
+then press the pad for the highest-numbered Pattern required. (Or indeed, the other way round.) For
+example, if you want to chain a track’s Patterns in memories 1 to 3 together, hold Pad 1 down and
+then press Pad 3. You’ll see that all three pads now illuminate brightly in the track colour, indicating
+that they now form a chained sequence. If you want to select a chain from Patterns across the Page
+boundary, selection works the same way: for example, to select Patterns to 3 to 6 as a chain, press
+and hold the pad for Pattern 3, then press J to move to Page 2, then press the pad for Pattern 6.
+You’ll now find that the pads for Patterns 3, 4, 5 and 6 are all lit. To chain Patterns that use the same
+pad on the two pages as the start/end points (e.g. 1 and 5), hold the pad for the first Pattern, move to
+Page 2, then release the pad. In this example, a chain of Patterns 1 to 5 is then created.
+What’s important to remember is that the Patterns you chain together must be contiguous, that is,
+numerically consecutive. You can chain Patterns 1, 2, 3 and 4 together, or 5, 6 and 7 together, or 4
+and 5 together, but you can’t chain 1,2 and 6 together. (However, Circuit Tracks’ Scenes feature allows
+you to overcome this restriction: see page 81 for details of how to use Scenes.)
+
+76
+
+The following example shows chaining:
+
+Synth 1
+
+Synth 2
+
+MIDI 1
+
+(Pulsing
+bright/dim)
+
+(Pulsing
+bright/dim)
+
+(Pulsing
+bright/dim)
+
+1
+
+2
+
+1
+
+MIDI 2
+
+1
+
+2
+
+Drum 1
+
+1
+
+2
+
+2
+
+Drum 2
+
+1
+(Pulsing
+bright/dim)
+
+2
+
+3
+
+3
+
+3
+
+3
+
+3
+
+4
+
+4
+
+4
+
+4
+
+4
+
+Drum 3
+
+Drum 4
+
+(Pulsing
+bright/dim)
+
+1
+
+1
+
+2
+
+2
+
+2
+
+3
+
+3
+
+3
+
+4
+
+4
+
+4
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+(Pulsing
+bright/dim)
+
+1
+
+Patterns View – Page 1
+
+Synth 1
+
+5
+
+Synth 2
+
+5
+
+MIDI 1
+
+MIDI 2
+
+5
+
+Drum 1
+
+5
+
+5
+
+5
+
+6
+
+6
+
+(Pulsing
+bright/dim)
+
+(Pulsing
+bright/dim)
+
+5
+
+5
+
+6
+
+6
+
+6
+
+6
+
+6
+
+6
+
+7
+
+7
+
+7
+
+7
+
+7
+
+7
+
+7
+
+7
+
+8
+
+8
+
+8
+
+8
+
+8
+
+8
+
+8
+
+8
+
+Patterns View – Page 2
+
+The Patterns View example above shows a possible arrangement of Patterns for an 8-pattern
+sequence. We are using the following Patterns, and for simplicity we will assume that all the Patterns
+are of 16 steps:
+
+77
+
+•
+
+Synth 1 - Patterns 1 to 4
+
+•
+
+Synth 2 - Pattern 1 only
+
+•
+
+MIDI 1 – Patterns 1 and 2
+
+•
+
+MIDI 2 – Patterns 6 and 7
+
+•
+
+Drum 1 - Patterns 2 and 3
+
+•
+
+Drum 2 – Patterns 3 to 6
+
+•
+
+Drum 3 - Patterns 5 and 6
+
+•
+
+Drum 4 – Patterns 1 to 8
+
+When you press Play, each track will loop round its own chain of Patterns. The longest chain is Drum
+4 – this defines the overall length of the sequence, in this case, 128 (8 x 16) steps. Drum 4 will play
+Patterns 1 to 8 in order, then loop back to Pattern 1 and start again. Against this, Synth 1 will play
+Patterns 1 to 4 in order, and then loop back and repeat; Synth 2 only has one Pattern, so this will
+repeat eight times in the 8-pattern sequence. Drum 1 and Drum 3 have two Patterns in their chains, so
+they will each be played through four times and Drum 2 has four Patterns in its chain, so it will played
+through twice. What you hear is shown in the timeline below:
+
+0
+8
+
+BEATS
+
+16
+
+32
+24
+
+40
+
+Pattern 2
+
+Pattern 3
+
+48
+
+64
+56
+
+72
+
+Pattern 4
+
+Pattern 1
+
+80
+
+96
+
+112
+
+128
+
+88
+
+104
+
+120
+
+Pattern 2
+
+Pattern 3
+
+Pattern 4
+
+Pattern 1
+
+Pattern 1
+
+Pattern 1
+
+Pattern 2
+
+Pattern 1
+
+Pattern 2
+
+Pattern 7
+
+Pattern 6
+
+Pattern 7
+
+Pattern 3
+
+Pattern 2
+
+Pattern 3
+
+Pattern 4
+
+Pattern 5
+
+Pattern 6
+
+Pattern 6
+
+Pattern 5
+
+Pattern 6
+
+Pattern 6
+
+Pattern 7
+
+Pattern 8
+
+Synth 1
+Pattern 1
+
+LOOPS BACK AFTER 128 BEATS
+Synth 2
+Pattern 1
+
+Pattern 1
+
+Pattern 1
+
+Pattern 1
+
+Pattern 1
+
+LOOPS BACK AFTER 128 BEATS
+MIDI 1
+Pattern 1
+
+Pattern 2
+
+Pattern 1
+
+Pattern 2
+
+Pattern 1
+
+LOOPS BACK AFTER 128 BEATS
+MIDI 2
+Pattern 6
+
+Pattern 7
+
+Pattern 6
+
+Pattern 7
+
+Pattern 6
+
+LOOPS BACK AFTER 128 BEATS
+Drum 1
+Pattern 2
+
+Pattern 3
+
+Pattern 2
+
+Pattern 3
+
+Pattern 2
+
+LOOPS BACK AFTER 128 BEATS
+Drum 2
+Pattern 3
+
+Pattern 4
+
+Pattern 5
+
+Pattern 6
+
+Pattern 3
+
+LOOPS BACK AFTER 128 BEATS
+Drum 3
+Pattern 5
+
+Pattern 6
+
+Pattern 5
+
+Pattern 6
+
+Pattern 5
+
+LOOPS BACK AFTER 128 BEATS
+Drum 4
+Pattern 1
+
+Pattern 2
+
+Pattern 3
+
+Pattern 4
+
+Pattern 5
+
+LOOPS BACK AFTER 128 BEATS
+
+78
+
+The above example shows the basic points involved in chaining Patterns together to make a longer
+sequence. Creating longer, more complex and more interesting sequences is merely an extension
+of these principles. Circuit Tracks allows Pattern chains of up to 256 (8 x 32) steps, where any of the
+eight tracks can change their pattern every 16 steps (or fewer if start/end points are also altered from
+the default).
+Every time you press
+
+Play, the Pattern Chain restarts from the start point of the first Pattern in the
+
+chain. You can restart the Chain from the point at which the sequencer was stopped by pressing Play
+while holding down Shift.
+
+Pattern Octave
+You can shift the pitch of an entire synth or MIDI Pattern up or down one or more octaves by holding
+down Shift 20 and then pressing J or K 15 . You can do this either while the Pattern is playing, or
+in Stop Mode. Pattern Octave can be changed in any of the Step Views, i.e., Note View, Velocity View,
+Gate View or Pattern Settings View. Only the pitch of the currently selected track is adjusted, that of
+
+the others will remain unaffected.
+If the pattern contains notes which are already in the highest octave that Circuit Tracks can generate,
+they will remain unaffected by an upward Pattern Octave shift; the same applies to the lowest notes
+and a downward octave shift. If this is the case, the J or K button will light red to indicate that the
+command cannot be executed.
+
+79
+
+View Lock
+By default, the Pattern Step display on the upper two rows changes with the selected Pattern (and
+current Page), so that the play cursor is always visible. If you want to edit one pattern while continuing
+to play another Pattern or complete Pattern Chain, you can make use of View Lock. One use of View
+Lock is to “freeze” the Pattern Step display to the current Pattern (and Page) by holding down Shift
+and pressing Patterns 10 . The upper two rows will now be locked to the Pattern that was displayed
+when you selected View Lock.
+In Patterns View, the currently viewed Patterns will be lit white. A pulsing white pad indicates that a
+Pattern is being both viewed and played, while steady white indicates that a Pattern is being viewed
+while another (of the same track) is being played: this pad will be pulsing in the track colour. To
+change the viewed Pattern, hold shift and press a Pattern pad. You can still change which Patterns and
+Pattern Chains are playing in the usual way, described in Patterns View at page 73.
+View Lock also lets you freeze the Step display on the current Page of the Pattern when you are
+working on a 32-step Pattern. When View Lock is active, the Pattern will continue to play through
+both Pages, but only the Page that was in view when View Lock was selected is now displayed. The
+alternative Step Page can be displayed by pressing the Step Page button 8 .
+While Shift is held, the Patterns button lights green when View Lock is active; when inactive it is red.
+You can press Shift at any time: the button colour will confirm whether View Lock is active or not.
+View Lock is applied to all tracks, and also applies to all Views that have a Pattern Step display (i.e.,
+Velocity View , Gate View, etc., as well as Note View). It can be cancelled by pressing Shift + Patterns
+
+again. Note that the state of View Lock is not saved. It will default to ‘inactive’ whenever Circuit
+Tracks is powered on.
+
+80
+
+Scenes
+Scenes let you assign multiple patterns and pattern chains within a project to a single pad, allowing
+you to trigger part of a song easily. Scenes themselves can also be chained to arrange much longer
+sequences and thus build up complete song structures.
+Scenes are accessed in Mixer View: press Mixer to open this:
+
+Synth 1
+
+Synth 2
+
+MIDI 1
+
+MIDI 2
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+(Pulsing
+bright/dim)
+
+Scene pads
+
+The two lower rows of pads in Mixer View represent the 16 Scenes that are available in Circuit Tracks.
+In a new Project, all the pads will trigger Pattern 1 of all eight tracks as no Pattern Chains have been
+defined or assigned yet. The first (Pad 17) will be pulsing bright green. which indicates that the
+currently playing Patterns correspond with the last selected Scene (Scene 1 by default).
+
+Assigning Patterns to Scenes
+Open Patterns View and define all the Pattern Chains for each track that are to constitute a Scene.
+Change to Mixer View, press and hold Shift: the Scene pads change colour to dim gold. Press a Scene
+pad (while still holding Shift) – it will light bright gold while pressed, indicating that Patterns are now
+assigned to it.
+
+81
+
+Mixer View with Shift pressed:
+
+Synth 1
+
+Synth 2
+
+MIDI 1
+
+MIDI 2
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+Scene pads
+
+Pad where Scene is being stored
+lights brightly while Shift is held
+
+All the selected pattern chains are now stored as that Scene. On releasing Shift, the pad with the
+stored Scene now shows bright white:
+
+Mixer View when Shift is released:
+
+Synth 1
+
+Synth 2
+
+MIDI 1
+
+MIDI 2
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+(Pulsing
+bright/dim)
+
+Scene pads
+
+Bright white indicates a Scene
+has been saved to this pad
+
+Now when you press the pad, the Scene is selected and will play the set of Pattern Chains which were
+assigned to it next time you press Play.
+
+82
+
+When you select Mixer View, you will immediately be able to see where Scenes are already stored, as
+their pads will be lit bright white, or bright gold when you press Shift.
+Assigning Pattern Chains to a Scene does not affect current playback and will not select the Scene
+nor change your Scene Chain (see below) if you are already in Play Mode: the selected Scene will start
+when the current Pattern or Pattern Chain is completed – see “Queuing Scenes” below.
+Scene data is stored with the current Project when you perform a Save by pressing Save 19 twice.
+If a Scene pad is pulsing green, it indicates i) that this is the currently selected Scene, and ii) that the
+currently selected Patterns match those assigned to the Scene. If the selected Patterns are changed
+in Patterns View, the Scene pad will return to dim white. If the matching Patterns are selected once
+again, the Scene pad will again pulse green. Note that this behaviour will only occur for the most
+recently selected Scene – if you select the Patterns of a Scene other than the most recently selected
+one, the corresponding pad will not turn green.
+
+Chaining Scenes to create an arrangement
+Just as you can chain Patterns together in Patterns View, so you can chain Scenes together in Mixer View
+to create longer sequences. You do this by holding down the pad for the first Scene, then pressing the
+pad for the last Scene: these pads and all those between them will illuminate green. The Scene Chain
+to be played will now comprise the Scenes assigned to all the pads between the two you pressed;
+e.g., if you want a Scene Chain made up of Scenes 1 to 5, hold the Scene 1 pad and press the Scene 5
+pad. Each Scene will play the Pattern Chain assigned to it once and then switch to the next Scene. The
+Scenes will play in numerical order, and then repeat.
+
+83
+
+Synth 1
+
+Synth 2
+
+MIDI 1
+
+MIDI 2
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+(Pulsing
+
+bright/dim)
+
+Scene pads
+
+A Scene Chain is deﬁned here by
+pressing pads 4 and 6.
+Scenes 4, 5 and 6 will now play in
+sequence; the pulsing of Scene 4's pad
+conﬁrms that it will be the ﬁrst to play.
+
+Note that you can use Scenes to overcome the restriction in Patterns View of not being able to define
+a Pattern Chain of non-contiguous Patterns. You can assign the contiguous groups of Patterns to
+consecutive Scene memories and then play them out as a Scene Chain. For example, if you wanted
+to play Patterns 1, 2, 5 and 6 in order, you can make a Pattern Chain of Patterns 1 and 2 and assign
+it to a Scene memory, and them another Pattern Chain of Patterns 5 and 6 and assign it to the next
+Scene memory. Then you can define a Scene Chain of those two Scenes, and will get the four required
+Patterns in sequence.
+
+Queuing Scenes
+Scenes may be “pre-selected” in the same way as Patterns, so if a Scene is already playing, the next one
+is queued. The pad for a queued Scene flashes green and at the end of the Drum 1 Pattern currently
+playing, the new Scene will begin playing from the start without losing sync.
+
+Clearing Scenes
+To clear a Scene memory, hold down Clear 17 and press the pad for the Scene you wish to clear. This
+will return the Scene memory to its default state - Pattern 1 for all tracks.
+
+Duplicating Scenes
+To copy a Scene, hold down Duplicate 18 , press the pad for the Scene to be copied, then press the pad
+for the Scene memory where you want the copy to be stored. Release Duplicate. However, you can paste
+the copied Scene multiple times (into different memory locations) if you keep Duplicate held.
+
+84
+
+Tempo and Swing
+Tempo and Swing are closely related and the methods of adjusting them are very similar.
+
+Tempo
+Circuit Tracks will operate at any tempo in the range 40 to 240 BPM; the default tempo for a new
+Project is 120 BPM. The tempo can be set by the internal tempo clock, or by an external MIDI clock
+source. External MIDI clock can be applied either via the USB port or the MIDI In port.
+To display and adjust the BPM of the internal tempo clock, press the Tempo/Swing button 16 to
+open Tempo View. (Like most of Circuit Tracks’ buttons, you can short-press to switch the grid to
+Tempo View , or long-press to check the BPM momentarily.)
+
+The BPM is displayed on the pad grid as two or three large digits in blue and white. The “hundreds”
+digit (which can only ever be a “1”, “2” or off) occupies grid columns 1 and 2, while the “tens” and
+“units” digits occupy three columns each, How the digits 0 to 9 are depicted is shown below.
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9
+
+Macro control 1 is used to adjust the tempo; its LED illuminates bright blue.
+
+External clock
+No switching is required to allow Circuit Tracks to be slaved to a source of external MIDI clock
+(subject to clock settings – see “Clock settings” on page 105). If a valid external clock is applied, it
+will automatically be selected as the clock source, and the grid will display “SYN” in red if Macro 1 is
+turned. Adjusting Macro 1 will not alter the internal tempo when an external clock is in use.
+While the internal tempo clock only allows integer BPMs (i.e., no fractional tempo values), Circuit Tracks
+will synchronise to any external clock rates – including fractional values - in the range 30 to 300 BPM.
+85
+
+If an external clock is removed (or goes out of range), Circuit Tracks will stop playing. “SYN” remains
+displayed until Play is pressed. The grid then shows the BPM that was saved with the Project, Macro 1
+will be re-enabled and you can then adjust the tempo.
+
+Tap Tempo
+If you want to match Circuit Tracks’ tempo to an existing piece of music and you don’t know its BPM,
+you can use Tap Tempo. Hold down Shift and tap the Tempo/Swing button in time with the track
+you’re listening to. You need at least three taps for Circuit Tracks to change its tempo setting to your
+manual input, and it will then calculate the BPM by averaging the last five taps.
+You can use Tap Tempo at any time, but if you’re in Tempo View, you’ll see the BPM display update
+itself to the tap tempo.
+
+Swing
+By default, all steps in a pattern are equally spaced in time. At a tempo of 120 BPM, a 16-step pattern will
+repeat every 2 seconds, making the steps one-eighth of a second apart. Altering the Swing parameter
+from its default value of 50 (the range is 20 to 80) alters the timing of even-numbered steps (the offbeats); a lower swing value shortens the time between an even step and the previous odd step, a higher
+Swing value has the opposite effect.
+
+2
+
+4
+
+1
+
+6
+
+3
+
+8
+
+5
+
+10
+
+7
+
+9
+
+12
+
+11
+
+14
+
+13
+
+16
+
+15
+
+Swing = 50%
+Even beats are advanced
+2
+
+4
+
+1
+
+6
+
+3
+
+8
+
+5
+
+10
+
+7
+
+12
+
+9
+
+14
+
+11
+
+16
+
+13
+
+15
+
+Swing = 25%
+Even beats are delayed
+2
+
+1
+
+4
+
+3
+
+6
+
+5
+
+8
+
+7
+
+10
+
+9
+
+12
+
+11
+
+14
+
+13
+
+16
+
+15
+
+Swing = 75%
+
+86
+
+Swing is adjusted with Macro 2, while in Tempo View; its LED illuminates orange. Note that when
+adjusting tempo and swing alternately, you may notice a short delay before the knob adjustment takes
+effect. This is to allow you to check the current Tempo and Swing values without altering them.
+Swing can be used to add an extra “groove” to your pattern. Note that as it is the even steps that are
+“swung”, these can be interpreted as 1/16-notes (semiquavers).
+
+Click track
+The Click (or metronome) can be activated or deactivated by holding Shift and pressing Clear 17 .
+Clear will light bright green when Click is enabled and dim red when it is not. When enabled, you will
+hear a metronome tick at every quarter note on all audio outputs whenever the sequencer is playing.
+This is a global setting therefore Click will remain on or off regardless of Pack or Project changes. The
+setting is not saved when Circuit Tracks is powered off.
+To adjust the volume of the Click, press Tempo/Swing and use Macro 5 (the one above the Clear/
+Click button). Click level is also a global setting therefore applies to all Packs and Projects. The level
+setting is saved when the device is powered off using the power button 8 .
+
+Analogue Sync Out
+It is very easy to synchronise external equipment – e.g., analogue synths – to Circuit Tracks with the
+rear panel Sync Out connector 2 . This provides a sync pulse at a rate proportional to the tempo
+clock (BPM); the actual ratio can be set in Setup View – see page 102. The default rate is two pulses
+per quarter note.
+
+87
+
+Mixer
+Circuit Tracks includes an eight-channel mixer to let you adjust the volume of each track relative
+to the others. By default, all the tracks play at a volume level of 100 (arbitrary units, range 0-127),
+leaving you with the Master Volume control 4 to adjust the output level as required.
+Press Mixer 11 to open Mixer View:
+
+2 Oscillator Mod
+
+1 Oscillator
+
+4 Filter Envelope
+
+3 Amp Envelope
+
+J
+
+Tap
+
+6 Resonance
+
+5 Filter Frequency
+Click
+Mutate
+
+8 FX
+
+7 Modulation
+
+Packs
+
+Tempo
+Swing
+
+Clear
+
+Duplicate
+
+Save
+
+Projects
+
+Synth 1
+
+Synth 2
+
+MIDI 1
+
+MIDI 2
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+MUTE
+SYNTH 1
+
+MUTE
+SYNTH 2
+
+MUTE
+MIDI/AUDIO
+IN 1
+
+MUTE
+MIDI/AUDIO
+IN 2
+
+MUTE
+DRUM 1
+
+MUTE
+DRUM 2
+
+MUTE
+DRUM 3
+
+MUTE
+DRUM 4
+
+(Pulsing
+bright/dim)
+
+Scene pads
+
+The illuminated pads on Row 1 are Mute buttons for each track. Press a pad to stop the sequencer
+triggering the synth track notes, drum track hits, MIDI track notes outputs and CC automation, which in
+turn will mute the track; press again to unmute. The pad’s illumination dims to indicate a Mute state.
+
+Input Level control
+By default, in Mixer View the Macros control volume level of each track. This is indicated by the J button
+15 being lit. Macro LEDs light in the corresponding track colour, and dim as the track level is reduced.
+Macro controls 3 and 4 (the MIDI tracks) control the level of external analogue audio sources
+connected to the rear panel Inputs 1 and 2 5 . These can be used to add the outputs of external
+synths into Circuit Tracks’ mix.
+88
+
+Track level adjustment with the Macros may be automated. If Circuit Tracks is in Record Mode,
+changes to the individual track levels will be recorded to the Pattern. To delete Volume Level
+automation, hold Clear 17 and turn the Macro control. The Macro LED will light red to indicate that
+the deletion has been completed.
+
+Panning
+You can also position each track anywhere in the stereo image (but you’ll need to be monitoring
+both left and right outputs, of course). Pressing the J button 15 converts the Macro controls to pan
+controls for each track. The J button goes out and the K button illuminates. The default pan position
+of every track is stereo-centre, indicated by the Macro LEDs showing white. Panning a track left turns
+the LED increasingly bright blue; panning to the right turns it increasingly bright pink.
+To quickly return a panned track to the centre of the stereo image, hold down Clear 17 and turn
+the Macro control clockwise. The Macro LED will light purple to indicate that the action has been
+completed.
+The Pan controls are automated in the same way as the Level controls. To delete Pan automation,
+hold Clear and turn the Macro control anticlockwise. The Macro LED will light red to indicate that the
+action has been completed.
+Pressing K will return the Macros to their level control function.
+
+Performing with Muted Tracks
+Muting can be used for more creative purposes than simply silencing a track; it lets you perform in
+real time over the unmuted tracks. When a track is muted, its sequencer step pads become inactive.
+However, they then become available to play synth notes or chords, or drum hits, in real time.
+To experiment with this, select a Project with active Drum tracks, and mute a synth track in Mixer
+View. Select Note View for the muted track: the step pads will still show the sequence in progress,
+
+but because the track is muted, no notes will be triggered by the sequencer. The step pads may now
+be used to play synth notes “manually” – in real time. You can either play notes or chords already
+assigned to steps by pressing the step pads, or, if the track is empty, you can assign note(s) to any of
+the step pads. You now have a set of 16 pads which can be used to trigger any combination of notes
+as and when you wish. Furthermore, Macro automation can be applied in Step Edit Mode to any of
+the programmed step pads, which would be very difficult to do in real time.
+The same principle can be used with Drum tracks, but here it will be necessary to select either Velocity
+View or Gate View, as the Drum tracks do not display a separate set of sequencer steps. If you use
+Gate View, you have the added advantage of access to the Drum Micro Steps.
+
+89
+
+FX Section
+Circuit Tracks includes a digital effects processor (FX) which lets you add delay and/or reverb effects
+to any or all of the tracks making up your Project. There is also a master compressor which is applied
+to your mix by default.
+Sixteen delay and eight reverb presets are provided, and you can select any one of each type. The
+send levels from each track – i.e., how much reverb and/or delay is added – are individually adjustable
+for each track using the Macro controls. Any effects added can be saved to the Project in the usual way.
+Press FX 12 to open FX View.
+
+2 Oscillator Mod
+
+1 Oscillator
+
+Synth 1
+
+4 Filter Envelope
+
+3 Amp Envelope
+
+Synth 2
+
+MIDI 1
+
+6 Resonance
+
+7 Modulation
+
+5 Filter Frequency
+Tap
+
+Click
+
+Tempo
+Swing
+
+Clear
+
+MIDI 2
+
+Drum 1
+
+8 FX
+
+Mutate
+
+Drum 2
+
+Packs
+Save
+
+Projects
+
+Drum 3
+
+Drum 4
+
+Active delay
+preset
+Delay presets
+
+Active reverb
+preset
+
+Reverb presets
+
+FX on/off
+
+Each of the “peach” pads on Rows 1 and 2 calls up a delay preset, and similarly, the “cream” pads on
+Row 3 enable reverb presets. By far the best way to evaluate the various effects is to listen to them,
+most effectively using a single repeating hit like a snare drum. As a general rule though, the reverb
+presets are arranged with increasing reverberation time from Pad 17 to Pad 24, and the delay presets
+with increasing complexity from Pad 1 to Pad 16. All the delay presets feature feedback for multiple
+echoes, and some include interesting swung timing and stereo “ping-pong” effects as well. In all cases,
+delay time is related to the BPM: see the table on page 92 for a full list of presets.
+
+90
+
+Reverb
+To add reverb to one or more of your tracks, select a reverb preset. The pad corresponding to the
+active preset illuminates brightly. The Macros are now the reverb send level controls for the eight
+tracks: this is exactly the same arrangement as used in Mixer View. The Macro LEDs are now dimly lit
+cream; as you increase a send level you will hear reverb being added to the track it controls and the
+LED will increase in brightness.
+You can add the selected reverb effect to any or all of your tracks to different degrees by using the
+other Macro controls. It is not possible to use different reverb presets on different tracks, however.
+Details of the 8 reverb presets are given below:
+PRESET
+
+DELAY TYPE
+
+1
+
+Small Chamber
+
+2
+
+Small Room 1
+
+3
+
+Small Room 2
+
+4
+
+Large Room
+
+5
+
+Hall
+
+6
+
+Large Hall
+
+7
+
+Hall – long reflection
+
+8
+
+Large Hall – long reflection
+
+Delay
+Adding a delay effect is exactly the same process: select an effect from the pads on Rows 1 and 2. The
+Macros are now delay send level controls; you’ll see that their LEDs are now showing peach to confirm
+their reassignment to the delay FX.
+Although the same Macros are used as reverb send levels and delay send levels, the two effects
+remain independent: the Macros adopt one function or the other according to whether the last FX
+pad pressed was a reverb preset or a delay preset.
+
+91
+
+Details of the 16 delay presets are given the table below:
+PRESET
+
+DELAY TYPE
+
+MUSICAL DESCRIPTION
+
+1
+
+Slapback Fast
+
+Very rapid repeats
+
+2
+
+Slapback Slow
+
+Rapid repeats
+
+3
+
+32nd Triplets
+
+48 cycles per bar
+
+4
+
+32nd
+
+32 cycles per bar
+
+5
+
+16th Triplets
+
+24 cycles per bar
+
+6
+
+16th
+
+16 cycles per bar
+
+7
+
+16th Ping Pong
+
+16 cycles per bar
+
+8
+
+16th Ping Pong Swung
+
+16 cycles per bar with swing
+
+9
+
+8th Triplets
+
+12 cycles per bar
+
+10
+
+8th dotted Ping Pong
+
+8 cycles per 3 beats with Stereo Spread
+
+11
+
+8th
+
+8 cycles per bar
+
+12
+
+8th Ping Pong
+
+8 cycles per bar
+
+13
+
+8th Ping Pong Swung
+
+8 cycles per bar with swing
+
+14
+
+4th Triplets
+
+6 cycles per bar
+
+15
+
+4th dotted Ping Pong Swung
+
+4 cycles per 3 bars with swing
+
+16
+
+4th Triplets Ping Pong Wide
+
+6 cycles per bar
+
+Automating FX sends
+The reverb and delay send levels may be automated by turning a Macro control while Record Mode is
+active. You can alter the amount of an effect during a sequence. The Clear button 17 can be used to
+delete automation data for the FX send control: hold Clear and turn the send control for which you no
+longer require automation; the LED turns red to confirm the action.
+See also “Recording Knob Movements” on page 36 and page 71.
+
+Master Compressor
+This is enabled or disabled by the FX button in Setup View: see page 102.
+
+92
+
+Side Chains
+Each of the synth tracks and external audio inputs (represented by the MIDI tracks) can be Side Chained.
+Side Chains work in the same manner as in common dynamics processors such as compressors, and can
+be used to alter the “envelope” of synth notes in time with any of the drum tracks.
+Side Chain allows the hits of the selected drum track to duck the audio level of the synths. Using synth
+sounds with long sustain or long Gate times, you can make a drum sample “pump” the synth sounds
+to produce some interesting and unusual effects.
+Seven Side Chain presets are available, each allowing the selected drum track to modify the sound of
+the synth tracks (or signals at the external audio inputs) in subtly different ways. The default state is for
+Side Chain to be OFF on both synths and both MIDI tracks.
+Side Chain View is the secondary view of the FX button 12 . Open by holding Shift and pressing FX,
+
+or press FX a second time if already in FX View to toggle the View.
+
+DRUM 1
+
+DRUM 2
+
+DRUM 3
+
+DRUM 4
+
+Side Chain trigger source
+
+Synth 1 Side Chain presets
+OFF
+
+1
+
+OFF
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+5
+
+6
+
+7
+
+Synth 2 Side Chain presets
+2
+
+3
+
+4
+
+Side Chain View – Page 1
+(Synth 1/Synth 2)
+
+DRUM 1
+
+DRUM 2
+
+DRUM 3
+
+DRUM 4
+
+Side Chain trigger source
+
+Midi (Audio In) 1 Side Chain presets
+OFF
+
+1
+
+OFF
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+5
+
+6
+
+7
+
+Midi (Audio In) 2 Side Chain presets
+2
+
+3
+
+4
+
+Side Chain View – Page 2
+(MIDI 1/MIDI 2)
+
+93
+
+Side Chain View will display either the side chain controls for the Synth tracks or the MIDI tracks (the
+
+external inputs) depending on which track was selected when Shift + FX was pressed. You can use the
+J and K buttons 15 to switch between Synth and MIDI track Side Chain Views.
+The two lower rows of pads corresponds to the seven Side Chain Presets (Pads 2 to 8 in each row) for
+Synth 1 and Synth 2 respectively (or MIDI 1 and MIDI 2); the first pad in each row is ‘the OFF button’ –
+this disables side chain processing for the synth (or audio input). Pad 1 is illuminated bright red when
+the Side Chain is OFF; press any other pad in the row to enable one of the Side Chain Presets, and
+Pad 1 becomes dim and the selected Pad shows bright in the track colour.
+Pads 5 to 8 on the top row let you select which Drum track will be the side chain trigger for the
+chosen track (selected by pressing a side chain preset for the track).
+As with many of Circuit Tracks’ other features, by far the best way of understanding side chain processing
+is to experiment and listen. A good starting point is to set a single synth note to have a Gate value of 16
+so that it sounds continuously, and make Drum 1 play a few kick drum beats. As you select different Side
+Chain Presets, you’ll hear the different ways in which the continuous synth note is “interrupted” by the
+drum. The same Side Chain Preset may have a markedly different effect when used with different synth
+patches, so it is worth experimenting with various synth sounds as well. Also note that the effect will be
+more or less interesting depending on the relative timings of the synth patterns and Drum 1.
+Side Chain ducking will continue even when the level of the source track is reduced to zero in the
+Mixer View. This is a feature which can be used quite creatively! However, if you mute the drum track
+
+selected as the key in Mixer View, side chain triggering is disabled.
+
+The Filter Knob
+The entire audio output of Circuit Tracks – the sum of the sounds from all six internal tracks plus the
+two external audio inputs – is fed through a traditional DJ-style filter section. The control for this is
+the large Master Filter knob 2 . The Filter knob is one of the key performance controls and can be
+used to radically change the overall sound.
+The Filter encompasses both low-pass and high-pass types. A high-pass filter removes low frequencies (bass)
+from the output and a low-pass filter removes high frequencies (treble). Circuit Tracks’ Master Filter knob
+controls a low-pass filter when you turn it anticlockwise from the centre position and a high-pass filter when you
+turn it clockwise from the centre position. Note that the control has a detent in the centre – in this position, no
+filtering takes place and the LED below the knob is dimly lit white. As you turn the knob clockwise, you’ll hear
+the drums and lower notes disappear leaving you with a much thinner sound; in the opposite direction, the
+high notes disappear first, leaving you with a muffled sound. The LED changes to pale blue when either filter
+type is active, with the brightness increasing as the control is turned.
+
+94
+
+Projects
+A basic overview of loading and saving Projects can be found at page 22. This chapter looks at
+some additional aspects surrounding the use of Projects.
+
+Switching Projects
+There are some rules governing how Circuit Tracks responds when you change from one Project to
+another. If you’re in Stop Mode (i.e., with the sequencer not running) and change Project in Projects
+View, when you press the
+
+Play button, the new Project always begins at the step defined as the
+
+Start Point of the Pattern (Step 1 by default) for each track; if the Project comprises chained Patterns,
+it will begin at the Start Point of the first Pattern. This will be the case regardless of which step the
+sequencer was at when it was last stopped. The tempo of the new Project will replace that of the
+previous one.
+There are two options for changing Projects while in Play Mode:
+1. If you select a new Project by pressing its pad, the current Pattern will play through to its last step
+(note – only the current Pattern, not a Scene or complete chain of Patterns), and the pad for the
+new Project will flash white to indicate that it is being “queued”. The new Project will then begin
+playing from the Start point (Step 1 by default) of its Pattern, or the Start Point of the first Pattern
+in a chain or its first Scene, as the case may be.
+2. If you hold down Shift when selecting a new Project, the newly selected Project will begin playing
+immediately. The new Project will play from the same step in the Pattern chain that the previous
+Project had reached. Instant Project switching can become particularly interesting when the two
+Projects either contain Patterns of different lengths, or different numbers of Patterns making up a
+Pattern chain. As we have mentioned elsewhere in this User Guide, experimentation is often the
+best way of understanding how Circuit Tracks deals with this.
+
+Clearing Projects
+Clear 17 may be used in Projects View to delete unwanted Projects. Press and hold Clear; it
+illuminates bright red and all the grid pads extinguish except that for the currently selected Project,
+which shows bright white. Press this pad to delete the Project.
+Note that this procedure makes it only possible to delete the currently selected Project; thus
+providing a safeguard against deleting the wrong Project. Always check that a Project pad contains
+the Project you want to delete by playing it before you use Clear.
+95
+
+Saving Projects to new slots
+Use Save 19 to store the tracks you’ve been working on to a Project memory slot. Save needs to be
+pressed twice to complete the store process: the first press will flash the Save button; a second press
+will save your work to the last Project memory that was in use. This means that if your current work
+was based on a previously-saved Project, the original version will be overwritten.
+To ensure that your work gets saved in a different Project memory, switch to Projects View. You will
+see that the first press of Save causes the pad for the last-selected Project to pulse white. If you want
+to save your work in a new memory slot, press the pad for that slot: all other pads will go dark and the
+selected pad will rapidly flash green for a couple of seconds.
+Note that you can “abort” the Save routine after the first press of Save by pressing any other button.
+
+Changing Project Colours
+You can also assign a different colour to any of the pads in Project View – this can be a great help
+in live performance. You choose the colour as part of the Save procedures described above. After
+pressing Save for the first time, the LED under Macro 1 rotary control will light in the current colour
+of the pad for the currently selected Project: if you’ve not already changed the colour, it will be dark
+blue. You can now scroll through a palette of 14 colours by rotating the Macro 1 knob. When you
+see the colour you want, either press Save for a second time, or press the pad corresponding to the
+memory location: this completes the Save process with a flashing green pad as described above.
+Note that the pad will become white after the Save operation, so you won’t immediately see the new
+colour, but you will do so as soon as you select a different Project.
+
+96
+
+Packs
+A Pack is defined as everything currently saved on your Circuit Tracks: you can export the current Pack
+to a removable microSD card. The card slot is on the rear panel 7 .
+A Pack contains the totality of Circuit Tracks’ current operation, including the contents of all 64
+Project memories, all 128 synth Patches and all 64 drum Samples. A card can hold 31 additional Packs:
+this enables you to safely save an enormous amount of working content in a non-volatile medium,
+and this can include Projects of greatly differing genres, complete with personalised Patches and
+Samples as appropriate. The principle can be extended further still, as you can, of course, use as many
+microSD cards as you wish.
+Packs View is the secondary view of the Projects button 19 . Open by holding Shift and pressing
+
+Projects, or press Projects a second time if already in Projects View to toggle the View.
+
+IMPORTANT:
+You can only access Packs View when a microSD card is present in the rear panel slot.
+
+Packs may be sent to Circuit Tracks using Novation Components at
+components.novationmusic.com. Each pad represents a Pack: the currently loaded will be lit white
+and the other pads will lit in their assigned colours, which are set in Novation Components.
+
+97
+
+Loading a Pack
+First select a Pack by pressing any lit pad other than that for the currently loaded Pack. It will start
+pulsing between dim and bright (in its assigned colour) to confirm that it is “primed” and can now be
+loaded. It is not possible to load an “empty Pack slot”, as it will not contain any synth patches, MIDI
+templates or drum samples. It is also not possible to reload the current pack.
+[If you do not wish to load a primed Pack, either prime a different Pack for loading or exit Packs View.
+When you return to Packs View, no Pack will display as primed.]
+Once a Pack is primed, press the play button to load the Pack. An animation will play on the pads for
+a few seconds while the Pack loads, and once the load is complete Packs View will be displayed again
+with the pad for newly loaded pack lit white.
+
+Duplicating Packs
+If you run out of Projects in a Pack, but would like to continue working on new Projects with the same
+set of synth patches and samples, you may duplicate the current pack.
+To duplicate the current pack, first enter Packs View. Hold Duplicate 18 and the currently selected
+Pack will pulse green, while the available Pack slots will be lit dim blue. Press a dim blue slot to write
+the current pack to the new location.
+Note that Packs may only be removed via Components, and cannot be cleared from the device
+directly.
+
+98
+
+Using microSD Cards
+WARNING:
+Do not remove the microSD card from Circuit Tracks during Save or Load operations. Doing so
+may result in the loss of previously saved work. Note that Save operations include the process of
+duplicating a pack and transferring content from Components.
+
+A microSD card inserted into the rear panel card slot allows access to multiple Packs. Circuit Tracks’
+internal memory holds only a single Pack: the microSD card can hold a further 31 Packs, thus allowing
+the availability of up to 32 Packs for loading to Circuit Tracks while the card is inserted.
+If microSD card has not been inserted since powering up, Packs View will display a red and yellow icon
+that means “no SD available”:
+
+(The “no SD” icon is also displayed in other situations, see `Removing An SD Card` below for more
+details.) Circuit Tracks is fully operational without a Micro SD card, but the user will only have access
+to the internal Pack. If a microSD card is present, Packs View will display the available Packs and allow
+the user to load a new Pack as described in `Loading a Pack` above.
+If the unit is powered on with no microSD card present (resulting in the internal Pack being loaded),
+one can be inserted at any point to gain access to the card’s content. If the card has previously
+been removed, reinserting it will allow access to the card’s content again, and normal operation will
+continue if removing the card previously had disrupted any functionality. Removing the microSD card
+is described in detail below.
+
+99
+
+If a microSD card is removed while the internal Pack is loaded, Circuit Tracks will behave as described
+above for operating from power-up without a card present. Doing so does not hinder the user’s ability
+to load synth patches and samples, or to save and load Projects.
+It is possible to remove the microSD card while a Pack loaded from the SD card is that currently
+in use. Sequencer playback will not stop, and any unsaved changes will not be lost at this point.
+However, as the card is not present, there is no data available to load. The Project will continue to
+play as the current Project data is loaded into the unit’s RAM, but it is not possible to change Project
+or save the current Project while in this state. However, you can change Patch or sample during Pack
+load. As such, Projects View will display the ‘No SD’ icon as described above, and the Save button 19
+will not be lit until the card is re-inserted. Packs View will also display the ‘No SD’ icon until the card
+is re-inserted. If you wish to load the internal Pack without re-inserting the microSD card, you must
+power the unit down and back up again to load the internal Pack.
+If you insert a different microSD card, Circuit Track’s behaviour is undefined. If you need to load a
+Pack from a different microSD card, you should power the unit down and back up again. The new
+microSD card can be inserted any time before, during or after the power cycle, but the power cycle
+must be completed before loading the new card content to avoid undefined behaviour.
+
+MicroSD card compatibility
+MicroSD cards need to be Class 10 as a minimum, and use FAT32 format. For more information on
+specific microSD cards recommended for use with Circuit Tracks, please see the Novation Help Centre.
+
+100
+
+Components
+About Components & Navigating to Circuit Tracks
+Novation Components is the online companion for Circuit Tracks. With Components, you can:
+
+•
+
+Download new content
+
+•
+
+Create and edit synth patches
+
+•
+
+Load your own samples
+
+•
+
+Edit MIDI track templates
+
+•
+
+Backup your projects
+
+•
+
+Load new packs
+
+•
+
+Update to the latest firmware version
+
+Components requires a Web MIDI enabled browser to communicate with your device. We recommend
+using Google Chrome or Opera. Alternatively, you can download a standalone version of Components
+once you have registered your product.
+
+Access Components at components.novationmusic.com.
+NOTE:
+“If you are having issues using the web version of Components, try installing the standalone
+application from the Novation Customer Portal. Additionally, if you are on Windows, we recommend
+that you install the Novation Driver.
+
+101
+
+Appendix
+Firmware Updates
+In order to access all features, you may need to update Circuit Tracks to the latest firmware
+version. Components will let you know whether the connected unit is up to date and, if it’s not,
+Components can update the unit’s firmware to the latest version.
+
+Setup View
+Setup View is provided to allow “global” unit settings to be made: these include MIDI channel
+
+assignment, MIDI I/O configuration, clock source selection, external clock rate, master compressor on/
+off and brightness adjustment. It is entered by holding down Shift and pressing Save, and exited by
+pressing
+
+Play 13 .
+
+Opening Setup View produces the display shown below:
+
+MIDI 1 and MIDI 2 are set to
+use their default MIDI
+channels - 3 and 4
+respectively
+
+Synth 1 is currently selected: the pads
+for the unassigned MIDI channels
+illuminate in the track colour
+
+Default MIDI
+channel for Synth 2
+is Channel 2
+
+Synth 1
+
+Default MIDI
+channel for Synth 1
+is Channel 1
+Default MIDI
+channel for
+Drums 1-4 is
+Channel 10
+Default external
+clock sync rate
+is 2 ppqn
+
+Synth 2
+
+MIDI 1
+
+MIDI 2
+
+1
+
+2
+
+3
+
+9
+
+10
+
+11
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+MIDI Channel
+16 is reserved
+for the Project
+
+12
+
+13
+
+14
+
+15
+
+16
+
+Brightness
+adjustment
+
+Tx
+On/Off
+
+Rx
+On/Off
+
+Tx
+On/Off
+
+MIDI channels 1 -16
+
+Drum 4
+
+Clock sync rates
+1 ppqn
+
+2 ppqn
+
+4 ppqn
+
+Rx
+On/Off
+
+Tx
+On/Off
+
+Rx
+On/Off
+
+MIDI Note data
+
+8 ppqn
+
+24 ppqn
+
+MIDI data control
+Tx
+On/Off
+
+MIDI CC data
+
+Rx
+On/Off
+
+MIDI Program
+Change data
+
+MIDI Clock control
+
+102
+
+Brightness
+Pad 24 (illuminated white) controls the brightness of the grid pads. The default setting is for full
+brightness, but pressing Pad 24 dims them by approximately 50%. This can be of benefit if you are
+running Circuit Tracks on its internal battery. You may also wish to run with reduced brightness if
+performing in conditions of low ambient lighting.
+The brightness setting is saved when Circuit Tracks is powered down.
+
+MIDI Channels
+The factory default MIDI channels are as follows:
+
+Track
+
+MIDI channel
+
+Synth 1
+
+1
+
+Synth 2
+
+2
+
+MIDI 1
+
+3
+
+MIDI 2
+
+4
+
+Drums 1 – 4
+
+10
+
+You can change the MIDI channel which each track uses in Setup View. Each track - Synth 1, Synth 2,
+MIDI 1, MIDI 2 and Drum 1 - 4 can be set to any of MIDI channels 1-15. Channel 16 is reserved for the
+Project. Note that all four drum tracks use the same MIDI channel.
+To change the MIDI channel that will be used by either of the synths or by the drums, press Synth 1, Synth
+2, MIDI 1, MIDI 2 or any of the Drum tracks pads 5 to select the required track. The top two rows of
+pads in Setup View represent the MIDI channels 1-16. Press the pad for the required MIDI channel.
+Important: No two tracks can transmit on the same MIDI channel.
+The graphic on page 103 shows the display when Synth 1 is selected: the colours of the pads for the
+unused MIDI channels differ for Synth 2, the MIDI tracks or Drums. The bright violet, pale green,
+blue, pink and orange pads indicate the MIDI channel to which each track is currently assigned.
+As with all Setup View changes, press Play to save your changes and exit Setup View.
+
+103
+
+MIDI I/O
+Circuit Tracks is able to send and receive MIDI data both via the USB port 6 and the MIDI In/Out/
+Thru sockets 4 .
+Setup View allows you to decide how you want Circuit Tracks to operate with other MIDI equipment
+
+for four categories of MIDI data independently: Note, CC (Control Change), Program Change (PGM)
+and MIDI Clock. This ensures you have a high degree of flexibility in how Circuit Tracks integrates with
+the rest of your system.
+MIDI Rx (receive) and Tx (transmit) can be enabled independently for each of the data categories.
+Pads 25 to 32 are arranged as four pairs of buttons as shown in the table:
+Pad
+
+Function
+
+25
+
+MIDI Note Rx on/off
+
+26
+
+MIDI Note Tx on/off
+
+27
+
+MIDI CC Rx on/off
+
+28
+
+MIDI CC Tx on/off
+
+29
+
+MIDI Program Change Rx on/off
+
+30
+
+MIDI Program Change Tx on/off
+
+31
+
+MIDI Clock Rx on/off
+
+32
+
+MIDI Clock Tx on/off
+
+Colour
+Green
+Orange
+Purple
+Pale Blue
+
+By default, both MIDI Rx and MIDI Tx are ON (buttons brightly lit) for all data categories.
+
+104
+
+Clock settings
+When Clock Rx is OFF, the clock is in internal mode and Circuit Tracks’ BPM is defined only by the
+internal tempo clock. Any external clock will be ignored. When Clock Rx is ON, Circuit Tracks is in
+AUTO mode and the BPM will be set by an externally applied MIDI clock at either the MIDI In or the
+USB ports if a valid one is applied; if this is not the case, Circuit Tracks will automatically switch to its
+internal clock.
+If Clock Tx is ON, Circuit Tracks is the clock master and its clock – whatever the source - will be
+available as MIDI Clock at the rear panel USB and MIDI Out connectors. Setting Clock Tx to OFF will
+result in no clock data being transmitted.
+See also “External clock” on page 85.
+
+Analogue clock rates
+Circuit Tracks outputs a continuous analogue clock from the rear panel Sync Out connector 2 at an
+amplitude of 5 V. The frequency of this clock is related to the tempo clock (internal or external). The
+output clock rate is set with the first five buttons on the third row of the grid (Pad Nos. 17-21). You
+can select the rate to be 1, 2, 4, 8 or 24 ppqn (pulse per quarter note) by pressing the appropriate
+pad. The default value is 2 ppqn. The following table summarises the settings:
+Pad
+
+Analogue clock rate
+
+17
+
+1 ppqn
+
+18
+
+2 ppqn
+
+19
+
+4 ppqn
+
+20
+
+8 ppqn
+
+21
+
+24 ppqn
+
+Note that Swing (if set to something other than 50%) is not applied to the analogue clock output.
+
+105
+
+Advanced Setup View
+Some additional preferences may be set in Advanced Setup View. It is entered by holding down Shift
+while powering the unit on, and exited by pressing Insert play icon
+
+Play 13 .
+
+The 8 x 4 grid is not illuminated in Advanced Setup View; adjustments are made using various
+other buttons.
+
+Easy Start Tool (Mass Storage Device)
+The Easy Start Tool may be disabled in Advanced Setup View if you do not wish Circuit Tracks to
+appear as a Mass Storage Device when connecting it to a computer.
+To toggle the Easy Start Tool on/off, press the Note button 6 . If Note is lit bright green, it is
+enabled, if Note is lit dim red, it is disabled.
+For more information on the Easy Start Tool, see page 8.
+
+MIDI Thru configuration
+You can determine the behaviour of the MIDI Thru port on Circuit Tracks’ rear panel in Advanced
+Setup View. The options are for the port to act as a regular MIDI Thru port (this is the default), or to
+
+duplicate the output of the MIDI Out port. This is useful if you have two pieces of hardware that you
+wish to control with the MIDI tracks that don’t have MIDI thru ports themselves.
+Use the Duplicate button 18 to set the behaviour. When Duplicate is lit bright green, the MIDI Thru
+port will act as a second MIDI Out. When it is lit dim red, a hardware thru switch is activated and the
+port acts as a regular MIDI Thru.
+
+Master Compressor
+Circuit Tracks includes a master compressor, which is applied to all audio outputs from the device. It
+can be enabled or disabled by pressing FX 12 while in in Advanced Setup View. When the compressor
+is enabled, the FX button lights bright green: when it is disabled, it lights dim red.
+
+106
+
+Save Lock
+The Save Lock feature allows you to temporarily disable the Save function. This can be useful if you
+have a live set prepared on your Circuit Tracks, and you don’t want to risk accidentally overwriting any
+important projects. To enable Save Lock, hold both Shift and Save down while powering the unit on.
+While Save Lock is enabled, the Save button is unlit at all times.
+Save Lock status is retained during subsequent power cycles. Disabling it is the same procedure as
+enabling: power the unit on while holding down Shift and Save.
+By default, Save Lock is disabled, so that Projects can be saved and overwritten freely.
+
+Project loading problems
+Circuit Tracks loads the last Project in use when it is powered-up. It is possible that if the power was
+interrupted while a Project was being saved it may have become corrupted in some way. This might
+mean that Circuit Tracks ends up in some anomalous state at power-on.
+Although this is a very unlikely occurrence, we have included a method of turning Circuit Tracks on
+and forcing it to load a blank Project instead. To do this, hold down both Shift and Clear while turning
+Circuit Tracks on.
+If any Projects do become corrupted in any way it is always possible to delete them by clearing the
+Project (see page 95).
+
+MIDI parameters
+Circuit Tracks has been designed to respond in various ways to external MIDI data. MIDI Note On/
+Note Off, Program Change (PGM) and Continuous Controller (CC) messages are all recognised.
+Full details of MIDI settings and parameters are available in a separate document: Circuit Tracks
+Programmer’s Reference Guide, which may be downloaded from novationmusic.com/downloads.
+
+107
+
+Bootloader Mode
+In the unlikely event of a problem with your Circuit Tracks, it may become necessary to enable Bootloader
+Mode. This is strictly an “engineering mode”, and all normal unit functions become inoperative. You
+should not use Bootloader Mode without instructions to do so from Novation’s Technical Support team.
+Bootloader Mode lets you check the version of the currently installed firmware, and also to update
+firmware (and factory Patches) should the Firmware Update procedure described above not work
+correctly for any reason.
+To enter Bootloader Mode:
+1. Turn Circuit Tracks off
+2. Hold down the Scales 9 , Preset 14 and Note 6 buttons
+3. Power Circuit Tracks on again
+Circuit Tracks will now be in Bootloader Mode, and the grid display will display a selection of green lit
+pads (which may differ from that shown below):
+
+Synth 1
+
+Synth 2
+
+MIDI 1
+
+MIDI 2
+
+Drum 1
+
+Drum 2
+
+Drum 3
+
+Drum 4
+
+Synth 1 and Synth 2 are lit; selecting either of these displays a pattern of illuminated pads; the
+pattern represents the version numbers of the three firmware elements in binary form. You may need
+to describe these patterns to Novation’s Technical Support Team in the event of a problem.
+Bootloader Mode is most easily exited by simply pressing the
+
+Play button. Circuit Tracks will then
+
+reboot into the normal operating state.
+
+108
+
+Trade Marks
+The Novation trademark is owned by Focusrite Audio Engineering Ltd. All other brand, product and
+company names and any other registered names or trade marks mentioned in this manual belong to
+their respective owners.
+
+Disclaimer
+Novation has taken all possible steps to ensure that the information given here is both correct and
+complete. In no event can Novation accept any liability or responsibility for any loss or damage to the
+owner of the equipment, any third party, or any equipment which may result from use of this manual
+or the equipment which it describes. The information provided in this document may be modified
+at any time without prior warning. Specifications and appearance may differ from those listed and
+illustrated.
+
+Copyright and Legal Notices
+Novation and Circuit are trade marks of Focusrite Audio Engineering Limited.
+2022 © Focusrite Audio Engineering Limited. All rights reserved
+
+Novation
+A division of Focusrite Audio Engineering Ltd.
+Windsor House, Turnpike Road
+Cressex Business Park , High Wycombe
+Buckinghamshire , HP12 3FX
+
+Tel: +44 1494 462246
+Fax: +44 1494 459920
+e-mail: sales@novationmusic.com
+Web: novationmusic.com
+
+United Kingdom
+
+109
+
+
