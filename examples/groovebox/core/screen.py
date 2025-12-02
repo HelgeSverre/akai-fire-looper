@@ -27,4 +27,3 @@ class Screen:
         """Draw progress bar"""
         # Implementation
         pass
-

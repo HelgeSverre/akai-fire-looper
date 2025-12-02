@@ -9,6 +9,7 @@ import rtmidi
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import get_akai_fire
@@ -174,9 +175,9 @@ class CircuitTracks:
         self.fire = get_akai_fire()
         self.canvas = self.fire.get_canvas()
         self.setup_handlers()
-        
+
         # Check if we're using mock or real hardware
-        if hasattr(self.fire, 'is_mock') and self.fire.is_mock:
+        if hasattr(self.fire, "is_mock") and self.fire.is_mock:
             print("Using mock GUI - hardware not found")
         else:
             print("Akai Fire connected successfully")

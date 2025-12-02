@@ -3,7 +3,7 @@ from examples.groovebox.core.view import View
 
 
 class MainView(View):
-    def __init__(self, app: 'MainApp'):
+    def __init__(self, app: "MainApp"):
         super().__init__(app)
         self.selected_track = -1
         self.selected_clip = -1

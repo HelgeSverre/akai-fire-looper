@@ -8,6 +8,7 @@ import rtmidi
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import get_akai_fire
@@ -106,6 +107,7 @@ class MidiLooper:
         self.record_armed_loop: Optional[Tuple[int, int]] = None  # (track, loop)
         self.current_bar = 0
         self.current_step = 0
+        self.last_pressed_pad = None  # For debugging display
 
         # Setup hardware and UI
         self._setup_midi()
@@ -241,11 +243,11 @@ class MidiLooper:
             self.tracks[track].is_soloed = not self.tracks[track].is_soloed
             self._update_display()
 
-    def _handle_pattern(self, button_id: int, event: str):
+    def _handle_pattern(self, event: str):
         """Handle pattern button press."""
         pass  # To be implemented
 
-    def _handle_grid_left(self, button_id: int, event: str):
+    def _handle_grid_left(self, event: str):
         """Handle grid left button for channel selection."""
         if event == "press":
             if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
@@ -258,7 +260,7 @@ class MidiLooper:
                 ) % 16
             self._update_display()
 
-    def _handle_grid_right(self, button_id: int, event: str):
+    def _handle_grid_right(self, event: str):
         """Handle grid right button for channel selection."""
         if event == "press":
             if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
@@ -359,7 +361,7 @@ class MidiLooper:
                 )
             self._update_display()
 
-    def _handle_bank(self, button_id: int, event: str):
+    def _handle_bank(self, event: str):
         """Toggle MIDI monitor view."""
         if event == "press":
             if self.screen_mode == ScreenMode.MIDI_MONITOR:
@@ -395,15 +397,15 @@ class MidiLooper:
         else:
             return f"MIDI: {' '.join(hex(b)[2:].zfill(2) for b in message)}"
 
-    def _handle_step_mode(self, button_id: int, event: str):
+    def _handle_step_mode(self, event: str):
         """Handle step mode button press."""
         pass  # To be implemented
 
-    def _handle_note_mode(self, button_id: int, event: str):
+    def _handle_note_mode(self, event: str):
         """Handle note mode button press."""
         pass  # To be implemented
 
-    def _handle_bpm(self, encoder_id: int, direction: str, velocity: int):
+    def _handle_bpm(self, direction: str, velocity: int):
         """Handle BPM changes from volume encoder."""
         if direction == "counterclockwise":
             diff = -1.0 * velocity
@@ -414,7 +416,7 @@ class MidiLooper:
         self._update_timing_params()
         self._update_display()
 
-    def _handle_loop_length(self, encoder_id: int, direction: str, velocity: int):
+    def _handle_loop_length(self, direction: str, velocity: int):
         """Handle loop length changes from pan encoder."""
         if self.recording:  # Changed from record_armed_loop
             track, loop = self.recording.track, self.recording.loop
@@ -430,12 +432,24 @@ class MidiLooper:
 
     def _handle_pad(self, pad_index: int):
         """Handle pad press for loop triggering/recording."""
+        print(f"🎹 PAD PRESSED: pad_index={pad_index}")
+        self.last_pressed_pad = pad_index  # Store for debugging display
         track = pad_index // 16
         loop = pad_index % 16
+        print(f"🎯 CALCULATED: track={track}, loop={loop}")
+
+        # Validate indices
+        if track >= len(self.tracks):
+            print(f"❌ INVALID TRACK: {track} >= {len(self.tracks)}")
+            return
+        if loop not in self.tracks[track].loops:
+            print(f"❌ INVALID LOOP: {loop} not in track {track} loops")
+            return
 
         # Update selected clip
         self.selected_clip = (track, loop)
         loop_obj = self.tracks[track].loops[loop]
+        print(f"✅ SELECTED CLIP: track={track}, loop={loop}, state={loop_obj.state.name}")
 
         # Handle recording state changes
         if (
@@ -467,6 +481,7 @@ class MidiLooper:
 
     def _arm_recording(self, track: int, loop: int):
         """Arm a clip for recording."""
+        print(f"🎸 ARMING RECORDING: track={track}, loop={loop}")
         self.recording = ClipRecording(
             track=track, loop=loop, state=RecordingState.ARMED
         )
@@ -620,7 +635,7 @@ class MidiLooper:
         """Process MIDI input/output and timing."""
         current_time = time.time()
 
-        if self.is_playing:
+        if self.is_playing and self.global_start_time is not None:
             elapsed = current_time - self.global_start_time
             new_step = int((elapsed % self.bar_duration) / self.step_duration)
             new_bar = int(elapsed / self.bar_duration)
@@ -663,12 +678,21 @@ class MidiLooper:
             if (midi_data[0] & 0x0F) == self.selected_midi_input_channel:
                 # Route MIDI to output or recording based on state
                 if self.recording and self.recording.state == RecordingState.RECORDING:
-                    loop_obj = self.tracks[self.recording.track].loops[
-                        self.recording.loop
-                    ]
-                    timestamp = time.time() - self.global_start_time
-                    timestamp = timestamp % (loop_obj.length * self.bar_duration)
-                    loop_obj.midi_messages.append((timestamp, midi_data))
+                    # Only record if global timing is properly initialized
+                    if self.global_start_time is not None:
+                        loop_obj = self.tracks[self.recording.track].loops[
+                            self.recording.loop
+                        ]
+                        timestamp = time.time() - self.global_start_time
+                        timestamp = timestamp % (loop_obj.length * self.bar_duration)
+                        loop_obj.midi_messages.append((timestamp, midi_data))
+                    # If global timing not initialized, pass through to output instead
+                    else:
+                        status = midi_data[0] & 0xF0
+                        new_message = [status | self.selected_midi_output_channel] + list(
+                            midi_data[1:]
+                        )
+                        self.midi_out.send_message(new_message)
                 else:
                     # Redirect to selected output channel
                     status = midi_data[0] & 0xF0
@@ -679,7 +703,7 @@ class MidiLooper:
 
     def _process_loop_playback(self, current_time: float):
         """Handle playback of all active loops."""
-        if not self.is_playing:
+        if not self.is_playing or self.global_start_time is None:
             return
 
         elapsed = current_time - self.global_start_time
@@ -812,26 +836,41 @@ class MidiLooper:
         # Draw transport status
         status = "REC" if self.is_recording else "PLAY" if self.is_playing else "STOP"
         self.canvas.draw_text(f"Bar: {self.current_bar + 1}  {status}", 64, 2, color=1)
+        
+        # Debug info: show last pressed pad
+        if self.last_pressed_pad is not None:
+            debug_track = self.last_pressed_pad // 16
+            debug_loop = self.last_pressed_pad % 16
+            debug_text = f"Debug: Pad {self.last_pressed_pad} -> T{debug_track}L{debug_loop}"
+            self.canvas.draw_text(debug_text, 2, 50, color=1)
 
         # Current state info
         y = 15
         if self.recording:
             track, loop = self.recording.track, self.recording.loop
-            loop_obj = self.tracks[track].loops[loop]
-            state_text = (
-                f"Track {track + 1} Loop {loop + 1}: {self.recording.state.name}"
-            )
-            length_text = f"Length: {loop_obj.length} bars"
-            self.canvas.draw_text(state_text, 2, y)
-            self.canvas.draw_text(length_text, 2, y + 12)
-        elif self.selected_clip:
-            track, loop = self.selected_clip
-            loop_obj = self.tracks[track].loops[loop]
-            state_text = f"Track {track + 1} Loop {loop + 1}: {loop_obj.state.name}"
-            if loop_obj.state != LoopState.EMPTY:
+            if track < len(self.tracks) and loop in self.tracks[track].loops:
+                loop_obj = self.tracks[track].loops[loop]
+                state_text = (
+                    f"Track {track + 1} Loop {loop + 1}: {self.recording.state.name}"
+                )
                 length_text = f"Length: {loop_obj.length} bars"
                 self.canvas.draw_text(state_text, 2, y)
                 self.canvas.draw_text(length_text, 2, y + 12)
+            else:
+                # Invalid recording state, reset it
+                self.recording = None
+        elif self.selected_clip:
+            track, loop = self.selected_clip
+            if track < len(self.tracks) and loop in self.tracks[track].loops:
+                loop_obj = self.tracks[track].loops[loop]
+                state_text = f"Track {track + 1} Loop {loop + 1}: {loop_obj.state.name}"
+                if loop_obj.state != LoopState.EMPTY:
+                    length_text = f"Length: {loop_obj.length} bars"
+                    self.canvas.draw_text(state_text, 2, y)
+                    self.canvas.draw_text(length_text, 2, y + 12)
+            else:
+                # Invalid selected clip, reset it
+                self.selected_clip = None
 
         # Update pad colors to reflect recording states
         colors = []
@@ -845,6 +884,9 @@ class MidiLooper:
                     and self.recording.track == track_idx
                     and self.recording.loop == loop_idx
                 )
+                
+                if is_recording_clip:
+                    print(f"🔴 LIGHTING PAD: pad_idx={pad_idx} (track={track_idx}, loop={loop_idx}) state={self.recording.state.name}")
 
                 if is_recording_clip:
                     if self.recording.state == RecordingState.ARMED:

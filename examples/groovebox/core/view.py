@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
 
 
-
 class View(ABC):
-    def __init__(self, app: 'MainApp'):
+    def __init__(self, app: "MainApp"):
         self.app = app
         self.active = False
 

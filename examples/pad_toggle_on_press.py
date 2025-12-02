@@ -18,6 +18,7 @@ from typing import Set
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import get_akai_fire
@@ -50,6 +51,7 @@ class PadAnimator:
 
     def setup_controls(self):
         """Set up pad listeners for all pads."""
+
         # Add listener for all pads
         @self.fire.on_pad()
         def on_pad_press(pad_index, velocity):

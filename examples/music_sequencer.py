@@ -1,26 +1,15 @@
-from transitions import Machine
-from enum import Enum
-from dataclasses import dataclass, field
-from typing import List
-import time
-import rtmidi
-import sys
 import os
+import sys
+import time
+from dataclasses import dataclass
+from typing import List
+
+import rtmidi
+from transitions import Machine
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import get_akai_fire
-
-
-class PlayState(Enum):
-    STOPPED = "stopped"
-    PLAYING = "playing"
-    RECORDING = "recording"
-
-
-class ScreenMode(Enum):
-    MAIN = "main"
-    SETTINGS = "settings"
-    MENU = "menu"
 
 
 @dataclass
@@ -56,53 +45,51 @@ class Menu:
 
 
 class SequencerApp:
-    states = [
-        "idle",
-        "playing",
-        "paused",
-        "stopped",
-        "recording",
-        "main_menu",
-        "settings_menu",
-        "midi_menu",
-        "quantization_menu",
+    # Transport states - what the sequencer is doing
+    transport_states = ["stopped", "playing", "recording"]
+    transport_transitions = [
+        {"trigger": "play", "source": "stopped", "dest": "playing"},
+        {"trigger": "stop", "source": ["playing", "recording"], "dest": "stopped"},
+        {"trigger": "record", "source": "stopped", "dest": "recording"},
     ]
 
-    transitions = [
-        {"trigger": "play", "source": ["idle", "paused", "stopped"], "dest": "playing"},
-        {"trigger": "pause", "source": "playing", "dest": "paused"},
-        {
-            "trigger": "stop",
-            "source": ["playing", "paused", "recording"],
-            "dest": "stopped",
-        },
-        {"trigger": "record", "source": ["idle", "playing"], "dest": "recording"},
-        {"trigger": "reset", "source": ["stopped", "recording"], "dest": "idle"},
-        {"trigger": "open_main_menu", "source": "*", "dest": "main_menu"},
-        {"trigger": "open_settings_menu", "source": "*", "dest": "settings_menu"},
-        {"trigger": "open_midi_menu", "source": "*", "dest": "midi_menu"},
+    # UI states - what the user is looking at
+    ui_states = ["main", "settings", "midi_menu", "quantization_menu"]
+    ui_transitions = [
+        {"trigger": "open_settings_menu", "source": "main", "dest": "settings"},
+        {"trigger": "open_midi_menu", "source": "settings", "dest": "midi_menu"},
         {
             "trigger": "open_quantization_menu",
-            "source": "*",
+            "source": "settings",
             "dest": "quantization_menu",
         },
         {
             "trigger": "close_menu",
-            "source": ["main_menu", "settings_menu", "midi_menu", "quantization_menu"],
-            "dest": "idle",
+            "source": ["settings", "midi_menu", "quantization_menu"],
+            "dest": "main",
         },
     ]
 
     def __init__(self):
-        self.machine = Machine(
+        # Transport state machine - controls playback
+        self.transport_machine = Machine(
             model=self,
-            states=SequencerApp.states,
-            transitions=SequencerApp.transitions,
-            initial="idle",
+            states=SequencerApp.transport_states,
+            transitions=SequencerApp.transport_transitions,
+            initial="stopped",
+            model_attribute="transport_state",
+        )
+
+        # UI state machine - controls what's displayed
+        self.ui_machine = Machine(
+            model=self,
+            states=SequencerApp.ui_states,
+            transitions=SequencerApp.ui_transitions,
+            initial="main",
+            model_attribute="ui_state",
         )
         self.fire = get_akai_fire()
-        self.play_state = PlayState.STOPPED
-        self.screen_mode = ScreenMode.MAIN
+        self.canvas = self.fire.get_canvas()
 
         midi_in_ports = rtmidi.MidiIn().get_ports()
         midi_out_ports = rtmidi.MidiOut().get_ports()
@@ -117,47 +104,42 @@ class SequencerApp:
         )
 
         self.setup_handlers()
+        self.update_button_leds()
         self.update_display()
 
     def setup_handlers(self):
         @self.fire.on_button(self.fire.BUTTON_STOP)
         def handle_stop(event):
             if event == "press":
-                self.stop()
-                self.update_display()
+                self.do_stop()
 
         @self.fire.on_button(self.fire.BUTTON_PLAY)
         def handle_play(event):
             if event == "press":
-                if self.play_state == PlayState.STOPPED:
-                    self.play()
+                if self.transport_state == "stopped":
+                    self.do_play()
                 else:
-                    self.stop()
-                self.update_display()
+                    self.do_stop()
 
         @self.fire.on_button(self.fire.BUTTON_REC)
         def handle_rec(event):
             if event == "press":
-                if self.play_state == PlayState.RECORDING:
-                    self.stop()
+                if self.transport_state == "recording":
+                    self.do_stop()
                 else:
-                    self.record()
-                self.update_display()
+                    self.do_record()
 
         @self.fire.on_button(self.fire.BUTTON_BROWSER)
         def handle_browser(event):
             if event == "press":
-                if self.screen_mode == ScreenMode.MAIN:
-                    self.open_settings_menu()
-                    self.screen_mode = ScreenMode.SETTINGS
+                if self.ui_state == "main":
+                    self.do_open_settings_menu()
                 else:
-                    self.close_menu()
-                    self.screen_mode = ScreenMode.MAIN
-                self.update_display()
+                    self.do_close_menu()
 
         @self.fire.on_rotary_turn(self.fire.ROTARY_SELECT)
         def navigate_menu(direction, velocity):
-            if self.state in ["settings_menu", "midi_menu", "quantization_menu"]:
+            if self.ui_state in ["settings", "midi_menu", "quantization_menu"]:
                 if direction == "clockwise":
                     self.settings_menu.next_option()
                 else:
@@ -166,8 +148,8 @@ class SequencerApp:
 
         @self.fire.on_button(self.fire.BUTTON_SELECT)
         def select_menu_option(event):
-            if event == "press" and self.state in [
-                "settings_menu",
+            if event == "press" and self.ui_state in [
+                "settings",
                 "midi_menu",
                 "quantization_menu",
             ]:
@@ -175,56 +157,146 @@ class SequencerApp:
                 selected_option.next_option()
                 self.update_display()
 
-    def on_enter_playing(self):
-        self.play_state = PlayState.PLAYING
+    def update_transport_leds(self):
+        """Update transport button LEDs based on transport state"""
+        # Clear all transport LEDs first
+        self.fire.set_button_led(self.fire.BUTTON_PLAY, 0)
+        self.fire.set_button_led(self.fire.BUTTON_STOP, 0)
+        self.fire.set_button_led(self.fire.BUTTON_REC, 0)
 
-    def on_enter_paused(self):
-        self.play_state = PlayState.STOPPED
+        # Set LEDs based on current transport state
+        if self.transport_state == "playing":
+            self.fire.set_button_led(self.fire.BUTTON_PLAY, 2)  # High green
+        elif self.transport_state == "recording":
+            self.fire.set_button_led(self.fire.BUTTON_REC, 2)  # High red
+            self.fire.set_button_led(
+                self.fire.BUTTON_PLAY, 1
+            )  # Dim green (playing while recording)
+        else:  # stopped
+            self.fire.set_button_led(self.fire.BUTTON_STOP, 1)  # Dim red
+
+    def update_ui_leds(self):
+        """Update UI button LEDs based on UI state"""
+        # Browser button LED indicates menu state
+        if self.ui_state == "main":
+            self.fire.set_button_led(
+                self.fire.BUTTON_BROWSER, 0
+            )  # Off when in main view
+        else:
+            self.fire.set_button_led(
+                self.fire.BUTTON_BROWSER, 2
+            )  # High green when in menu
+
+    def update_button_leds(self):
+        """Update all button LEDs based on current states"""
+        self.update_transport_leds()
+        self.update_ui_leds()
+
+    # Transport state machine callbacks
+    def on_enter_playing(self):
+        """Called when transport enters playing state"""
+        self.update_transport_leds()
+        self.update_display()
 
     def on_enter_recording(self):
-        self.play_state = PlayState.RECORDING
+        """Called when transport enters recording state"""
+        self.update_transport_leds()
+        self.update_display()
 
     def on_enter_stopped(self):
-        self.play_state = PlayState.STOPPED
+        """Called when transport enters stopped state"""
+        self.update_transport_leds()
+        self.update_display()
 
-    def on_enter_idle(self):
-        self.play_state = PlayState.STOPPED
+    # UI state machine callbacks
+    def on_enter_main(self):
+        """Called when UI enters main view"""
+        self.update_ui_leds()
+        self.update_display()
 
-    def on_enter_main_menu(self):
-        self.screen_mode = ScreenMode.MENU
-
-    def on_enter_settings_menu(self):
-        self.screen_mode = ScreenMode.SETTINGS
+    def on_enter_settings(self):
+        """Called when UI enters settings menu"""
+        self.update_ui_leds()
+        self.update_display()
 
     def on_enter_midi_menu(self):
-        self.screen_mode = ScreenMode.SETTINGS
+        """Called when UI enters MIDI menu"""
+        self.update_ui_leds()
+        self.update_display()
 
     def on_enter_quantization_menu(self):
-        self.screen_mode = ScreenMode.SETTINGS
+        """Called when UI enters quantization menu"""
+        self.update_ui_leds()
+        self.update_display()
 
     def update_display(self):
-        if self.screen_mode == ScreenMode.SETTINGS:
-            print(self.settings_menu.title)
-            for idx, option in enumerate(self.settings_menu.options):
-                prefix = "> " if idx == self.settings_menu.selected_index else "  "
-                print(f"{prefix}{option.name}: {option.get_current_option()}")
+        self.canvas.clear()
+        if self.ui_state in ["settings", "midi_menu", "quantization_menu"]:
+            # Build menu items list
+            items = []
+            for option in self.settings_menu.options:
+                items.append(f"{option.name}: {option.get_current_option()}")
+
+            # Use built-in menu renderer
+            self.canvas.draw_menu(
+                self.settings_menu.title, items, self.settings_menu.selected_index
+            )
         else:
-            print(f"Current play state: {self.play_state.value}")
+            # Main transport display - shows current state of both machines
+            ui_info = f"UI: {self.ui_state}"
+            transport_info = f"Transport: {self.transport_state}"
+            self.canvas.draw_page(
+                "Music Sequencer",
+                [
+                    ui_info,
+                    transport_info,
+                    "",
+                    "Press BROWSER for settings",
+                    "Use transport buttons",
+                ],
+            )
 
-    def play(self):
-        pass
+        self.fire.render_to_display()
 
-    def stop(self):
-        pass
+    def do_play(self):
+        """Start playback"""
+        try:
+            # Call the transport state machine trigger
+            self.play()
+        except Exception as e:
+            print(f"Cannot play from current state: {e}")
 
-    def record(self):
-        pass
+    def do_stop(self):
+        """Stop playback"""
+        try:
+            # Call the transport state machine trigger
+            self.stop()
+        except Exception as e:
+            print(f"Cannot stop from current state: {e}")
 
-    def open_settings_menu(self):
-        pass
+    def do_record(self):
+        """Start recording"""
+        try:
+            # Call the transport state machine trigger
+            self.record()
+        except Exception as e:
+            print(f"Cannot record from current state: {e}")
 
-    def close_menu(self):
-        pass
+    def do_open_settings_menu(self):
+        """Open settings menu"""
+        try:
+            # Call the UI state machine trigger
+            self.open_settings_menu()
+        except Exception as e:
+            print(f"Cannot open settings menu: {e}")
+
+    def do_close_menu(self):
+        """Close current menu and return to main"""
+        try:
+            # Call the UI state machine trigger
+            self.close_menu()
+        except Exception as e:
+            print(f"Cannot close menu: {e}")
 
 
 if __name__ == "__main__":

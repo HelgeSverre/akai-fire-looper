@@ -22,6 +22,7 @@ import time
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import get_akai_fire, AkaiFire
@@ -31,64 +32,60 @@ def main():
     """
     Main function to demonstrate control bank LED management.
     """
-    # Initialize the AKAI Fire controller
-    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+    # Initialize the AKAI Fire controller with context manager
+    with get_akai_fire() as fire:
+        # === Predefined Constants ===
+        print("=== Using Predefined Constants ===")
+        fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_ALL_ON)
+        print("Control Bank LED state -> ALL ON")
+        time.sleep(0.5)
 
-    fire = get_akai_fire()
+        fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_ALL_OFF)
+        print("Control Bank LED state -> ALL OFF")
+        time.sleep(0.5)
 
-    # === Predefined Constants ===
-    print("=== Using Predefined Constants ===")
-    fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_ALL_ON)
-    print("Control Bank LED state -> ALL ON")
-    time.sleep(0.5)
+        fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_CHANNEL_AND_MIXER)
+        print("Control Bank LED state -> CHANNEL and MIXER")
+        time.sleep(0.5)
 
-    fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_ALL_OFF)
-    print("Control Bank LED state -> ALL OFF")
-    time.sleep(0.5)
+        # === Using Bitfields (Dynamic Combination) ===
+        print("\n=== Using Bitfields ===")
+        # Combine fields dynamically using bitwise OR (|)
+        custom_state = (
+            AkaiFire.FIELD_BASE
+            | AkaiFire.FIELD_CHANNEL
+            | AkaiFire.FIELD_USER1
+            | AkaiFire.FIELD_USER2
+        )
+        fire.set_control_bank_leds(custom_state)
+        print("Control Bank LED state -> CHANNEL, USER1, and USER2 (bitwise OR)")
+        time.sleep(0.5)
 
-    fire.set_control_bank_leds(AkaiFire.CONTROL_BANK_CHANNEL_AND_MIXER)
-    print("Control Bank LED state -> CHANNEL and MIXER")
-    time.sleep(0.5)
+        # Another dynamic combination
+        fire.set_control_bank_leds(
+            AkaiFire.FIELD_BASE | AkaiFire.FIELD_MIXER | AkaiFire.FIELD_USER1
+        )
+        print("Control Bank LED state -> MIXER and USER1 (bitwise OR)")
+        time.sleep(0.5)
 
-    # === Using Bitfields (Dynamic Combination) ===
-    print("\n=== Using Bitfields ===")
-    # Combine fields dynamically using bitwise OR (|)
-    custom_state = (
-        AkaiFire.FIELD_BASE
-        | AkaiFire.FIELD_CHANNEL
-        | AkaiFire.FIELD_USER1
-        | AkaiFire.FIELD_USER2
-    )
-    fire.set_control_bank_leds(custom_state)
-    print("Control Bank LED state -> CHANNEL, USER1, and USER2 (bitwise OR)")
-    time.sleep(0.5)
+        # === Using Raw Values ===
+        print("\n=== Using Raw Hexadecimal Values ===")
+        # Set a custom state using raw hexadecimal values
+        fire.set_control_bank_leds(0x1F)  # All LEDs ON
+        print("Control Bank LED state -> ALL ON (raw hex: 0x1F)")
+        time.sleep(0.5)
 
-    # Another dynamic combination
-    fire.set_control_bank_leds(
-        AkaiFire.FIELD_BASE | AkaiFire.FIELD_MIXER | AkaiFire.FIELD_USER1
-    )
-    print("Control Bank LED state -> MIXER and USER1 (bitwise OR)")
-    time.sleep(0.5)
+        fire.set_control_bank_leds(0x10)  # All LEDs OFF
+        print("Control Bank LED state -> ALL OFF (raw hex: 0x10)")
+        time.sleep(0.5)
 
-    # === Using Raw Values ===
-    print("\n=== Using Raw Hexadecimal Values ===")
-    # Set a custom state using raw hexadecimal values
-    fire.set_control_bank_leds(0x1F)  # All LEDs ON
-    print("Control Bank LED state -> ALL ON (raw hex: 0x1F)")
-    time.sleep(0.5)
+        fire.set_control_bank_leds(0x13)  # CHANNEL and MIXER
+        print("Control Bank LED state -> CHANNEL and MIXER (raw hex: 0x13)")
+        time.sleep(0.5)
 
-    fire.set_control_bank_leds(0x10)  # All LEDs OFF
-    print("Control Bank LED state -> ALL OFF (raw hex: 0x10)")
-    time.sleep(0.5)
-
-    fire.set_control_bank_leds(0x13)  # CHANNEL and MIXER
-    print("Control Bank LED state -> CHANNEL and MIXER (raw hex: 0x13)")
-    time.sleep(0.5)
-
-    # === Clean Up ===
-    print("\nClearing all control bank LEDs...")
-    fire.clear_control_bank_leds()
-    fire.close()
+        # === Clean Up ===
+        print("\nClearing all control bank LEDs...")
+        fire.clear_control_bank_leds()
 
 
 if __name__ == "__main__":

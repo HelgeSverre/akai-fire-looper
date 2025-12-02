@@ -24,56 +24,53 @@ import time
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import get_akai_fire, AkaiFire
 
 
 def main():
-    # Initialize the AKAI Fire controller
-    # Initialize controller (auto-detects hardware or falls back to mock GUI)
+    # Initialize the AKAI Fire controller with context manager
+    with get_akai_fire() as fire:
+        # Run 4 rounds of animations
+        for round in range(4):
+            # Alternate the order of the track LEDs (1-2-3-4 then 4-3-2-1 etc.)
+            # Even rounds: left to right, Odd rounds: right to left
+            track_list = [1, 2, 3, 4] if round % 2 == 0 else [4, 3, 2, 1]
 
-    fire = get_akai_fire()
+            # Define color sequence based on round number
+            # Even rounds: Green with trailing effect
+            # Odd rounds: Red with clean transitions
+            colors = (
+                [
+                    AkaiFire.RECTANGLE_LED_OFF,  # Start off
+                    AkaiFire.RECTANGLE_LED_DULL_GREEN,  # Fade in
+                    AkaiFire.RECTANGLE_LED_HIGH_GREEN,  # Peak brightness
+                    AkaiFire.RECTANGLE_LED_DULL_GREEN,  # Leave a trail
+                ]
+                if round % 2 == 0
+                else [
+                    AkaiFire.RECTANGLE_LED_OFF,  # Start off
+                    AkaiFire.RECTANGLE_LED_DULL_RED,  # Fade in
+                    AkaiFire.RECTANGLE_LED_HIGH_RED,  # Peak brightness
+                    AkaiFire.RECTANGLE_LED_DULL_RED,  # Fade out
+                    AkaiFire.RECTANGLE_LED_OFF,  # End off (no trail)
+                ]
+            )
 
-    # Run 4 rounds of animations
-    for round in range(4):
-        # Alternate the order of the track LEDs (1-2-3-4 then 4-3-2-1 etc.)
-        # Even rounds: left to right, Odd rounds: right to left
-        track_list = [1, 2, 3, 4] if round % 2 == 0 else [4, 3, 2, 1]
+            # Animate each track LED in sequence
+            for track_index in track_list:
+                print(f"Cycling track LED {track_index}...")
 
-        # Define color sequence based on round number
-        # Even rounds: Green with trailing effect
-        # Odd rounds: Red with clean transitions
-        colors = (
-            [
-                AkaiFire.RECTANGLE_LED_OFF,  # Start off
-                AkaiFire.RECTANGLE_LED_DULL_GREEN,  # Fade in
-                AkaiFire.RECTANGLE_LED_HIGH_GREEN,  # Peak brightness
-                AkaiFire.RECTANGLE_LED_DULL_GREEN,  # Leave a trail
-            ]
-            if round % 2 == 0
-            else [
-                AkaiFire.RECTANGLE_LED_OFF,  # Start off
-                AkaiFire.RECTANGLE_LED_DULL_RED,  # Fade in
-                AkaiFire.RECTANGLE_LED_HIGH_RED,  # Peak brightness
-                AkaiFire.RECTANGLE_LED_DULL_RED,  # Fade out
-                AkaiFire.RECTANGLE_LED_OFF,  # End off (no trail)
-            ]
-        )
+                # Apply each color in the sequence
+                for color in colors:
+                    print(f"[Track {track_index}] Changing color to {color}")
+                    fire.set_track_led(track_index, color)
+                    time.sleep(0.05)  # Short delay between color changes
 
-        # Animate each track LED in sequence
-        for track_index in track_list:
-            print(f"Cycling track LED {track_index}...")
-
-            # Apply each color in the sequence
-            for color in colors:
-                print(f"[Track {track_index}] Changing color to {color}")
-                fire.set_track_led(track_index, color)
-                time.sleep(0.05)  # Short delay between color changes
-
-            time.sleep(0.05)  # Pause between tracks
-    print("Done.")
-    fire.close()
+                time.sleep(0.05)  # Pause between tracks
+        print("Done.")
 
 
 if __name__ == "__main__":

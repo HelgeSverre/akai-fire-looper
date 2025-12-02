@@ -3,6 +3,7 @@ import time
 from enum import Enum
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import get_akai_fire
@@ -231,7 +232,7 @@ class FireDemo:
             num_lit = round((volume / 127.0) * 16)
             # Ensure num_lit is within bounds
             num_lit = max(0, min(16, num_lit))
-            
+
             for j in range(16):
                 pad_index = i * 16 + j
                 if j < num_lit:
@@ -240,7 +241,11 @@ class FireDemo:
                         # Dim the last pad for smoother transitions
                         fraction = ((volume / 127.0) * 16) - (num_lit - 1)
                         r, g, b = self.track_colors[i]
-                        r, g, b = int(r * fraction), int(g * fraction), int(b * fraction)
+                        r, g, b = (
+                            int(r * fraction),
+                            int(g * fraction),
+                            int(b * fraction),
+                        )
                         self.fire.set_pad_color(pad_index, r, g, b)
                     else:
                         self.fire.set_pad_color(pad_index, *self.track_colors[i])

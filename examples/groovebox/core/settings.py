@@ -20,5 +20,5 @@ class AppSettings:
             "midi_in_channel": self.midi_in_channel,
             "midi_out_channel": self.midi_out_channel,
             "record_quantize": self.record_quantize,
-            "default_velocity": self.default_velocity
+            "default_velocity": self.default_velocity,
         }
