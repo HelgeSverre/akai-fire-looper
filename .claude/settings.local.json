@@ -14,7 +14,15 @@
       "Bash(../venv/bin/python:*)",
       "Bash(/Users/helge/code/akai-fire-looper/venv/bin/python -c \"import sys; print(''\\n''.join(sys.path))\")",
       "Bash(/Users/helge/code/akai-fire-looper/venv/bin/python --version)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(/Users/helge/code/akai-fire-looper/.venv/bin/python -m unittest:*)",
+      "Bash(/Users/helge/code/akai-fire-looper/.venv/bin/python:*)",
+      "Bash(just:*)",
+      "mcp__upstash-context-7-mcp__resolve-library-id",
+      "mcp__upstash-context-7-mcp__get-library-docs",
+      "WebSearch",
+      "Bash(sed:*)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }
