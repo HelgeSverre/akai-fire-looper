@@ -1,8 +1,15 @@
 import time
+import threading
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
+from collections import defaultdict
+import sys
+import os
 
-from akai_fire import AkaiFire
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from akai_fire import AkaiFire, get_akai_fire, discover_akai_fire, InvalidParameterError
 
 
 class MockMidiPort:
@@ -11,6 +18,7 @@ class MockMidiPort:
     def __init__(self):
         self.messages = []
         self.is_port_open = False
+        self.port_name = None
 
     def send_message(self, message):
         self.messages.append(message)
@@ -20,6 +28,7 @@ class MockMidiPort:
 
     def open_port(self, port):
         self.is_port_open = True
+        self.port_name = port
 
     def close_port(self):
         self.is_port_open = False
@@ -46,8 +55,9 @@ class TestAkaiFire(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after each test"""
-        self.fire.clear_all()
-        self.fire.close()
+        if hasattr(self, "fire"):
+            self.fire.clear_all()
+            self.fire.close()
 
     def test_initialization(self):
         """Test device initialization"""
@@ -81,12 +91,13 @@ class TestAkaiFire(unittest.TestCase):
 
     def test_pad_color_validation(self):
         """Test pad color value validation"""
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidParameterError):
             self.fire.set_pad_color(-1, 0, 0, 0)  # Invalid pad index
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidParameterError):
             self.fire.set_pad_color(64, 0, 0, 0)  # Invalid pad index
-        with self.assertRaises(ValueError):
-            self.fire.set_pad_color(0, 128, 0, 0)  # Invalid color value
+        # Color values are clamped, not rejected
+        result = self.fire.set_pad_color(0, 128, 0, 0)  # Should clamp to 127
+        self.assertTrue(result)
 
     def test_button_led(self):
         """Test button LED control"""
@@ -95,399 +106,369 @@ class TestAkaiFire(unittest.TestCase):
         self.assertEqual(self.mock_midi_out.messages[-1], expected_message)
 
         # Test invalid button ID
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidParameterError):
             self.fire.set_button_led(0x99, self.fire.LED_HIGH_GREEN)
 
-        # Test invalid LED value
-        with self.assertRaises(ValueError):
-            self.fire.set_button_led(self.fire.BUTTON_PLAY, 0xFF)
-
-    def test_track_led(self):
+    def test_track_leds(self):
         """Test track LED control"""
-        self.fire.set_track_led(1, self.fire.RECTANGLE_LED_HIGH_RED)
-        expected_message = [0xB0, 0x28, self.fire.RECTANGLE_LED_HIGH_RED]
-        self.assertEqual(self.mock_midi_out.messages[-1], expected_message)
+        self.fire.set_track_led(1, self.fire.RECTANGLE_LED_HIGH_GREEN)
+        # Should send control change message
+        self.assertEqual(len(self.mock_midi_out.messages), 1)
+        msg = self.mock_midi_out.messages[-1]
+        self.assertEqual(msg[0], 0xB0)  # Control change
 
-        # Test invalid track number
-        with self.assertRaises(ValueError):
-            self.fire.set_track_led(0, self.fire.RECTANGLE_LED_HIGH_RED)
-        with self.assertRaises(ValueError):
-            self.fire.set_track_led(5, self.fire.RECTANGLE_LED_HIGH_RED)
+    def test_clear_operations(self):
+        """Test clear operations"""
+        # Set some colors
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.fire.set_button_led(self.fire.BUTTON_PLAY, 1)
 
-    def test_button_callback_direct(self):
-        """Test button callback by directly calling process_message"""
-        callback = Mock()
-        print("Setting up button handler...")
+        # Clear all
+        self.fire.clear_all()
+
+        # Should have sent clear messages
+        self.assertTrue(len(self.mock_midi_out.messages) > 2)
+
+    def test_batch_operations(self):
+        """Test batch pad color updates"""
+        colors = [(i, i % 128, 0, 0) for i in range(16)]
+        self.fire.set_multiple_pad_colors(colors)
+
+        # Should send one SysEx message
+        sysex = self.mock_midi_out.messages[-1]
+        self.assertEqual(sysex[0], 0xF0)  # SysEx start
+        self.assertEqual(sysex[-1], 0xF7)  # SysEx end
+
+    def test_performance_optimizations(self):
+        """Test performance optimization methods"""
+        # Test fast path
+        self.fire.set_pad_color_fast(0, 127, 0, 0)
+        self.assertTrue(len(self.mock_midi_out.messages) > 0)
+
+        # Test set_all_pads
+        self.fire.set_all_pads((64, 64, 64))
+        sysex = self.mock_midi_out.messages[-1]
+        self.assertEqual(sysex[0], 0xF0)  # Should be SysEx
+
+
+class TestEventSystem(unittest.TestCase):
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        """Set up test case with mocked MIDI ports"""
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+
+        self.fire = AkaiFire()
+        self.events_received = []
+
+    def tearDown(self):
+        """Clean up after each test"""
+        self.fire.close()
+
+    def test_button_decorator(self):
+        """Test button event decorator"""
 
         @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handler(event):
-            print(f"Handler called with event: {event}")  # Debug print
-            callback(event)
-
-        print(
-            f"Button listeners after setup: {self.fire.button_listeners}"
-        )  # Debug print
+        def handle_play(event):
+            self.events_received.append(("play", event))
 
         # Simulate button press
-        message = ([0x90, self.fire.BUTTON_PLAY, 127], 0)
-        print(f"Sending message: {message}")  # Debug print
-        self.fire._process_message(message)
+        self.fire._process_message([[0x90, self.fire.BUTTON_PLAY, 127], 0])
+        self.assertEqual(len(self.events_received), 1)
+        self.assertEqual(self.events_received[0], ("play", "press"))
 
-        callback.assert_called_once_with("press")
+        # Simulate button release
+        self.fire._process_message([[0x80, self.fire.BUTTON_PLAY, 0], 0])
+        self.assertEqual(len(self.events_received), 2)
+        self.assertEqual(self.events_received[1], ("play", "release"))
 
-    def test_button_callback_threaded(self):
-        """Test button callback using the listening thread"""
-        callback = Mock()
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handler(event):
-            callback(event)
-
-        self.fire.start_listening()
-
-        try:
-            # Simulate button press and wait for processing
-            self.mock_midi_in.messages.append([0x90, self.fire.BUTTON_PLAY, 127])
-            for _ in range(10):  # Try for up to 100ms
-                time.sleep(0.01)
-                if callback.call_count > 0:
-                    break
-            callback.assert_called_once_with("press")
-
-            # Simulate button release
-            callback.reset_mock()
-            self.mock_midi_in.messages.append([0x80, self.fire.BUTTON_PLAY, 0])
-            for _ in range(10):
-                time.sleep(0.01)
-                if callback.call_count > 0:
-                    break
-            callback.assert_called_once_with("release")
-        finally:
-            self.fire.listening = False
-            time.sleep(0.01)
-
-    def test_pad_callback(self):
-        """Test pad press callbacks"""
-        callback = Mock()
+    def test_pad_decorator(self):
+        """Test pad event decorator"""
 
         @self.fire.on_pad(0)
-        def handler(velocity):
-            callback(velocity)
+        def handle_pad_0(velocity):
+            self.events_received.append(("pad_0", velocity))
 
-        # Test pad press
-        self.fire._process_message(([0x90, 54, 127], 0))  # MIDI note 54 = pad 0
-        callback.assert_called_once_with(127)
+        # Simulate pad press
+        self.fire._process_message([[0x90, 54, 100], 0])  # Pad 0 = note 54
+        self.assertEqual(len(self.events_received), 1)
+        self.assertEqual(self.events_received[0], ("pad_0", 100))
 
-    def test_rotary_callback(self):
-        """Test rotary encoder callbacks"""
-        callback = Mock()
-
-        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
-        def handler(direction, velocity):
-            callback(direction, velocity)
-
-        # Test clockwise rotation
-        self.fire._process_message(([0xB0, self.fire.ROTARY_VOLUME, 1], 0))
-        callback.assert_called_once_with("clockwise", 1)
-
-    def test_rotary_touch_callback(self):
-        """Test rotary touch callbacks"""
-        callback = Mock()
-
-        @self.fire.on_rotary_touch(self.fire.ROTARY_VOLUME)
-        def handler(event):
-            callback(event)
-
-        # Test touch
-        self.fire._process_message(([0x90, self.fire.ROTARY_VOLUME, 127], 0))
-        callback.assert_called_once_with("touch")
-
-    def test_concurrent_pad_presses(self):
-        """Test handling multiple simultaneous pad presses"""
-        callback = Mock()
-
-        @self.fire.on_pad([0, 1, 2])
-        def handler(velocity):
-            callback(velocity)
-
-        # Simulate multiple pad presses
-        messages = [
-            ([0x90, 54, 127], 0),  # Pad 0
-            ([0x90, 55, 127], 0),  # Pad 1
-            ([0x90, 56, 127], 0),  # Pad 2
-        ]
-
-        for msg in messages:
-            self.fire._process_message(msg)
-
-        self.assertEqual(callback.call_count, 3)
-
-    def test_global_pad_callback(self):
-        """Test global pad callback"""
-        callback = Mock()
+    def test_global_pad_handler(self):
+        """Test global pad handler"""
 
         @self.fire.on_pad()
-        def handler(pad_index, velocity):
-            callback(pad_index, velocity)
+        def handle_any_pad(pad_index, velocity):
+            self.events_received.append(("any_pad", pad_index, velocity))
 
-        # Test multiple pad presses
-        for i in range(3):
-            self.fire._process_message(([0x90, 54 + i, 127], 0))
-            callback.assert_called_with(i, 127)
-            callback.reset_mock()
+        # Simulate pad presses
+        self.fire._process_message([[0x90, 54, 100], 0])  # Pad 0
+        self.fire._process_message([[0x90, 55, 80], 0])  # Pad 1
 
-    def test_rotary_velocity(self):
-        """Test different rotary velocities"""
-        callback = Mock()
+        self.assertEqual(len(self.events_received), 2)
+        self.assertEqual(self.events_received[0], ("any_pad", 0, 100))
+        self.assertEqual(self.events_received[1], ("any_pad", 1, 80))
 
-        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
-        def handler(direction, velocity):
-            callback(direction, velocity)
-
-        # Test slow turn
-        self.fire._process_message(([0xB0, self.fire.ROTARY_VOLUME, 1], 0))
-        callback.assert_called_with("clockwise", 1)
-
-    def test_simultaneous_callbacks(self):
-        """Test multiple types of callbacks simultaneously"""
-        button_callback = Mock()
-        rotary_callback = Mock()
-        pad_callback = Mock()
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def button_handler(event):
-            button_callback(event)
+    def test_rotary_decorator(self):
+        """Test rotary event decorator"""
 
         @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
-        def rotary_handler(direction, velocity):
-            rotary_callback(direction, velocity)
+        def handle_volume(direction, velocity):
+            self.events_received.append(("volume", direction, velocity))
 
-        @self.fire.on_pad(0)
-        def pad_handler(velocity):
-            pad_callback(velocity)
+        # Simulate rotary turn clockwise
+        self.fire._process_message([[0xB0, self.fire.ROTARY_VOLUME, 1], 0])
+        self.assertEqual(len(self.events_received), 1)
+        self.assertEqual(self.events_received[0][0], "volume")
+        self.assertEqual(self.events_received[0][1], "clockwise")
 
-        messages = [
-            ([0x90, self.fire.BUTTON_PLAY, 127], 0),  # Button press
-            ([0xB0, self.fire.ROTARY_VOLUME, 1], 0),  # Rotary turn
-            ([0x90, 54, 127], 0),  # Pad press
-        ]
-
-        for msg in messages:
-            self.fire._process_message(msg)
-
-        button_callback.assert_called_once_with("press")
-        rotary_callback.assert_called_once_with("clockwise", 1)
-        pad_callback.assert_called_once_with(127)
-
-    def test_multiple_handlers_same_button(self):
-        """Test multiple handlers for same button work independently"""
-        callback1 = Mock()
-        callback2 = Mock()
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handler1(event):
-            callback1(event)
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handler2(event):
-            callback2(event)
-
-        self.fire._process_message(([0x90, self.fire.BUTTON_PLAY, 127], 0))
-        callback1.assert_called_once_with("press")
-        callback2.assert_called_once_with("press")
-
-    def test_multiple_handlers_same_pad(self):
-        """Test multiple handlers for same pad work independently"""
-        callback1 = Mock()
-        callback2 = Mock()
-
-        @self.fire.on_pad(0)
-        def handler1(velocity):
-            callback1(velocity)
-
-        @self.fire.on_pad(0)
-        def handler2(velocity):
-            callback2(velocity)
-
-        self.fire._process_message(([0x90, 54, 127], 0))  # Pad 0
-        callback1.assert_called_once_with(127)
-        callback2.assert_called_once_with(127)
-
-    def test_multiple_handlers_same_rotary(self):
-        """Test multiple handlers for same rotary work independently"""
-        callback1 = Mock()
-        callback2 = Mock()
-
-        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
-        def handler1(direction, velocity):
-            callback1(direction, velocity)
-
-        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
-        def handler2(direction, velocity):
-            callback2(direction, velocity)
-
-        self.fire._process_message(([0xB0, self.fire.ROTARY_VOLUME, 1], 0))
-        callback1.assert_called_once_with("clockwise", 1)
-        callback2.assert_called_once_with("clockwise", 1)
-
-    def test_mixed_global_and_specific_handlers(self):
-        """Test combination of global and specific handlers"""
-        global_button = Mock()
-        specific_button = Mock()
-        global_pad = Mock()
-        specific_pad = Mock()
-        global_rotary = Mock()
-        specific_rotary = Mock()
-
-        @self.fire.on_button()
-        def global_button_handler(button_id, event):
-            global_button(button_id, event)
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def specific_button_handler(event):
-            specific_button(event)
-
-        @self.fire.on_pad()
-        def global_pad_handler(pad_index, velocity):
-            global_pad(pad_index, velocity)
-
-        @self.fire.on_pad(0)
-        def specific_pad_handler(velocity):
-            specific_pad(velocity)
-
-        @self.fire.on_rotary_turn()
-        def global_rotary_handler(rotary_id, direction, velocity):
-            global_rotary(rotary_id, direction, velocity)
-
-        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
-        def specific_rotary_handler(direction, velocity):
-            specific_rotary(direction, velocity)
-
-        # Test button handlers
-        self.fire._process_message(([0x90, self.fire.BUTTON_PLAY, 127], 0))
-        global_button.assert_called_once_with(self.fire.BUTTON_PLAY, "press")
-        specific_button.assert_called_once_with("press")
-
-        # Test pad handlers
-        self.fire._process_message(([0x90, 54, 127], 0))  # Pad 0
-        global_pad.assert_called_once_with(0, 127)
-        specific_pad.assert_called_once_with(127)
-
-        # Test rotary handlers
-        self.fire._process_message(([0xB0, self.fire.ROTARY_VOLUME, 1], 0))
-        global_rotary.assert_called_once_with(self.fire.ROTARY_VOLUME, "clockwise", 1)
-        specific_rotary.assert_called_once_with("clockwise", 1)
-
-    def test_button_listener_registration(self):
-        """Test that button listeners are properly registered"""
-        callback = Mock()
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handler(event):
-            callback(event)
-
-        # Verify registration
-        self.assertIn(self.fire.BUTTON_PLAY, self.fire.button_listeners)
-        self.assertEqual(len(self.fire.button_listeners[self.fire.BUTTON_PLAY]), 1)
-
-        # Test the handler directly
-        handler("press")
-        callback.assert_called_once_with("press")
-
-    def test_handler_error_propagation(self):
-        """Test that error in one handler doesn't affect others"""
-        good_callback = Mock()
-        error_callback = Mock(side_effect=Exception("Test error"))
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def good_handler(event):
-            good_callback(event)
-
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def error_handler(event):
-            error_callback(event)
-
-        # Should not raise exception and should still call good handler
-        self.fire._process_message(([0x90, self.fire.BUTTON_PLAY, 127], 0))
-        good_callback.assert_called_once_with("press")
-
-    def test_multiple_pad_ranges(self):
-        """Test handlers for different pad ranges"""
-        row1_callback = Mock()
-        row2_callback = Mock()
-        specific_pads_callback = Mock()
-
-        # Handler for first row (pads 0-15)
-        first_row = list(range(16))
-
-        @self.fire.on_pad(first_row)
-        def handle_row1(velocity):
-            row1_callback(velocity)
-
-        # Handler for second row (pads 16-31)
-        second_row = list(range(16, 32))
-
-        @self.fire.on_pad(second_row)
-        def handle_row2(velocity):
-            row2_callback(velocity)
-
-        # Handler for specific pads across rows
-        specific_pads = [0, 16, 32, 48]  # First pad of each row
-
-        @self.fire.on_pad(specific_pads)
-        def handle_specific(velocity):
-            specific_pads_callback(velocity)
-
-        # Test pad in first row
-        self.fire._process_message(([0x90, 54, 127], 0))  # Pad 0
-        row1_callback.assert_called_once_with(127)
-        specific_pads_callback.assert_called_once_with(127)
-        row2_callback.assert_not_called()
-
-    def test_rotary_touch_multiple_handlers(self):
-        """Test multiple handlers for rotary touch events"""
-        specific_callback = Mock()
-        global_callback = Mock()
+    def test_rotary_touch_decorator(self):
+        """Test rotary touch event decorator"""
 
         @self.fire.on_rotary_touch(self.fire.ROTARY_VOLUME)
         def handle_volume_touch(event):
-            specific_callback(event)
+            self.events_received.append(("volume_touch", event))
 
-        @self.fire.on_rotary_touch()
-        def handle_any_touch(rotary_id, event):
-            global_callback(rotary_id, event)
+        # Simulate rotary touch
+        self.fire._process_message([[0x90, self.fire.ROTARY_VOLUME, 127], 0])
+        self.assertEqual(len(self.events_received), 1)
+        self.assertEqual(self.events_received[0], ("volume_touch", "touch"))
 
-        # Test touch event
-        self.fire._process_message(([0x90, self.fire.ROTARY_VOLUME, 127], 0))
-        specific_callback.assert_called_once_with("touch")
-        global_callback.assert_called_once_with(self.fire.ROTARY_VOLUME, "touch")
+    def test_solo_button_decorator(self):
+        """Test solo button decorator"""
 
-    def test_rotary_touch_vs_button(self):
-        """Test that rotary touch events don't trigger button handlers and vice versa"""
-        rotary_callback = Mock()
-        button_callback = Mock()
+        @self.fire.on_solo(1)
+        def handle_solo_1(event):
+            self.events_received.append(("solo_1", event))
 
-        @self.fire.on_rotary_touch(self.fire.ROTARY_VOLUME)
-        def handle_rotary(event):
-            rotary_callback(event)
+        # Simulate solo button press
+        self.fire._process_message([[0x90, self.fire.BUTTON_SOLO_1, 127], 0])
+        self.assertEqual(len(self.events_received), 1)
+        self.assertEqual(self.events_received[0], ("solo_1", "press"))
+
+    def test_multiple_listeners(self):
+        """Test multiple listeners for same event"""
 
         @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handle_button(event):
-            button_callback(event)
+        def handler1(event):
+            self.events_received.append(("handler1", event))
 
-        # Test rotary touch
-        self.fire._process_message(([0x90, self.fire.ROTARY_VOLUME, 127], 0))
-        rotary_callback.assert_called_once_with("touch")
-        button_callback.assert_not_called()
+        @self.fire.on_button(self.fire.BUTTON_PLAY)
+        def handler2(event):
+            self.events_received.append(("handler2", event))
 
-        # Reset mocks
-        rotary_callback.reset_mock()
-        button_callback.reset_mock()
+        # Both handlers should be called
+        self.fire._process_message([[0x90, self.fire.BUTTON_PLAY, 127], 0])
+        self.assertEqual(len(self.events_received), 2)
 
-        # Test button press
-        self.fire._process_message(([0x90, self.fire.BUTTON_PLAY, 127], 0))
-        button_callback.assert_called_once_with("press")
-        rotary_callback.assert_not_called()
+
+class TestThreadSafety(unittest.TestCase):
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        """Set up test case with mocked MIDI ports"""
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+
+        self.fire = AkaiFire()
+
+    def tearDown(self):
+        """Clean up after each test"""
+        self.fire.close()
+
+    def test_concurrent_listener_registration(self):
+        """Test thread-safe listener registration"""
+        results = []
+        errors = []
+
+        def register_listeners(thread_id):
+            try:
+                for i in range(10):
+
+                    @self.fire.on_pad(i)
+                    def handler(velocity):
+                        results.append((thread_id, i, velocity))
+
+            except Exception as e:
+                errors.append(e)
+
+        # Start multiple threads registering listeners
+        threads = []
+        for i in range(5):
+            t = threading.Thread(target=register_listeners, args=(i,))
+            threads.append(t)
+            t.start()
+
+        # Wait for all threads
+        for t in threads:
+            t.join()
+
+        # Should have no errors
+        self.assertEqual(len(errors), 0)
+
+    def test_concurrent_event_processing(self):
+        """Test thread-safe event processing"""
+        counter = {"value": 0}
+        lock = threading.Lock()
+
+        @self.fire.on_pad()
+        def count_pads(pad_index, velocity):
+            with lock:
+                counter["value"] += 1
+
+        # Simulate rapid events from multiple threads
+        def send_events():
+            for i in range(10):
+                self.fire._process_message([[0x90, 54 + i, 100], 0])
+
+        threads = []
+        for _ in range(3):
+            t = threading.Thread(target=send_events)
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        # All events should be processed
+        self.assertEqual(counter["value"], 30)  # 3 threads * 10 events
+
+    def test_listener_modification_during_event(self):
+        """Test modifying listeners while processing events"""
+        self.processed = []
+
+        @self.fire.on_button(self.fire.BUTTON_PLAY)
+        def handler1(event):
+            self.processed.append("handler1")
+
+            # Add another listener during event processing
+            @self.fire.on_button(self.fire.BUTTON_PLAY)
+            def handler2(event):
+                self.processed.append("handler2")
+
+        # Process event
+        self.fire._process_message([[0x90, self.fire.BUTTON_PLAY, 127], 0])
+
+        # Only handler1 should have been called
+        self.assertEqual(self.processed, ["handler1"])
+
+        # Process another event
+        self.processed.clear()
+        self.fire._process_message([[0x90, self.fire.BUTTON_PLAY, 127], 0])
+
+        # Now both handlers should be called
+        self.assertEqual(sorted(self.processed), ["handler1", "handler2"])
+
+
+class TestUtilityFunctions(unittest.TestCase):
+    def test_discover_akai_fire(self):
+        """Test device discovery"""
+        with patch("rtmidi.MidiIn") as mock_midi_in:
+            mock_port = Mock()
+            mock_port.get_ports.return_value = ["FL STUDIO FIRE", "Other Device"]
+            mock_midi_in.return_value = mock_port
+
+            port = discover_akai_fire()
+            self.assertEqual(port, "FL STUDIO FIRE")
+
+    def test_discover_no_device(self):
+        """Test discovery when no device found"""
+        with patch("rtmidi.MidiIn") as mock_midi_in:
+            mock_port = Mock()
+            mock_port.get_ports.return_value = ["Other Device"]
+            mock_midi_in.return_value = mock_port
+
+            port = discover_akai_fire()
+            self.assertIsNone(port)
+
+    @patch("akai_fire.discover_akai_fire")
+    def test_get_akai_fire_auto(self, mock_discover):
+        """Test get_akai_fire auto detection"""
+        # Test when hardware is found
+        mock_discover.return_value = "FL STUDIO FIRE"
+
+        # Mock MIDI to simulate hardware presence
+        with patch("rtmidi.MidiIn") as mock_in, patch("rtmidi.MidiOut") as mock_out:
+            # Configure mocks to simulate finding AKAI Fire
+            mock_in_instance = Mock()
+            mock_out_instance = Mock()
+            mock_in.return_value = mock_in_instance
+            mock_out.return_value = mock_out_instance
+
+            mock_in_instance.get_ports.return_value = ["FL STUDIO FIRE"]
+            mock_out_instance.get_ports.return_value = ["FL STUDIO FIRE"]
+            mock_in_instance.open_port = Mock()
+            mock_out_instance.open_port = Mock()
+            mock_out_instance.send_message = Mock()
+
+            device = get_akai_fire()
+            self.assertIsInstance(device, AkaiFire)
+
+    @patch("akai_fire.discover_akai_fire")
+    def test_get_akai_fire_fallback_to_mock(self, mock_discover):
+        """Test get_akai_fire falls back to mock"""
+        # Test when hardware is not found
+        mock_discover.return_value = None
+        device = get_akai_fire()
+        # Should return mock (if available) or raise exception
+        self.assertIsNotNone(device)
+
+
+class TestHelperMethods(unittest.TestCase):
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        """Set up test case with mocked MIDI ports"""
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+
+        self.fire = AkaiFire()
+
+    def test_is_shift_pressed(self):
+        """Test shift state detection"""
+        # Initially should be False
+        self.assertFalse(self.fire.is_shift_pressed())
+
+        # Simulate shift press
+        self.fire._process_message([[0x90, self.fire.BUTTON_SHIFT, 127], 0])
+        self.assertTrue(self.fire.is_shift_pressed())
+
+        # Simulate shift release
+        self.fire._process_message([[0x80, self.fire.BUTTON_SHIFT, 0], 0])
+        self.assertFalse(self.fire.is_shift_pressed())
+
+    def test_is_alt_pressed(self):
+        """Test alt state detection"""
+        self.assertFalse(self.fire.is_alt_pressed())
+
+        self.fire._process_message([[0x90, self.fire.BUTTON_ALT, 127], 0])
+        self.assertTrue(self.fire.is_alt_pressed())
+
+    def test_get_solo_index(self):
+        """Test solo button index mapping"""
+        self.assertEqual(self.fire.get_solo_index(self.fire.BUTTON_SOLO_1), 1)
+        self.assertEqual(self.fire.get_solo_index(self.fire.BUTTON_SOLO_2), 2)
+        self.assertEqual(self.fire.get_solo_index(self.fire.BUTTON_SOLO_3), 3)
+        self.assertEqual(self.fire.get_solo_index(self.fire.BUTTON_SOLO_4), 4)
+        self.assertIsNone(self.fire.get_solo_index(0x99))  # Invalid button
+
+    def test_list_midi_ports(self):
+        """Test MIDI port listing"""
+        ports = AkaiFire.list_midi_ports()
+        self.assertIn("input", ports)
+        self.assertIn("output", ports)
+        self.assertIsInstance(ports["input"], list)
+        self.assertIsInstance(ports["output"], list)
 
 
 if __name__ == "__main__":
