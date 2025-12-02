@@ -2,9 +2,7 @@ import re
 
 
 class MidiUtils:
-    NOTE_NAMES = [
-        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
-    ]
+    NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
     @staticmethod
     def note_name_to_midi(note: str) -> int:
