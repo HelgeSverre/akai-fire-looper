@@ -10,7 +10,14 @@ import time
 class PygameCanvas:
     """Canvas implementation compatible with the main library's Canvas class."""
 
+    # Standard dimensions (matching real AKAI Fire OLED)
     WIDTH, HEIGHT = 128, 64
+
+    # Typography constants for consistent spacing (matching real Canvas)
+    HEADER_HEIGHT = 16  # Standard header height
+    TEXT_MARGIN_Y = 3   # Top margin for header text
+    CONTENT_GAP = 2     # Gap between header and content
+    CONTENT_START = HEADER_HEIGHT + CONTENT_GAP  # Y=18
 
     def __init__(self):
         self.image = Image.new("1", (self.WIDTH, self.HEIGHT), 1)
@@ -110,33 +117,45 @@ class PygameCanvas:
     def draw_value_page(
         self,
         title: str,
-        value: str,
-        label: str = "",
-        unit: str = "",
-        show_bar: bool = False,
-        bar_value: float = 0.0,
+        value,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        show_bar: bool = True,
     ):
-        """Draw a value display page."""
-        self.clear()
+        """
+        Draw a page showing a value with optional bar visualization.
 
-        # Title
-        self.fill_rect(0, 0, self.WIDTH, 12, color=0)
-        self.draw_text(title, 2, 2, color=1)
+        Args:
+            title: Title text for the header
+            value: Current value to display
+            min_val: Minimum value for bar scaling (if showing bar)
+            max_val: Maximum value for bar scaling (if showing bar)
+            show_bar: Whether to show a progress bar
+        """
+        # Header
+        self.fill_rect(0, 0, self.WIDTH, self.HEADER_HEIGHT, color=0)
+        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
 
-        # Value
-        value_text = f"{value}{unit}"
-        self.draw_text(value_text, 10, 25, color=0)
+        # Large value display
+        value_text = str(value)
+        self.draw_text(value_text, 2, 20, color=0)
 
-        # Label
-        if label:
-            self.draw_text(label, 10, 40, color=0)
+        # Optional bar visualization
+        if show_bar and min_val is not None and max_val is not None:
+            bar_y = 40
+            bar_height = 8
+            try:
+                normalized = (float(value) - min_val) / (max_val - min_val)
+                normalized = max(0.0, min(1.0, normalized))  # Clamp to 0-1
+            except (TypeError, ZeroDivisionError):
+                normalized = 0.0
+            bar_width = int(normalized * (self.WIDTH - 4))
 
-        # Bar
-        if show_bar:
-            bar_width = int(100 * bar_value)
-            self.draw_rect(10, 50, 100, 8, color=0)
+            # Bar outline
+            self.draw_rect(2, bar_y, self.WIDTH - 4, bar_height)
+            # Bar fill
             if bar_width > 0:
-                self.fill_rect(11, 51, bar_width - 2, 6, color=0)
+                self.fill_rect(2, bar_y, bar_width, bar_height)
 
     def draw_menu(self, title: str, items: list[str], selected_index: int):
         """Draw a menu."""
@@ -292,12 +311,12 @@ class MockAkaiFire:
         FIELD_BASE | FIELD_CHANNEL | FIELD_MIXER | FIELD_USER1 | FIELD_USER2
     )
 
-    # Solo button mapping
+    # Solo button index mapping (matches real AkaiFire: index -> button_id)
     SOLO_BUTTONS = {
-        BUTTON_SOLO_1: 0,
-        BUTTON_SOLO_2: 1,
-        BUTTON_SOLO_3: 2,
-        BUTTON_SOLO_4: 3,
+        1: BUTTON_SOLO_1,
+        2: BUTTON_SOLO_2,
+        3: BUTTON_SOLO_3,
+        4: BUTTON_SOLO_4,
     }
 
     def __init__(self, port_name: str = "Mock AKAI Fire"):
@@ -529,12 +548,20 @@ class MockAkaiFire:
 
     def _handle_mouse_up(self, event):
         """Handle mouse button up."""
-        # Release all buttons
-        for button_id in self.button_rects:
-            for listener in self.button_listeners.get(button_id, []):
-                listener("release")
-            for listener in self.global_button_listeners:
-                listener(button_id, "release")
+        # Only release the button that was actually clicked
+        for button_id, rect in self.button_rects.items():
+            if rect.collidepoint(event.pos):
+                # Update modifier state
+                if button_id == self.BUTTON_SHIFT:
+                    self._shift_pressed = False
+                elif button_id == self.BUTTON_ALT:
+                    self._alt_pressed = False
+
+                for listener in self.button_listeners.get(button_id, []):
+                    listener("release")
+                for listener in self.global_button_listeners:
+                    listener(button_id, "release")
+                return
 
     def _handle_mouse_motion(self, event):
         """Handle mouse motion for rotary encoders."""
@@ -973,12 +1000,7 @@ class MockAkaiFire:
 
         return decorator
 
-    # Compatibility methods
-    def set_multiple_pad_colors(self, pad_colors):
-        """Set multiple pad colors."""
-        for pad_data in pad_colors:
-            index, red, green, blue = pad_data
-            self.set_pad_color(index, red, green, blue)
+    # Compatibility methods (note: set_multiple_pad_colors is defined above with full implementation)
 
     def reset_pads(self, red=0, green=0, blue=0):
         """Reset all pads."""
@@ -1071,29 +1093,36 @@ class MockAkaiFire:
         return pad_index // 16
 
     def on_solo(self, index=None):
-        """Decorator for solo button events."""
+        """Decorator for solo button events.
+
+        Args:
+            index: Solo button index (1-4), or None for all solo buttons
+        """
 
         def decorator(func):
             if index is None:
                 # Global solo handler
                 def wrapper(button_id, event):
-                    if button_id in self.SOLO_BUTTONS:
-                        solo_index = self.SOLO_BUTTONS[button_id]
+                    solo_index = self.get_solo_index(button_id)
+                    if solo_index is not None:
                         func(solo_index, event)
 
                 self.global_button_listeners.append(wrapper)
             else:
-                # Specific solo button
-                if 0 <= index <= 3:
-                    button_id = self.BUTTON_SOLO_1 + index
+                # Specific solo button (index 1-4)
+                if 1 <= index <= 4:
+                    button_id = self.SOLO_BUTTONS[index]
                     self.button_listeners[button_id].append(func)
             return func
 
         return decorator
 
     def get_solo_index(self, button_id: int):
-        """Convert a solo button ID to its index (0-3)."""
-        return self.SOLO_BUTTONS.get(button_id)
+        """Convert a solo button ID to its index (1-4)."""
+        for index, bid in self.SOLO_BUTTONS.items():
+            if bid == button_id:
+                return index
+        return None
 
     @staticmethod
     def list_midi_ports():
