@@ -1,9 +1,8 @@
+import logging
 import threading
 import time
-import traceback
-import logging
 from collections import defaultdict
-from typing import Optional, Union, List, Tuple, Callable, Dict, Any
+from typing import Optional, Union, List, Tuple, Dict, Any
 
 import rtmidi
 from PIL import Image, ImageDraw, ImageFont
@@ -14,16 +13,48 @@ logger = logging.getLogger(__name__)
 
 class AkaiFireError(Exception):
     """Base exception for AKAI Fire library."""
+
     pass
 
 
 class MIDIConnectionError(AkaiFireError):
     """Raised when MIDI connection fails."""
+
+    pass
+
+
+class MIDISendError(AkaiFireError):
+    """Raised when sending MIDI message fails."""
+
+    pass
+
+
+class InvalidParameterError(AkaiFireError):
+    """Raised when invalid parameters are provided."""
+
+    pass
+
+
+class HardwareError(AkaiFireError):
+    """Raised when hardware communication fails."""
+
+    pass
+
+
+class StateError(AkaiFireError):
+    """Raised when operation is invalid for current state."""
+
     pass
 
 
 class Canvas:
     WIDTH, HEIGHT = 128, 64
+
+    # Typography constants for consistent spacing
+    HEADER_HEIGHT = 16  # Standard header height
+    TEXT_MARGIN_Y = 3  # Top margin for header text
+    CONTENT_GAP = 2  # Gap between header and content
+    CONTENT_START = HEADER_HEIGHT + CONTENT_GAP  # Y=18
 
     def __init__(self):
         self.image = Image.new("1", (self.WIDTH, self.HEIGHT), 1)
@@ -141,14 +172,14 @@ class Canvas:
         """
         # Header with optional inversion
         if header_inverted:
-            self.fill_rect(0, 0, self.WIDTH, 10, color=0)
-            self.draw_text(title, 2, 0, color=1)
+            self.fill_rect(0, 0, self.WIDTH, self.HEADER_HEIGHT, color=0)
+            self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
         else:
-            self.draw_text(title, 2, 0, color=0)
-            self.draw_horizontal_line(0, 10, self.WIDTH, color=0)
+            self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=0)
+            self.draw_horizontal_line(0, self.HEADER_HEIGHT, self.WIDTH, color=0)
 
         # Content lines with proper spacing
-        y_offset = 15  # Start below header
+        y_offset = self.CONTENT_START  # Start below header
         line_height = 12  # Standard line height
 
         for i, line in enumerate(lines):
@@ -175,8 +206,8 @@ class Canvas:
             show_bar: Whether to show a progress bar
         """
         # Header
-        self.fill_rect(0, 0, self.WIDTH, 12, color=0)
-        self.draw_text(title, 2, 2, color=1)
+        self.fill_rect(0, 0, self.WIDTH, self.HEADER_HEIGHT, color=0)
+        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
 
         # Large value display
         value_text = str(value)
@@ -204,11 +235,11 @@ class Canvas:
             selected_index: Index of currently selected item
         """
         # Header
-        self.fill_rect(0, 0, self.WIDTH, 12, color=0)
-        self.draw_text(title, 2, 2, color=1)
+        self.fill_rect(0, 0, self.WIDTH, self.HEADER_HEIGHT, color=0)
+        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
 
         # Menu items
-        y_offset = 15
+        y_offset = self.CONTENT_START
         line_height = 12
 
         visible_items = min(4, len(items))  # Show max 4 items at once
@@ -221,7 +252,7 @@ class Canvas:
 
             # Highlight selected item
             if idx == selected_index:
-                self.fill_rect(0, y_offset + (i * line_height), self.WIDTH, line_height)
+                self.fill_rect(0, y_offset + (i * line_height), self.WIDTH, line_height, color=0)
                 self.draw_text(items[idx], 4, y_offset + (i * line_height), color=1)
             else:
                 self.draw_text(items[idx], 4, y_offset + (i * line_height))
@@ -300,7 +331,7 @@ class AkaiFire:
     NOTE_ON = 0x90
     NOTE_OFF = 0x80
     CC = 0xB0
-    
+
     # Rotary Controls
     ROTARY_VOLUME = 0x10
     ROTARY_PAN = 0x11
@@ -380,8 +411,25 @@ class AkaiFire:
     CONTROL_BANK_USER2 = 0x03
 
     def render_to_display(self, canvas=None):
-        """Render the canvas to the OLED display with optimizations."""
+        """Render the canvas to the OLED display with optimizations.
+
+        Args:
+            canvas: Canvas object to render, or None to use internal canvas
+
+        Raises:
+            InvalidParameterError: If canvas is not a Canvas object
+            StateError: If MIDI output is not available
+        """
+        if not self.midi_out:
+            raise StateError("MIDI output not initialized")
+
         buffer = canvas if canvas is not None else self.canvas
+
+        # Validate canvas type
+        if not isinstance(buffer, Canvas):
+            raise InvalidParameterError(
+                f"Expected Canvas object, got: {type(buffer).__name__}"
+            )
 
         # For OLED 128x64, calculated as ceil(128*64/7)
         bitmap_size = 1171
@@ -452,7 +500,8 @@ class AkaiFire:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit"""
+        """Context manager exit - clears display and closes connection"""
+        self.clear_display()
         self.close()
 
     def __init__(self, port_name=None):
@@ -464,45 +513,47 @@ class AkaiFire:
 
         self.canvas = Canvas()
         self.look_for_port = port_name or "FL STUDIO FIRE"
-        
+
         # Modifier state
         self._shift_pressed = False
         self._alt_pressed = False
-        
+
         # Initialize listener collections (thread-safe)
         self.button_listeners = defaultdict(list)
         self.pad_listeners = defaultdict(list)
         self.rotary_listeners = defaultdict(list)
         self.rotary_touch_listeners = defaultdict(list)
-        
+
         # Performance optimizations
         self._last_pad_states = {}  # Track pad states to avoid redundant updates
-        self._batch_threshold = 5  # Use batch updates if updating more than this many pads
+        self._batch_threshold = (
+            5  # Use batch updates if updating more than this many pads
+        )
         self._cached_messages = {}  # Will be populated after MIDI init
-        
+
         # Initialize MIDI ports
         try:
             self.midi_in = rtmidi.MidiIn()
             self.midi_out = rtmidi.MidiOut()
             self.input_port_index, self.output_port_index = self._find_ports()
-            
+
             if self.output_port_index is None or self.input_port_index is None:
                 ports = self.list_midi_ports()
                 raise MIDIConnectionError(
                     f"AKAI Fire MIDI ports not found. Looking for: '{self.look_for_port}'. "
                     f"Available ports: {ports}"
                 )
-            
+
             self.midi_out.open_port(self.output_port_index)
             self.midi_in.open_port(self.input_port_index)
-            
+
         except Exception as e:
             raise MIDIConnectionError(f"Failed to initialize MIDI: {e}")
-        
+
         # Set up modifier key tracking
         self.add_button_listener(self.BUTTON_SHIFT, self._handle_shift)
         self.add_button_listener(self.BUTTON_ALT, self._handle_alt)
-        
+
         # Initialize performance caches
         self._init_performance_caches()
 
@@ -521,10 +572,11 @@ class AkaiFire:
         """
 
         def decorator(func):
-            key = "global" if button_id is None else button_id
-            if key not in self.button_listeners:
-                self.button_listeners[key] = []
-            self.button_listeners[key].append(func)
+            with self._lock:
+                key = "global" if button_id is None else button_id
+                if key not in self.button_listeners:
+                    self.button_listeners[key] = []
+                self.button_listeners[key].append(func)
             self.start_listening()
             return func
 
@@ -545,21 +597,22 @@ class AkaiFire:
         """
 
         def decorator(func):
-            if rotary_id is None:
-                self.rotary_listeners["global"].append(func)
-            else:
-                if rotary_id not in [
-                    self.ROTARY_VOLUME,
-                    self.ROTARY_PAN,
-                    self.ROTARY_FILTER,
-                    self.ROTARY_RESONANCE,
-                    self.ROTARY_SELECT,
-                ]:
-                    raise ValueError("Invalid rotary ID")
+            with self._lock:
+                if rotary_id is None:
+                    self.rotary_listeners["global"].append(func)
+                else:
+                    if rotary_id not in [
+                        self.ROTARY_VOLUME,
+                        self.ROTARY_PAN,
+                        self.ROTARY_FILTER,
+                        self.ROTARY_RESONANCE,
+                        self.ROTARY_SELECT,
+                    ]:
+                        raise ValueError("Invalid rotary ID")
 
-                if rotary_id not in self.rotary_listeners:
-                    self.rotary_listeners[rotary_id] = []
-                self.rotary_listeners[rotary_id].append(func)
+                    if rotary_id not in self.rotary_listeners:
+                        self.rotary_listeners[rotary_id] = []
+                    self.rotary_listeners[rotary_id].append(func)
 
             self.start_listening()
 
@@ -582,18 +635,19 @@ class AkaiFire:
         """
 
         def decorator(func):
-            if rotary_id is None:
-                self.rotary_touch_listeners["global"].append(func)
-            else:
-                if rotary_id not in [
-                    self.ROTARY_VOLUME,
-                    self.ROTARY_PAN,
-                    self.ROTARY_FILTER,
-                    self.ROTARY_RESONANCE,
-                    self.ROTARY_SELECT,
-                ]:
-                    raise ValueError("Invalid rotary ID")
-                self.rotary_touch_listeners[rotary_id].append(func)
+            with self._lock:
+                if rotary_id is None:
+                    self.rotary_touch_listeners["global"].append(func)
+                else:
+                    if rotary_id not in [
+                        self.ROTARY_VOLUME,
+                        self.ROTARY_PAN,
+                        self.ROTARY_FILTER,
+                        self.ROTARY_RESONANCE,
+                        self.ROTARY_SELECT,
+                    ]:
+                        raise ValueError("Invalid rotary ID")
+                    self.rotary_touch_listeners[rotary_id].append(func)
             self.start_listening()
             return func
 
@@ -618,17 +672,18 @@ class AkaiFire:
         """
 
         def decorator(func):
-            if pad_index is None:
-                self.pad_listeners["global"].append(func)
-            elif isinstance(pad_index, (list, tuple)):
-                for idx in pad_index:
-                    if not (0 <= idx <= 63):
+            with self._lock:
+                if pad_index is None:
+                    self.pad_listeners["global"].append(func)
+                elif isinstance(pad_index, (list, tuple)):
+                    for idx in pad_index:
+                        if not (0 <= idx <= 63):
+                            raise ValueError("Pad index must be between 0 and 63")
+                        self.pad_listeners[idx].append(func)
+                else:
+                    if not (0 <= pad_index <= 63):
                         raise ValueError("Pad index must be between 0 and 63")
-                    self.pad_listeners[idx].append(func)
-            else:
-                if not (0 <= pad_index <= 63):
-                    raise ValueError("Pad index must be between 0 and 63")
-                self.pad_listeners[pad_index].append(func)
+                    self.pad_listeners[pad_index].append(func)
             self.start_listening()
             return func
 
@@ -655,23 +710,24 @@ class AkaiFire:
         """
 
         def decorator(func):
-            if index is None:
-                # For global handler, register for all solo buttons
-                # We use a wrapper to translate button_id to index for consistent API
-                def global_wrapper(button_id, event):
-                    if button_id in self.SOLO_BUTTONS.values():
-                        solo_index = self.get_solo_index(button_id)
-                        func(solo_index, event)
+            with self._lock:
+                if index is None:
+                    # For global handler, register for all solo buttons
+                    # We use a wrapper to translate button_id to index for consistent API
+                    def global_wrapper(button_id, event):
+                        if button_id in self.SOLO_BUTTONS.values():
+                            solo_index = self.get_solo_index(button_id)
+                            func(solo_index, event)
 
-                self.button_listeners["global"].append(global_wrapper)
-            else:
-                # Validate index
-                if not isinstance(index, int) or index not in self.SOLO_BUTTONS:
-                    raise ValueError("Solo button index must be 1-4")
+                    self.button_listeners["global"].append(global_wrapper)
+                else:
+                    # Validate index
+                    if not isinstance(index, int) or index not in self.SOLO_BUTTONS:
+                        raise ValueError("Solo button index must be 1-4")
 
-                # Get the actual button ID from index
-                button_id = self.SOLO_BUTTONS[index]
-                self.button_listeners[button_id].append(func)
+                    # Get the actual button ID from index
+                    button_id = self.SOLO_BUTTONS[index]
+                    self.button_listeners[button_id].append(func)
 
             self.start_listening()
             return func
@@ -700,26 +756,26 @@ class AkaiFire:
     def is_alt_pressed(self) -> bool:
         """Returns whether the alt key is currently held down"""
         return self._alt_pressed
-    
+
     def _init_performance_caches(self):
         """Initialize performance optimization caches."""
         # Pre-compute common sysex messages
-        self._cached_messages['clear_pads'] = self._create_sysex_message(
+        self._cached_messages["clear_pads"] = self._create_sysex_message(
             [(i, 0, 0, 0) for i in range(64)]
         )
-        self._cached_messages['all_white'] = self._create_sysex_message(
+        self._cached_messages["all_white"] = self._create_sysex_message(
             [(i, 127, 127, 127) for i in range(64)]
         )
-        self._cached_messages['all_red'] = self._create_sysex_message(
+        self._cached_messages["all_red"] = self._create_sysex_message(
             [(i, 127, 0, 0) for i in range(64)]
         )
-        self._cached_messages['all_green'] = self._create_sysex_message(
+        self._cached_messages["all_green"] = self._create_sysex_message(
             [(i, 0, 127, 0) for i in range(64)]
         )
-        self._cached_messages['all_blue'] = self._create_sysex_message(
+        self._cached_messages["all_blue"] = self._create_sysex_message(
             [(i, 0, 0, 127) for i in range(64)]
         )
-    
+
     @property
     def shift_pressed(self) -> bool:
         """Check if shift is currently pressed."""
@@ -735,50 +791,187 @@ class AkaiFire:
         with self._lock:
             if not self.listening:
                 self.listening = True
-                self.listening_thread = threading.Thread(target=self._listen, daemon=True)
+                self.listening_thread = threading.Thread(
+                    target=self._listen, daemon=True
+                )
                 self.listening_thread.start()
                 logger.debug("Started listening thread")
-    
-    def _send_midi_safe(self, message: List[int]) -> bool:
-        """Send MIDI message with error handling."""
-        try:
-            self.midi_out.send_message(message)
-            return True
-        except Exception as e:
-            logger.error(f"Failed to send MIDI message {message}: {e}")
+
+    def _send_midi_safe(
+        self, message: List[int], max_retries: int = 3, retry_delay: float = 0.1
+    ) -> bool:
+        """Send MIDI message with error handling and retry logic.
+
+        Args:
+            message: MIDI message to send
+            max_retries: Maximum number of retry attempts
+            retry_delay: Delay between retries in seconds
+
+        Returns:
+            True if message sent successfully, False otherwise
+        """
+        if not self.midi_out:
+            logger.error("MIDI output port not initialized")
             return False
+
+        for attempt in range(max_retries):
+            try:
+                self.midi_out.send_message(message)
+                return True
+            except Exception as e:
+                logger.warning(
+                    f"Failed to send MIDI message {message} (attempt {attempt + 1}/{max_retries}): {e}"
+                )
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                else:
+                    logger.error(
+                        f"Failed to send MIDI message after {max_retries} attempts: {message}"
+                    )
+
+        return False
+
+    @staticmethod
+    def list_midi_ports() -> Dict[str, List[str]]:
+        """List all available MIDI ports."""
+        try:
+            import rtmidi
+
+            midi_in = rtmidi.MidiIn()
+            midi_out = rtmidi.MidiOut()
+            return {"input": midi_in.get_ports(), "output": midi_out.get_ports()}
+        except Exception as e:
+            logger.error(f"Failed to list MIDI ports: {e}")
+            return {"input": [], "output": []}
 
     def _find_ports(self):
         """Find the Akai Fire MIDI input and output ports."""
         input_port = None
         output_port = None
 
-        for i, port_name in enumerate(self.midi_in.get_ports()):
+        try:
+            input_ports = self.midi_in.get_ports()
+            output_ports = self.midi_out.get_ports()
+        except Exception as e:
+            raise HardwareError(f"Failed to enumerate MIDI ports: {e}")
+
+        # Search for input port
+        for i, port_name in enumerate(input_ports):
             if self.look_for_port in port_name:
                 input_port = i
-                print(f"Found Akai Fire MIDI INPUT ports: {self.look_for_port}")
+                logger.info(f"Found Akai Fire MIDI INPUT port: {port_name}")
+                break
 
-        for i, port_name in enumerate(self.midi_out.get_ports()):
+        # Search for output port
+        for i, port_name in enumerate(output_ports):
             if self.look_for_port in port_name:
                 output_port = i
-                print(f"Found Akai Fire MIDI OUTPUT ports: {self.look_for_port}")
+                logger.info(f"Found Akai Fire MIDI OUTPUT port: {port_name}")
+                break
+
+        # Log available ports if not found
+        if input_port is None or output_port is None:
+            logger.warning(
+                f"AKAI Fire ports not found. Looking for: '{self.look_for_port}'"
+            )
+            logger.warning(f"Available input ports: {input_ports}")
+            logger.warning(f"Available output ports: {output_ports}")
 
         return input_port, output_port
 
     def close(self):
-        """Closes the MIDI input and output ports."""
-        self.listening = False
+        """Closes the MIDI input and output ports safely."""
+        with self._lock:
+            self.listening = False
         if self.listening_thread and self.listening_thread.is_alive():
-            self.listening_thread.join()
+            self.listening_thread.join(timeout=2.0)  # Don't wait forever
 
-        self.midi_in.close_port()
-        self.midi_out.close_port()
+        try:
+            if hasattr(self, "midi_in") and self.midi_in:
+                self.midi_in.close_port()
+        except Exception as e:
+            logger.error(f"Error closing MIDI input: {e}")
+
+        try:
+            if hasattr(self, "midi_out") and self.midi_out:
+                self.midi_out.close_port()
+        except Exception as e:
+            logger.error(f"Error closing MIDI output: {e}")
+
+    def reconnect(self) -> bool:
+        """Attempt to reconnect to MIDI ports.
+
+        Returns:
+            True if reconnection successful, False otherwise
+        """
+        logger.info("Attempting to reconnect to AKAI Fire...")
+
+        # Close existing connections
+        self.close()
+
+        try:
+            # Re-initialize MIDI
+            self.midi_in = rtmidi.MidiIn()
+            self.midi_out = rtmidi.MidiOut()
+            self.input_port_index, self.output_port_index = self._find_ports()
+
+            if self.output_port_index is None or self.input_port_index is None:
+                logger.error("AKAI Fire ports not found during reconnection")
+                return False
+
+            self.midi_out.open_port(self.output_port_index)
+            self.midi_in.open_port(self.input_port_index)
+
+            # Clear cached states
+            self._last_pad_states.clear()
+
+            # Restart listener if it was running
+            if self.listening:
+                self.start_listening()
+
+            logger.info("Successfully reconnected to AKAI Fire")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to reconnect: {e}")
+            return False
+
+    def is_connected(self) -> bool:
+        """Check if MIDI ports are connected and responsive.
+
+        Returns:
+            True if connected, False otherwise
+        """
+        if not hasattr(self, "midi_out") or not self.midi_out:
+            return False
+
+        try:
+            # Try to send a harmless message (clear a non-existent pad)
+            test_msg = [
+                0xF0,
+                0x47,
+                0x7F,
+                0x43,
+                0x65,
+                0x00,
+                0x04,
+                0xFF,
+                0x00,
+                0x00,
+                0x00,
+                0xF7,
+            ]
+            self.midi_out.send_message(test_msg)
+            return True
+        except Exception:
+            return False
 
     def clear_all(self) -> bool:
         """Clear all LEDs and display."""
         success = True
         success &= self.clear_all_pads()
         success &= self.clear_all_button_leds()
+        success &= self.clear_all_track_leds()
         success &= self.clear_all_track_leds()
         success &= self.clear_control_bank_leds()
         self.clear_display()
@@ -815,25 +1008,40 @@ class AkaiFire:
     def set_pad_color(self, index: int, red: int, green: int, blue: int) -> bool:
         """
         Set pad color with validation.
-        
+
         Args:
             index: Pad index (0-63)
             red: Red component (0-127)
             green: Green component (0-127)
             blue: Blue component (0-127)
-            
+
         Returns:
             bool: True if successful
+
+        Raises:
+            InvalidParameterError: If pad index is out of range
         """
-        if not (0 <= index <= 63):
-            logger.warning(f"Invalid pad index: {index}")
-            return False
-        
-        # Clamp color values
+        if not isinstance(index, int) or not (0 <= index <= 63):
+            raise InvalidParameterError(f"Pad index must be integer 0-63, got: {index}")
+
+        # Clamp color values with validation
+        if not isinstance(red, int):
+            raise InvalidParameterError(
+                f"Red value must be integer, got: {type(red).__name__}"
+            )
+        if not isinstance(green, int):
+            raise InvalidParameterError(
+                f"Green value must be integer, got: {type(green).__name__}"
+            )
+        if not isinstance(blue, int):
+            raise InvalidParameterError(
+                f"Blue value must be integer, got: {type(blue).__name__}"
+            )
+
         red = max(0, min(127, red))
         green = max(0, min(127, green))
         blue = max(0, min(127, blue))
-        
+
         # Check if color actually changed (performance optimization)
         state_key = f"{index}:{red}:{green}:{blue}"
         if state_key in self._last_pad_states:
@@ -842,33 +1050,35 @@ class AkaiFire:
 
         sysex_message = self._create_sysex_message([(index, red, green, blue)])
         return self._send_midi_safe(sysex_message)
-    
+
     def set_pad_color_fast(self, index: int, red: int, green: int, blue: int) -> bool:
         """
         Fast path for setting pad color - assumes valid inputs.
-        
+
         Use this when you know inputs are valid (0-63 for index, 0-127 for colors).
         Skips validation for better performance in tight loops.
-        
+
         Args:
             index: Pad index (0-63) - MUST be valid
             red: Red component (0-127) - MUST be valid
             green: Green component (0-127) - MUST be valid
             blue: Blue component (0-127) - MUST be valid
-            
+
         Returns:
             bool: True if successful
         """
         sysex_message = self._create_sysex_message([(index, red, green, blue)])
         return self._send_midi_safe(sysex_message)
 
-    def set_multiple_pad_colors(self, pad_colors: List[Tuple[int, int, int, int]]) -> bool:
+    def set_multiple_pad_colors(
+        self, pad_colors: List[Tuple[int, int, int, int]]
+    ) -> bool:
         """
         Set multiple pad colors efficiently.
-        
+
         Args:
             pad_colors: List of (index, red, green, blue) tuples
-            
+
         Returns:
             bool: True if successful
         """
@@ -884,7 +1094,7 @@ class AkaiFire:
                     validated_colors.append((index, red, green, blue))
                 else:
                     logger.warning(f"Invalid pad index: {index}")
-        
+
         if validated_colors:
             sysex_message = self._create_sysex_message(validated_colors)
             return self._send_midi_safe(sysex_message)
@@ -897,8 +1107,8 @@ class AkaiFire:
     def clear_all_pads(self) -> bool:
         """Clear all pads efficiently using cached message."""
         # Use cached clear message for better performance
-        if hasattr(self, '_cached_messages') and 'clear_pads' in self._cached_messages:
-            return self._send_midi_safe(self._cached_messages['clear_pads'])
+        if hasattr(self, "_cached_messages") and "clear_pads" in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages["clear_pads"])
         else:
             # Fallback to creating message
             pad_colors = [(i, 0, 0, 0) for i in range(64)]
@@ -909,29 +1119,31 @@ class AkaiFire:
         """Reset all pads to a specific color."""
         pad_colors = [(i, red, green, blue) for i in range(64)]
         return self.set_multiple_pad_colors(pad_colors)
-    
+
     def set_all_pads(self, color: Tuple[int, int, int]) -> bool:
         """
         Set all pads to the same color - optimized version.
-        
+
         Args:
             color: Tuple of (red, green, blue) values (0-127)
-            
+
         Returns:
             bool: True if successful
         """
         r, g, b = color
         # Check for cached common colors
-        if r == 0 and g == 0 and b == 0 and 'clear_pads' in self._cached_messages:
-            return self._send_midi_safe(self._cached_messages['clear_pads'])
-        elif r == 127 and g == 127 and b == 127 and 'all_white' in self._cached_messages:
-            return self._send_midi_safe(self._cached_messages['all_white'])
-        elif r == 127 and g == 0 and b == 0 and 'all_red' in self._cached_messages:
-            return self._send_midi_safe(self._cached_messages['all_red'])
-        elif r == 0 and g == 127 and b == 0 and 'all_green' in self._cached_messages:
-            return self._send_midi_safe(self._cached_messages['all_green'])
-        elif r == 0 and g == 0 and b == 127 and 'all_blue' in self._cached_messages:
-            return self._send_midi_safe(self._cached_messages['all_blue'])
+        if r == 0 and g == 0 and b == 0 and "clear_pads" in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages["clear_pads"])
+        elif (
+            r == 127 and g == 127 and b == 127 and "all_white" in self._cached_messages
+        ):
+            return self._send_midi_safe(self._cached_messages["all_white"])
+        elif r == 127 and g == 0 and b == 0 and "all_red" in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages["all_red"])
+        elif r == 0 and g == 127 and b == 0 and "all_green" in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages["all_green"])
+        elif r == 0 and g == 0 and b == 127 and "all_blue" in self._cached_messages:
+            return self._send_midi_safe(self._cached_messages["all_blue"])
         else:
             # Fallback to creating message
             return self.reset_pads(r, g, b)
@@ -940,19 +1152,34 @@ class AkaiFire:
         """Set button LED state with validation."""
         # Validate button ID
         valid_buttons = [
-            self.BUTTON_PLAY, self.BUTTON_STOP, self.BUTTON_REC,
-            self.BUTTON_SHIFT, self.BUTTON_ALT, self.BUTTON_STEP,
-            self.BUTTON_NOTE, self.BUTTON_DRUM, self.BUTTON_PERFORM,
-            self.BUTTON_PATTERN, self.BUTTON_BROWSER, self.BUTTON_GRID_LEFT,
-            self.BUTTON_GRID_RIGHT, self.BUTTON_BANK, self.BUTTON_SELECT,
-            self.BUTTON_SOLO_1, self.BUTTON_SOLO_2, self.BUTTON_SOLO_3,
-            self.BUTTON_SOLO_4, self.BUTTON_PAT_UP, self.BUTTON_PAT_DOWN
+            self.BUTTON_PLAY,
+            self.BUTTON_STOP,
+            self.BUTTON_REC,
+            self.BUTTON_SHIFT,
+            self.BUTTON_ALT,
+            self.BUTTON_STEP,
+            self.BUTTON_NOTE,
+            self.BUTTON_DRUM,
+            self.BUTTON_PERFORM,
+            self.BUTTON_PATTERN,
+            self.BUTTON_BROWSER,
+            self.BUTTON_GRID_LEFT,
+            self.BUTTON_GRID_RIGHT,
+            self.BUTTON_BANK,
+            self.BUTTON_SELECT,
+            self.BUTTON_SOLO_1,
+            self.BUTTON_SOLO_2,
+            self.BUTTON_SOLO_3,
+            self.BUTTON_SOLO_4,
+            self.BUTTON_PAT_UP,
+            self.BUTTON_PAT_DOWN,
         ]
-        
+
         if button_id not in valid_buttons:
-            logger.warning(f"Invalid button ID: {button_id}")
-            return False
-        
+            raise InvalidParameterError(
+                f"Invalid button ID: {button_id}. Valid buttons: {valid_buttons}"
+            )
+
         value = max(0, min(2, value))
         message = [self.CC, button_id, value]
         return self._send_midi_safe(message)
@@ -961,13 +1188,27 @@ class AkaiFire:
         """Clear all button LEDs."""
         success = True
         for button_id in [
-            self.BUTTON_PLAY, self.BUTTON_STOP, self.BUTTON_REC,
-            self.BUTTON_SHIFT, self.BUTTON_ALT, self.BUTTON_STEP,
-            self.BUTTON_NOTE, self.BUTTON_DRUM, self.BUTTON_PERFORM,
-            self.BUTTON_PATTERN, self.BUTTON_BROWSER, self.BUTTON_GRID_LEFT,
-            self.BUTTON_GRID_RIGHT, self.BUTTON_BANK, self.BUTTON_SELECT,
-            self.BUTTON_SOLO_1, self.BUTTON_SOLO_2, self.BUTTON_SOLO_3,
-            self.BUTTON_SOLO_4, self.BUTTON_PAT_UP, self.BUTTON_PAT_DOWN
+            self.BUTTON_PLAY,
+            self.BUTTON_STOP,
+            self.BUTTON_REC,
+            self.BUTTON_SHIFT,
+            self.BUTTON_ALT,
+            self.BUTTON_STEP,
+            self.BUTTON_NOTE,
+            self.BUTTON_DRUM,
+            self.BUTTON_PERFORM,
+            self.BUTTON_PATTERN,
+            self.BUTTON_BROWSER,
+            self.BUTTON_GRID_LEFT,
+            self.BUTTON_GRID_RIGHT,
+            self.BUTTON_BANK,
+            self.BUTTON_SELECT,
+            self.BUTTON_SOLO_1,
+            self.BUTTON_SOLO_2,
+            self.BUTTON_SOLO_3,
+            self.BUTTON_SOLO_4,
+            self.BUTTON_PAT_UP,
+            self.BUTTON_PAT_DOWN,
         ]:
             if not self.set_button_led(button_id, 0):
                 success = False
@@ -990,7 +1231,7 @@ class AkaiFire:
         if not (1 <= track_number <= 4):
             logger.warning(f"Invalid track number: {track_number}")
             return False
-        
+
         cc_map = {1: 0x65, 2: 0x66, 3: 0x67, 4: 0x68}
         value = max(0, min(2, value))
         message = [self.CC, cc_map[track_number], value]
@@ -1021,7 +1262,8 @@ class AkaiFire:
         ]:
             raise ValueError(f"Invalid rotary ID: {rotary_id}")
 
-        self.rotary_listeners[rotary_id].append(callback)
+        with self._lock:
+            self.rotary_listeners[rotary_id].append(callback)
         self.start_listening()
 
     def add_rotary_touch_listener(self, rotary_id, callback):
@@ -1040,7 +1282,8 @@ class AkaiFire:
         ]:
             raise ValueError(f"Invalid rotary ID: {rotary_id}")
 
-        self.rotary_touch_listeners[rotary_id].append(callback)
+        with self._lock:
+            self.rotary_touch_listeners[rotary_id].append(callback)
         self.start_listening()
 
     def add_button_listener(self, button_id, callback):
@@ -1075,7 +1318,8 @@ class AkaiFire:
         ]:
             raise ValueError(f"Invalid button ID: {button_id}")
 
-        self.button_listeners[button_id].append(callback)
+        with self._lock:
+            self.button_listeners[button_id].append(callback)
         self.start_listening()
 
     def add_listener(self, pad_indices, callback):
@@ -1084,13 +1328,14 @@ class AkaiFire:
         :param pad_indices: List of pad indices to listen for.
         :param callback: Function to call when a pad in the list is pressed.
         """
-        for index in pad_indices:
-            if not (0 <= index <= 63):
-                raise ValueError("Pad index must be between 0 and 63")
-            if index not in self.pad_listeners:
-                self.pad_listeners[index] = []
+        with self._lock:
+            for index in pad_indices:
+                if not (0 <= index <= 63):
+                    raise ValueError("Pad index must be between 0 and 63")
+                if index not in self.pad_listeners:
+                    self.pad_listeners[index] = []
 
-            self.pad_listeners[index].append(callback)
+                self.pad_listeners[index].append(callback)
 
         self.start_listening()
 
@@ -1127,7 +1372,10 @@ class AkaiFire:
     def _process_message(self, message):
         """Process a single MIDI message."""
         try:
-            if not message or not isinstance(message[0], (list, tuple)):
+            # Validate message format - must be a tuple/list with data as first element
+            if not message or not isinstance(message, (list, tuple)):
+                return
+            if not isinstance(message[0], (list, tuple)):
                 return
 
             data, _ = message
@@ -1149,10 +1397,14 @@ class AkaiFire:
                 event = "touch" if status == 0x90 else "release"
 
                 # Call specific rotary touch handlers
-                for handler in self.rotary_touch_listeners[controller]:
+                with self._lock:
+                    handlers = list(self.rotary_touch_listeners[controller])
+                    global_handlers = list(self.rotary_touch_listeners["global"])
+
+                for handler in handlers:
                     handler(event)
                 # Call global rotary touch handlers
-                for handler in self.rotary_touch_listeners["global"]:
+                for handler in global_handlers:
                     handler(controller, event)
                 return
 
@@ -1183,10 +1435,14 @@ class AkaiFire:
                 event = "press" if status == 0x90 else "release"
 
                 # Call specific button handlers
-                for handler in self.button_listeners[controller]:
+                with self._lock:
+                    handlers = list(self.button_listeners[controller])
+                    global_handlers = list(self.button_listeners["global"])
+
+                for handler in handlers:
                     handler(event)
                 # Call global button handlers
-                for handler in self.button_listeners["global"]:
+                for handler in global_handlers:
                     handler(controller, event)
                 return
 
@@ -1195,10 +1451,14 @@ class AkaiFire:
                 pad_index = controller - 54
                 if 0 <= pad_index <= 63:
                     # Call specific pad handlers
-                    for handler in self.pad_listeners[pad_index]:
+                    with self._lock:
+                        handlers = list(self.pad_listeners[pad_index])
+                        global_handlers = list(self.pad_listeners["global"])
+
+                    for handler in handlers:
                         handler(value)
                     # Call global pad handlers
-                    for handler in self.pad_listeners["global"]:
+                    for handler in global_handlers:
                         handler(pad_index, value)
                 return
 
@@ -1213,10 +1473,14 @@ class AkaiFire:
                 direction = "clockwise" if value < 0x40 else "counterclockwise"
                 velocity = value if value < 0x40 else (0x80 - value)
                 # Call specific rotary handlers
-                for handler in self.rotary_listeners[controller]:
+                with self._lock:
+                    handlers = list(self.rotary_listeners[controller])
+                    global_handlers = list(self.rotary_listeners["global"])
+
+                for handler in handlers:
                     handler(direction, velocity)
                 # Call global rotary handlers
-                for handler in self.rotary_listeners["global"]:
+                for handler in global_handlers:
                     handler(controller, direction, velocity)
                 return
 
@@ -1227,7 +1491,10 @@ class AkaiFire:
 
     def _listen(self):
         """Internal method to listen for MIDI messages."""
-        while self.listening:
+        while True:
+            with self._lock:
+                if not self.listening:
+                    break
             message = self.midi_in.get_message()
             if message:
                 self._process_message(message)
@@ -1238,33 +1505,34 @@ class AkaiFire:
 def discover_akai_fire() -> Optional[str]:
     """
     Discover connected AKAI Fire device.
-    
+
     Returns:
         str: Port name if found, None otherwise
     """
     ports = AkaiFire.list_midi_ports()
-    
+
     for port in ports["input"]:
         if "FIRE" in port.upper():
             return port
-    
+
     return None
 
 
 def get_akai_fire(use_mock: Optional[bool] = None, **kwargs) -> Union[AkaiFire, Any]:
     """
     Get AKAI Fire instance (hardware or mock).
-    
+
     Args:
         use_mock: True to force mock, False to force hardware, None to auto-detect
         **kwargs: Additional arguments passed to constructor
-        
+
     Returns:
         AkaiFire instance or mock instance
     """
     if use_mock is True:
         try:
             from mock_gui_pygame import MockAkaiFire
+
             return MockAkaiFire(**kwargs)
         except ImportError:
             logger.error("Mock GUI not available")
@@ -1279,6 +1547,7 @@ def get_akai_fire(use_mock: Optional[bool] = None, **kwargs) -> Union[AkaiFire, 
             logger.info(f"Hardware not available ({e}), trying mock...")
             try:
                 from mock_gui_pygame import MockAkaiFire
+
                 return MockAkaiFire(**kwargs)
             except ImportError:
                 logger.error("Neither hardware nor mock available")
