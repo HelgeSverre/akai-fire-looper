@@ -127,7 +127,7 @@ class TestPattern(unittest.TestCase):
     def test_step_gate_length(self):
         """Step should have configurable gate length."""
         step = self.pattern.get_step(0)
-        self.assertEqual(step.gate_length, 0.75)  # Default
+        self.assertEqual(step.gate_length, 1.0)  # Default (1 step duration)
 
         step.gate_length = 0.5
         self.assertEqual(step.gate_length, 0.5)
@@ -162,6 +162,161 @@ class TestPattern(unittest.TestCase):
         self.assertEqual(restored.length, self.pattern.length)
         self.assertTrue(restored.get_step(0).has_notes())
         self.assertTrue(restored.get_step(4).has_notes())
+
+    def test_start_point_default(self):
+        """Pattern should default start_point to 0."""
+        self.assertEqual(self.pattern.start_point, 0)
+
+    def test_end_point_default(self):
+        """Pattern should default end_point to None (meaning length-1)."""
+        self.assertIsNone(self.pattern.end_point)
+
+    def test_effective_end_point_when_none(self):
+        """get_effective_end_point should return length-1 when end_point is None."""
+        self.assertEqual(self.pattern.get_effective_end_point(), 15)
+
+    def test_effective_end_point_when_set(self):
+        """get_effective_end_point should return end_point when set."""
+        self.pattern.end_point = 7
+        self.assertEqual(self.pattern.get_effective_end_point(), 7)
+
+    def test_playback_length(self):
+        """get_playback_length should return end - start + 1."""
+        self.assertEqual(self.pattern.get_playback_length(), 16)
+
+        self.pattern.start_point = 4
+        self.pattern.end_point = 11
+        self.assertEqual(self.pattern.get_playback_length(), 8)
+
+    def test_play_order_default_forward(self):
+        """Pattern should default to FORWARD play order."""
+        from core.pattern import PlayOrder
+        self.assertEqual(self.pattern.play_order, PlayOrder.FORWARD)
+
+    def test_get_next_step_forward(self):
+        """FORWARD play order should increment step."""
+        from core.pattern import PlayOrder
+        self.pattern.play_order = PlayOrder.FORWARD
+
+        self.assertEqual(self.pattern.get_next_step(0), 1)
+        self.assertEqual(self.pattern.get_next_step(14), 15)
+        self.assertEqual(self.pattern.get_next_step(15), 0)  # Wrap
+
+    def test_get_next_step_reverse(self):
+        """REVERSE play order should decrement step."""
+        from core.pattern import PlayOrder
+        self.pattern.play_order = PlayOrder.REVERSE
+
+        self.assertEqual(self.pattern.get_next_step(15), 14)
+        self.assertEqual(self.pattern.get_next_step(1), 0)
+        self.assertEqual(self.pattern.get_next_step(0), 15)  # Wrap
+
+    def test_get_next_step_with_start_end(self):
+        """Play order should respect start/end points."""
+        from core.pattern import PlayOrder
+        self.pattern.start_point = 4
+        self.pattern.end_point = 8
+        self.pattern.play_order = PlayOrder.FORWARD
+
+        self.assertEqual(self.pattern.get_next_step(4), 5)
+        self.assertEqual(self.pattern.get_next_step(8), 4)  # Wrap to start
+
+    def test_get_first_step_forward(self):
+        """FORWARD should start at start_point."""
+        self.pattern.start_point = 3
+        self.assertEqual(self.pattern.get_first_step(), 3)
+
+    def test_get_first_step_reverse(self):
+        """REVERSE should start at end_point."""
+        from core.pattern import PlayOrder
+        self.pattern.play_order = PlayOrder.REVERSE
+        self.pattern.end_point = 10
+        self.assertEqual(self.pattern.get_first_step(), 10)
+
+    def test_sync_rate_default(self):
+        """Pattern should default to SIXTEENTH sync rate."""
+        from core.pattern import SyncRate
+        self.assertEqual(self.pattern.sync_rate, SyncRate.SIXTEENTH)
+
+    def test_sync_rate_multiplier(self):
+        """SyncRate should return correct multiplier."""
+        from core.pattern import SyncRate
+
+        self.assertEqual(SyncRate.SIXTEENTH.get_multiplier(), 1.0)
+        self.assertEqual(SyncRate.EIGHTH.get_multiplier(), 2.0)
+        self.assertEqual(SyncRate.QUARTER.get_multiplier(), 4.0)
+        self.assertEqual(SyncRate.THIRTY_SECOND.get_multiplier(), 0.5)
+
+    def test_mutate_shuffles_steps(self):
+        """mutate should shuffle step positions."""
+        # Add notes to specific steps
+        for i in [0, 4, 8, 12]:
+            self.pattern.get_step(i).add_note(60 + i, 100)
+
+        original_active = self.pattern.get_active_steps()
+
+        # Mutate (may or may not change order due to randomness)
+        self.pattern.mutate()
+
+        # Should still have same number of active steps
+        new_active = self.pattern.get_active_steps()
+        self.assertEqual(len(new_active), len(original_active))
+
+    def test_mutate_preserves_note_data(self):
+        """mutate should preserve notes, just at different positions."""
+        self.pattern.get_step(0).add_note(60, 100)
+        self.pattern.get_step(4).add_note(64, 80)
+        self.pattern.get_step(8).add_note(67, 90)
+
+        # Get all notes before mutate
+        notes_before = set()
+        for i in range(16):
+            step = self.pattern.get_step(i)
+            for note, vel in step.get_notes_with_velocities():
+                notes_before.add((note, vel))
+
+        self.pattern.mutate()
+
+        # Get all notes after mutate
+        notes_after = set()
+        for i in range(16):
+            step = self.pattern.get_step(i)
+            for note, vel in step.get_notes_with_velocities():
+                notes_after.add((note, vel))
+
+        # Same notes should exist
+        self.assertEqual(notes_before, notes_after)
+
+    def test_tie_forward_default(self):
+        """Step should default tie_forward to False."""
+        step = self.pattern.get_step(0)
+        self.assertFalse(step.tie_forward)
+
+    def test_serialization_includes_new_fields(self):
+        """Serialization should include end_point and sync_rate."""
+        from core.pattern import Pattern, SyncRate, PlayOrder
+
+        self.pattern.start_point = 2
+        self.pattern.end_point = 10
+        self.pattern.sync_rate = SyncRate.EIGHTH
+        self.pattern.play_order = PlayOrder.REVERSE
+        self.pattern.get_step(2).tie_forward = True
+
+        data = self.pattern.to_dict()
+
+        self.assertEqual(data["start_point"], 2)
+        self.assertEqual(data["end_point"], 10)
+        self.assertEqual(data["sync_rate"], "1/8")
+        self.assertEqual(data["play_order"], "reverse")
+        self.assertTrue(data["steps"][2]["tie_forward"])
+
+        # Test deserialization
+        restored = Pattern.from_dict(data)
+        self.assertEqual(restored.start_point, 2)
+        self.assertEqual(restored.end_point, 10)
+        self.assertEqual(restored.sync_rate, SyncRate.EIGHTH)
+        self.assertEqual(restored.play_order, PlayOrder.REVERSE)
+        self.assertTrue(restored.get_step(2).tie_forward)
 
 
 class TestTrack(unittest.TestCase):
@@ -592,6 +747,290 @@ class TestControllableTimingIntegration(unittest.TestCase):
 
         # No steps should be recorded
         self.assertEqual(steps, [])
+
+
+class TestScene(unittest.TestCase):
+    """Tests for the Scene class."""
+
+    def setUp(self):
+        from core.scene import Scene
+        self.scene = Scene(name="Test Scene")
+
+    def test_default_scene_is_empty(self):
+        """New scene should have no assignments."""
+        self.assertFalse(self.scene.has_content())
+
+    def test_set_pattern_for_track(self):
+        """Should be able to set pattern assignments."""
+        self.scene.set_pattern_for_track(0, 3)
+        self.assertEqual(self.scene.get_pattern_for_track(0), 3)
+
+    def test_pattern_assignment_validates_range(self):
+        """Should reject invalid track/pattern indices."""
+        self.scene.set_pattern_for_track(5, 0)  # Invalid track
+        self.scene.set_pattern_for_track(0, 10)  # Invalid pattern
+
+        # Neither should be stored
+        self.assertFalse(self.scene.has_content())
+
+    def test_set_track_enabled(self):
+        """Should track enabled state per track."""
+        self.scene.set_track_enabled(0, False)
+        self.assertFalse(self.scene.is_track_enabled(0))
+
+    def test_default_track_enabled(self):
+        """Tracks should default to enabled."""
+        self.assertTrue(self.scene.is_track_enabled(0))
+
+    def test_copy_current_state(self):
+        """Should copy track state into scene."""
+        from core.track import Track
+        tracks = [
+            Track(name="Track 1"),
+            Track(name="Track 2"),
+        ]
+        tracks[0].set_current_pattern(2)
+        tracks[0].enabled = False
+        tracks[1].set_current_pattern(5)
+
+        self.scene.copy_current_state(tracks)
+
+        self.assertEqual(self.scene.get_pattern_for_track(0), 2)
+        self.assertEqual(self.scene.get_pattern_for_track(1), 5)
+        self.assertFalse(self.scene.is_track_enabled(0))
+
+    def test_apply_to_tracks(self):
+        """Should apply scene settings to tracks."""
+        from core.track import Track
+        tracks = [
+            Track(name="Track 1"),
+            Track(name="Track 2"),
+        ]
+
+        self.scene.set_pattern_for_track(0, 3)
+        self.scene.set_pattern_for_track(1, 6)
+        self.scene.set_track_enabled(0, False)
+
+        self.scene.apply_to_tracks(tracks)
+
+        self.assertEqual(tracks[0].current_pattern, 3)
+        self.assertEqual(tracks[1].current_pattern, 6)
+        self.assertFalse(tracks[0].enabled)
+
+    def test_clear(self):
+        """Should clear all assignments."""
+        self.scene.set_pattern_for_track(0, 2)
+        self.scene.set_track_enabled(1, False)
+        self.scene.clear()
+
+        self.assertFalse(self.scene.has_content())
+
+    def test_get_summary(self):
+        """Should return readable summary."""
+        self.scene.set_pattern_for_track(0, 1)
+        summary = self.scene.get_summary()
+
+        self.assertIn("T1:P2", summary)  # Track 1 (0-indexed) with Pattern 2
+
+    def test_serialization(self):
+        """Scene should serialize and deserialize correctly."""
+        self.scene.set_pattern_for_track(0, 3)
+        self.scene.set_track_enabled(1, False)
+
+        data = self.scene.to_dict()
+
+        from core.scene import Scene
+        restored = Scene.from_dict(data)
+
+        self.assertEqual(restored.name, "Test Scene")
+        self.assertEqual(restored.get_pattern_for_track(0), 3)
+        self.assertFalse(restored.is_track_enabled(1))
+
+
+class TestMidiMessage(unittest.TestCase):
+    """Tests for the MidiMessage dataclass."""
+
+    def test_midi_message_creation(self):
+        """MidiMessage should hold message data."""
+        from core.midi_manager import MidiMessage
+
+        msg = MidiMessage(
+            channel=1,
+            data=[0x90, 60, 100],
+            timestamp=0.0,
+            note=60,
+            velocity=100
+        )
+
+        self.assertEqual(msg.channel, 1)
+        self.assertEqual(msg.note, 60)
+        self.assertEqual(msg.velocity, 100)
+
+    def test_midi_message_defaults(self):
+        """MidiMessage optional fields should default to None."""
+        from core.midi_manager import MidiMessage
+
+        msg = MidiMessage(channel=1, data=[0xB0, 7, 100], timestamp=0.0)
+
+        self.assertIsNone(msg.note)
+        self.assertIsNone(msg.velocity)
+
+
+class TestTapTempo(unittest.TestCase):
+    """Tests for the Tap Tempo functionality in TimingEngine."""
+
+    def setUp(self):
+        from core.timing import TimingEngine
+        self.timing = TimingEngine(bpm=120.0)
+
+    def test_first_tap_returns_none(self):
+        """First tap should return None (need at least 2 taps)."""
+        result = self.timing.tap_tempo()
+        self.assertIsNone(result)
+
+    def test_two_taps_calculates_bpm(self):
+        """Two taps should calculate BPM."""
+        import time
+
+        # Simulate two taps 0.5 seconds apart (120 BPM)
+        self.timing._tap_times = [time.time() - 0.5]
+        result = self.timing.tap_tempo()
+
+        self.assertIsNotNone(result)
+        self.assertAlmostEqual(result, 120.0, delta=5.0)
+
+    def test_bpm_clamped_to_valid_range(self):
+        """BPM should be clamped to 30-300 range."""
+        import time
+
+        # Simulate very fast taps (would be > 300 BPM)
+        self.timing._tap_times = [time.time() - 0.1]  # 600 BPM if unclamped
+        result = self.timing.tap_tempo()
+
+        self.assertLessEqual(result, 300.0)
+
+    def test_reset_tap_tempo_clears_history(self):
+        """reset_tap_tempo should clear tap history."""
+        import time
+
+        self.timing._tap_times = [time.time() - 1.0, time.time() - 0.5]
+        self.timing.reset_tap_tempo()
+
+        self.assertEqual(len(self.timing._tap_times), 0)
+
+    def test_old_taps_cleared_on_timeout(self):
+        """Taps older than timeout should be cleared."""
+        import time
+
+        # Add a very old tap (3 seconds ago, timeout is 2 seconds)
+        self.timing._tap_times = [time.time() - 3.0]
+        result = self.timing.tap_tempo()
+
+        # Should return None because old taps were cleared
+        self.assertIsNone(result)
+
+    def test_max_taps_limited(self):
+        """Should only keep last N taps."""
+        import time
+
+        # Simulate multiple rapid taps via tap_tempo()
+        for i in range(10):
+            self.timing.tap_tempo()
+            time.sleep(0.01)  # Small delay to avoid timeout reset
+
+        self.assertLessEqual(len(self.timing._tap_times), self.timing._max_taps)
+
+
+class TestModeHandler(unittest.TestCase):
+    """Tests for the ModeHandler abstract base class."""
+
+    def test_mode_handler_is_abstract(self):
+        """ModeHandler should not be directly instantiable."""
+        from ui.mode_handler import ModeHandler
+
+        with self.assertRaises(TypeError):
+            ModeHandler()
+
+    def test_mode_handler_defines_required_methods(self):
+        """ModeHandler should define required abstract methods."""
+        from ui.mode_handler import ModeHandler
+
+        # Check abstract methods exist
+        self.assertTrue(hasattr(ModeHandler, 'handle_pad_press'))
+        self.assertTrue(hasattr(ModeHandler, 'handle_encoder_turn'))
+        self.assertTrue(hasattr(ModeHandler, 'handle_button_press'))
+        self.assertTrue(hasattr(ModeHandler, 'get_display_info'))
+
+
+class TestSettingsMode(unittest.TestCase):
+    """Tests for the SettingsMode class."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        # Create mock sequencer
+        self.mock_sequencer = Mock()
+        self.mock_sequencer.get_bpm.return_value = 120.0
+        self.mock_sequencer.get_swing.return_value = 0.0
+        self.mock_sequencer.timing = Mock()
+        self.mock_sequencer.timing.quantization = Mock()
+        self.mock_sequencer.timing.quantization.value = "1/16"
+
+        # Create mock tracks
+        self.mock_sequencer.tracks = [
+            Mock(name="Track 1", midi_channel=10, scale="MAJOR"),
+            Mock(name="Track 2", midi_channel=1, scale="MAJOR"),
+            Mock(name="Track 3", midi_channel=2, scale="MAJOR"),
+            Mock(name="Track 4", midi_channel=3, scale="MAJOR"),
+        ]
+
+        # Create mock mode manager
+        self.mock_mode_manager = Mock()
+        self.mock_mode_manager.grid = Mock()
+        self.mock_mode_manager.grid.pad_position = lambda p: (p // 16, p % 16)
+        self.mock_mode_manager.grid.STEP_ROW = 0
+        self.mock_mode_manager.grid.TRACK_PATTERN_ROW = 1
+        self.mock_mode_manager.grid.INPUT_ROW_1 = 2
+        self.mock_mode_manager.grid.INPUT_ROW_2 = 3
+
+    def test_settings_mode_initialization(self):
+        """SettingsMode should initialize correctly."""
+        from ui.modes.settings_mode import SettingsMode
+
+        mode = SettingsMode(self.mock_sequencer, self.mock_mode_manager)
+
+        self.assertEqual(mode.selected_item, 0)
+        self.assertFalse(mode.editing_value)
+        self.assertIsNotNone(mode.menu_items)
+
+    def test_settings_mode_has_menu_items(self):
+        """SettingsMode should have menu items."""
+        from ui.modes.settings_mode import SettingsMode
+
+        mode = SettingsMode(self.mock_sequencer, self.mock_mode_manager)
+
+        self.assertGreater(len(mode.menu_items), 0)
+
+    def test_settings_mode_get_display_info(self):
+        """get_display_info should return valid data."""
+        from ui.modes.settings_mode import SettingsMode
+
+        mode = SettingsMode(self.mock_sequencer, self.mock_mode_manager)
+        info = mode.get_display_info()
+
+        self.assertIn("selected_item", info)
+        self.assertIn("item_name", info)
+        self.assertIn("category", info)
+
+    def test_encoder_navigates_menu(self):
+        """Encoder should navigate menu items."""
+        from ui.modes.settings_mode import SettingsMode
+
+        mode = SettingsMode(self.mock_sequencer, self.mock_mode_manager)
+        initial_item = mode.selected_item
+
+        mode.handle_encoder_turn("volume", "clockwise", 1)
+
+        self.assertNotEqual(mode.selected_item, initial_item)
 
 
 if __name__ == "__main__":
