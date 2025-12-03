@@ -32,6 +32,9 @@ class PatternMode:
         self.selected_scene = 0
         self.selected_track = 0
 
+        # Pattern chain building state
+        self.chain_start: int = -1  # -1 means not building a chain
+
         # Register mode callbacks
         self.mode_manager.register_mode_callback(Mode.PATTERN, "on_enter", self._on_enter)
         self.mode_manager.register_mode_callback(Mode.PATTERN, "on_exit", self._on_exit)
@@ -90,10 +93,7 @@ class PatternMode:
         """Trigger a scene (snapshot of all track patterns)."""
         if 0 <= scene_index < 16:
             self.selected_scene = scene_index
-            print(f"Triggered scene {scene_index + 1}")
-            
-            # TODO: Implement actual scene triggering logic
-            # For now, just select scene
+            self.sequencer.launch_scene(scene_index)
             self._update_mode_state()
 
     def _select_track(self, track_index: int):
@@ -115,13 +115,41 @@ class PatternMode:
                 print(f"Track {track_index + 1} now playing pattern {pattern_index + 1}")
 
     def _add_pattern_to_chain(self, chain_slot: int):
-        """Add current pattern to pattern chain."""
-        if 0 <= chain_slot < 32:  # 32 chain slots
-            track = self.sequencer.get_current_track()
-            if track:
-                current_pattern = track.current_pattern
-                print(f"Added pattern {current_pattern + 1} to chain slot {chain_slot + 1}")
-                # TODO: Implement actual pattern chaining logic
+        """Build pattern chain using chain slots.
+
+        Chain slots 0-7 represent patterns 0-7. First press starts chain,
+        second press completes it with consecutive patterns.
+        Circuit Tracks requires chains to be consecutive (e.g., 2-3-4-5).
+        """
+        # Map chain slot to pattern index (0-7)
+        pattern_index = chain_slot % 8
+
+        if pattern_index < 0 or pattern_index >= 8:
+            return
+
+        track = self.sequencer.get_current_track()
+        if not track:
+            return
+
+        if self.chain_start == -1:
+            # First press: start building chain
+            self.chain_start = pattern_index
+            print(f"Chain start: pattern {pattern_index + 1}")
+        else:
+            # Second press: complete chain with consecutive patterns
+            chain_end = pattern_index
+
+            # Build consecutive chain from start to end
+            if chain_end >= self.chain_start:
+                chain = list(range(self.chain_start, chain_end + 1))
+            else:
+                chain = list(range(chain_end, self.chain_start + 1))
+
+            track.set_pattern_chain(chain)
+            print(f"Chain set: patterns {[p + 1 for p in chain]}")
+
+            # Reset chain building state
+            self.chain_start = -1
 
     def handle_encoder_turn(self, encoder: str, direction: str, velocity: int):
         """Handle encoder turns in Pattern Mode."""
