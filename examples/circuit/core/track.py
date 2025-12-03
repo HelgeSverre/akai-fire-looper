@@ -26,6 +26,9 @@ class Track:
     pattern_chain: List[int] = field(default_factory=list)  # Pattern chain sequence
     enabled: bool = True  # Track MIDI output enabled/disabled
     soloed: bool = False  # Track solo state (disables other tracks)
+    muted: bool = False  # Track mute state (temporary silence)
+    level: int = 100  # Track level (0-127, like MIDI CC7)
+    pan: int = 64  # Track pan (0-127, 64 = center, like MIDI CC10)
     scale: str = "MAJOR"  # Musical scale for input
     root_note: int = 60  # Root note (MIDI note number, 60 = C4)
     octave: int = 0  # Octave offset (-5 to +5)
@@ -143,6 +146,9 @@ class Track:
             "pattern_chain": self.pattern_chain.copy(),
             "enabled": self.enabled,
             "soloed": self.soloed,
+            "muted": self.muted,
+            "level": self.level,
+            "pan": self.pan,
             "scale": self.scale,
             "root_note": self.root_note,
             "octave": self.octave,
@@ -162,6 +168,9 @@ class Track:
             pattern_chain=data.get("pattern_chain", []),
             enabled=data.get("enabled", True),
             soloed=data.get("soloed", False),
+            muted=data.get("muted", False),
+            level=data.get("level", 100),
+            pan=data.get("pan", 64),
             scale=data.get("scale", "MAJOR"),
             root_note=data.get("root_note", 60),
             octave=data.get("octave", 0),
