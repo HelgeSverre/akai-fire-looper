@@ -110,11 +110,8 @@ class NoteMode:
             return False
 
         elif row == grid.TRACK_PATTERN_ROW:
-            if col < 4:
-                # Track selection
-                self._select_track(col)
-                return True
-            elif 4 <= col < 12:
+            # Track selection now via SOLO buttons, cols 0-3 can show patterns 1-4 duplicate
+            if 4 <= col < 12:
                 # Pattern selection
                 pattern_num = col - 4
                 self._select_pattern(pattern_num)
@@ -390,3 +387,10 @@ class NoteMode:
             "has_content": pattern.has_content(),
             "active_steps": pattern.get_active_steps(),
         }
+
+    def on_track_changed(self):
+        """Called when track selection changes via SOLO buttons."""
+        # Update mode state to reflect new track
+        self._update_mode_state()
+        track = self.sequencer.get_current_track()
+        print(f"Note Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}")

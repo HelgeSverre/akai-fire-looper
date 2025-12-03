@@ -3,7 +3,8 @@ Step Edit Mode implementation for detailed step editing.
 Handles per-step parameter editing, velocity, timing, and note editing.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+import copy
 import sys
 import os
 
@@ -32,6 +33,9 @@ class StepEditMode:
         self.selected_step = 0
         self.selected_track = 0
         self.edit_parameter = "velocity"  # velocity, timing, pitch, etc.
+
+        # Clipboard for step copy/paste
+        self.clipboard_step = None  # Holds a deep copy of a Step
 
         # Register mode callbacks
         self.mode_manager.register_mode_callback(Mode.STEP_EDIT, "on_enter", self._on_enter)
@@ -73,9 +77,10 @@ class StepEditMode:
             return True
 
         elif row == grid.TRACK_PATTERN_ROW:
+            # Track selection now via SOLO buttons
             if col < 4:
-                # Track selection (columns 0-3)
-                self._select_track(col)
+                # Columns 0-3: Parameter quick select (same as 4-7)
+                self._select_parameter(col)
                 return True
             elif col < 8:
                 # Parameter selection (columns 4-7)
@@ -127,20 +132,48 @@ class StepEditMode:
             print(f"Editing parameter: {self.edit_parameter}")
 
     def _handle_step_operation(self, operation_index: int):
-        """Handle step operations like copy, paste, clear."""
+        """Handle step operations: copy, paste, clear, duplicate."""
         operations = ["copy", "paste", "clear", "duplicate"]
-        if 0 <= operation_index < len(operations):
-            operation = operations[operation_index]
-            print(f"Step operation: {operation} on step {self.selected_step + 1}")
-            
-            track = self.sequencer.get_current_track()
-            if track:
-                pattern = track.get_current_pattern()
-                if pattern:
-                    if operation == "clear":
-                        pattern.clear_step(self.selected_step)
-                        print(f"Cleared step {self.selected_step + 1}")
-                    # TODO: Implement copy, paste, duplicate operations
+        if not (0 <= operation_index < len(operations)):
+            return
+
+        operation = operations[operation_index]
+        track = self.sequencer.get_current_track()
+        if not track:
+            return
+
+        pattern = track.get_current_pattern()
+        if not pattern:
+            return
+
+        if operation == "copy":
+            # Copy current step to clipboard
+            step = pattern.get_step(self.selected_step)
+            self.clipboard_step = copy.deepcopy(step)
+            print(f"Copied step {self.selected_step + 1}")
+
+        elif operation == "paste":
+            # Paste clipboard to current step
+            if self.clipboard_step is None:
+                print("Clipboard empty - nothing to paste")
+                return
+            pattern.steps[self.selected_step] = copy.deepcopy(self.clipboard_step)
+            print(f"Pasted to step {self.selected_step + 1}")
+
+        elif operation == "clear":
+            # Clear current step
+            pattern.clear_step(self.selected_step)
+            print(f"Cleared step {self.selected_step + 1}")
+
+        elif operation == "duplicate":
+            # Copy current step to the next step
+            if self.selected_step >= pattern.length - 1:
+                print("Cannot duplicate: already at last step")
+                return
+            next_step = self.selected_step + 1
+            current_step = pattern.get_step(self.selected_step)
+            pattern.steps[next_step] = copy.deepcopy(current_step)
+            print(f"Duplicated step {self.selected_step + 1} to step {next_step + 1}")
 
     def _adjust_step_parameter(self, value_index: int, velocity: int):
         """Adjust the selected parameter for the current step."""
@@ -194,7 +227,7 @@ class StepEditMode:
         track = self.sequencer.get_current_track()
         pattern = track.get_current_pattern() if track else None
         step = pattern.get_step(self.selected_step) if pattern else None
-        
+
         return {
             "selected_step": self.selected_step,
             "selected_track": self.selected_track,
@@ -203,3 +236,10 @@ class StepEditMode:
             "step_has_content": step is not None,
             "step_velocity": step.velocity if step else 0,
         }
+
+    def on_track_changed(self):
+        """Called when track selection changes via SOLO buttons."""
+        self.selected_track = self.sequencer.current_track
+        self._update_mode_state()
+        track = self.sequencer.get_current_track()
+        print(f"Step Edit Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}")

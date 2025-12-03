@@ -63,12 +63,13 @@ class MixerMode:
             return False
 
         elif row == grid.TRACK_PATTERN_ROW:
+            # Track selection now via SOLO buttons
             if col < 4:
-                # Track selection (columns 0-3)
-                self._select_track(col)
+                # Columns 0-3: Track mute toggles (same track indices as SOLO buttons)
+                self._toggle_track_mute(col)
                 return True
             elif col < 8:
-                # Track mute toggles (columns 4-7)
+                # Track mute toggles (columns 4-7 = tracks 1-4)
                 track_idx = col - 4
                 self._toggle_track_mute(track_idx)
                 return True
@@ -192,3 +193,10 @@ class MixerMode:
             "track_muted": getattr(track, 'muted', False) if track else False,
             "track_solo": getattr(track, 'solo', False) if track else False,
         }
+
+    def on_track_changed(self):
+        """Called when track selection changes via SOLO buttons."""
+        self.selected_track = self.sequencer.current_track
+        self._update_mode_state()
+        track = self.sequencer.get_current_track()
+        print(f"Mixer Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}")

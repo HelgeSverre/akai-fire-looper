@@ -184,6 +184,35 @@ class CircuitSequencer:
                 if self.mode_manager.get_current_mode() == Mode.NOTE:
                     self.note_mode.handle_button_press("grid_right")
 
+        # SOLO buttons for track selection (Circuit Tracks style)
+        @self.fire.on_button(self.fire.BUTTON_SOLO_1)
+        def handle_solo_1(event):
+            if event == "press":
+                self.sequencer.set_current_track(0)
+                self._update_track_leds()
+                self._refresh_mode_display()
+
+        @self.fire.on_button(self.fire.BUTTON_SOLO_2)
+        def handle_solo_2(event):
+            if event == "press":
+                self.sequencer.set_current_track(1)
+                self._update_track_leds()
+                self._refresh_mode_display()
+
+        @self.fire.on_button(self.fire.BUTTON_SOLO_3)
+        def handle_solo_3(event):
+            if event == "press":
+                self.sequencer.set_current_track(2)
+                self._update_track_leds()
+                self._refresh_mode_display()
+
+        @self.fire.on_button(self.fire.BUTTON_SOLO_4)
+        def handle_solo_4(event):
+            if event == "press":
+                self.sequencer.set_current_track(3)
+                self._update_track_leds()
+                self._refresh_mode_display()
+
         # Rotary encoders
         @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
         def handle_volume_encoder(direction, velocity):
@@ -266,6 +295,26 @@ class CircuitSequencer:
         else:  # STOPPED
             self.fire.set_button_led(self.fire.BUTTON_STOP, 1)  # Dim red
 
+    def _update_track_leds(self):
+        """Update track LEDs to show selected track."""
+        current_track = self.sequencer.current_track
+        for i in range(4):
+            if i == current_track:
+                self.fire.set_track_led(i + 1, 2)  # Bright for selected
+            else:
+                self.fire.set_track_led(i + 1, 1)  # Dim for others
+
+    def _refresh_mode_display(self):
+        """Refresh the current mode's display after track change."""
+        # Update the current mode handler with new track context
+        current_mode = self.mode_manager.get_current_mode()
+        if current_mode == Mode.NOTE:
+            self.note_mode.on_track_changed()
+        elif current_mode == Mode.MIXER:
+            self.mixer_mode.on_track_changed()
+        elif current_mode == Mode.STEP_EDIT:
+            self.step_edit_mode.on_track_changed()
+
     def _update_display(self, current_step=None):
         """Update screen and grid displays."""
         # Get sequencer status
@@ -303,6 +352,9 @@ class CircuitSequencer:
 
         # Start listening for hardware events
         self.fire.start_listening()
+
+        # Initialize track LEDs (show track 1 as selected)
+        self._update_track_leds()
 
         # Initial display update
         self._update_display()
