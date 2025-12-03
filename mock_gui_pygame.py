@@ -1,6 +1,9 @@
 import pygame
 import math
 import threading
+import signal
+import sys
+import atexit
 from collections import defaultdict
 from typing import Optional, Callable, List, Tuple, Dict
 from PIL import Image, ImageDraw, ImageFont
@@ -321,13 +324,23 @@ class MockAkaiFire:
 
     def __init__(self, port_name: str = "Mock AKAI Fire"):
         """Initialize the mock controller."""
+        # Initialize pygame with proper Mac settings
         pygame.init()
+        pygame.display.init()
 
         # Window setup
         self.width = 1100
         self.height = 500
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("AKAI Fire Controller - Mock")
+
+        # Track if we've been cleaned up
+        self._closed = False
+
+        # Register cleanup handlers
+        atexit.register(self._cleanup_atexit)
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
 
         # Fonts
         self.tiny_font = pygame.font.Font(None, 9)
@@ -497,35 +510,58 @@ class MockAkaiFire:
         )
         self.button_rects[self.BUTTON_REC] = pygame.Rect(base_x + 772, bottom_y, 42, 22)
 
+    def _signal_handler(self, signum, frame):
+        """Handle SIGINT/SIGTERM for clean shutdown."""
+        self.running = False
+
+    def _cleanup_atexit(self):
+        """Cleanup handler for atexit."""
+        if not self._closed:
+            self.close()
+
     def process_events(self):
         """Process events - must be called from main thread."""
-        if not self.running:
+        if not self.running or self._closed:
             return False
 
-        dt = self.clock.tick(60) / 1000.0
+        # Check if pygame is still initialized
+        if not pygame.display.get_init():
+            self.running = False
+            return False
 
-        # Handle pygame events
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-                return False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                self._handle_mouse_down(event)
-            elif event.type == pygame.MOUSEBUTTONUP:
-                self._handle_mouse_up(event)
-            elif event.type == pygame.MOUSEMOTION:
-                self._handle_mouse_motion(event)
+        try:
+            dt = self.clock.tick(60) / 1000.0
 
-        # Process queued updates
-        with self.queue_lock:
-            for func in self.event_queue:
-                func()
-            self.event_queue.clear()
+            # Pump events to prevent "not responding" on Mac
+            pygame.event.pump()
 
-        # Draw
-        self._draw()
+            # Handle pygame events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    return False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    self._handle_mouse_down(event)
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    self._handle_mouse_up(event)
+                elif event.type == pygame.MOUSEMOTION:
+                    self._handle_mouse_motion(event)
 
-        return True
+            # Process queued updates
+            with self.queue_lock:
+                for func in self.event_queue:
+                    func()
+                self.event_queue.clear()
+
+            # Draw
+            self._draw()
+
+            return True
+
+        except pygame.error:
+            # Pygame was quit externally
+            self.running = False
+            return False
 
     def _handle_mouse_down(self, event):
         """Handle mouse button down."""
@@ -585,6 +621,9 @@ class MockAkaiFire:
 
     def _draw(self):
         """Draw the interface."""
+        if self._closed or not pygame.display.get_init():
+            return
+
         self.screen.fill(self.bg_color)
 
         # Main panel
@@ -942,9 +981,26 @@ class MockAkaiFire:
         self.render_to_display()
 
     def close(self):
-        """Close mock."""
+        """Close mock - safe to call multiple times."""
+        if self._closed:
+            return
+
+        self._closed = True
         self.running = False
-        pygame.quit()
+
+        try:
+            # Unregister atexit handler to prevent double cleanup
+            atexit.unregister(self._cleanup_atexit)
+        except Exception:
+            pass
+
+        try:
+            if pygame.display.get_init():
+                pygame.display.quit()
+            if pygame.get_init():
+                pygame.quit()
+        except Exception:
+            pass
 
     def start_listening(self):
         """Start listening (no-op)."""

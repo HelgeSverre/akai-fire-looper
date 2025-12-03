@@ -36,7 +36,12 @@ from akai_fire_framework import (
     TransportMixin,
     TransportState,
 )
-from .clip import Clip, ClipState, ClipGrid
+
+# Handle both direct execution and module import
+try:
+    from .clip import Clip, ClipState, ClipGrid
+except ImportError:
+    from clip import Clip, ClipState, ClipGrid
 
 
 class Mode(Enum):
