@@ -324,8 +324,8 @@ class MockAkaiFire:
         pygame.init()
 
         # Window setup
-        self.width = 900
-        self.height = 350
+        self.width = 1100
+        self.height = 500
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("AKAI Fire Controller - Mock")
 
@@ -385,10 +385,11 @@ class MockAkaiFire:
         base_y = 30
 
         # Create pads (4x16 grid)
+        # Grid is 16 cols × 4 rows, each pad 32px + 2px gap = 544px wide, 136px tall
         pad_size = 32
         pad_gap = 2
-        pad_start_x = base_x + 180
-        pad_start_y = base_y + 100
+        pad_start_x = base_x + 230  # Moved right to make room for SOLO buttons
+        pad_start_y = base_y + 170  # Moved down to make room for OLED above
 
         for row in range(4):
             for col in range(16):
@@ -397,104 +398,104 @@ class MockAkaiFire:
                 rect = pygame.Rect(x, y, pad_size, pad_size)
                 self.pad_rects.append(rect)
 
-        # Rotary encoders (top row)
-        rotary_y = base_y + 30
+        # Rotary encoders (top row, left of OLED)
+        rotary_y = base_y + 50
         self.rotary_data = {
             self.ROTARY_VOLUME: {
-                "pos": (base_x + 190, rotary_y),
+                "pos": (base_x + 80, rotary_y),
                 "value": 64,
                 "name": "VOLUME",
             },
             self.ROTARY_PAN: {
-                "pos": (base_x + 280, rotary_y),
+                "pos": (base_x + 160, rotary_y),
                 "value": 64,
                 "name": "PAN",
             },
             self.ROTARY_FILTER: {
-                "pos": (base_x + 370, rotary_y),
+                "pos": (base_x + 240, rotary_y),
                 "value": 64,
                 "name": "FILTER",
             },
             self.ROTARY_RESONANCE: {
-                "pos": (base_x + 460, rotary_y),
+                "pos": (base_x + 320, rotary_y),
                 "value": 64,
                 "name": "RESONANCE",
             },
             self.ROTARY_SELECT: {
-                "pos": (base_x + 750, base_y + 140),
+                "pos": (base_x + 950, base_y + 200),
                 "value": 64,
                 "name": "SELECT",
             },
         }
 
         # Buttons
-        # Left side - control bank
+        # Left side - control bank (above SOLO buttons)
         self.button_rects[self.BUTTON_BANK] = pygame.Rect(
-            base_x + 20, base_y + 120, 35, 18
+            base_x + 20, base_y + 130, 35, 18
         )
         self.button_rects[self.BUTTON_SELECT] = pygame.Rect(
-            base_x + 60, base_y + 120, 40, 18
+            base_x + 60, base_y + 130, 40, 18
         )
 
-        # Left side - mute/solo
+        # Left side - mute/solo (next to pad grid)
         for i in range(4):
             self.button_rects[self.BUTTON_SOLO_1 + i] = pygame.Rect(
-                base_x + 140, base_y + 100 + i * 36, 22, 22
+                base_x + 190, base_y + 170 + i * 36, 22, 22
             )
 
-        # Top right - pattern controls
+        # Right side - pattern controls (below OLED, right of grid)
         self.button_rects[self.BUTTON_PAT_UP] = pygame.Rect(
-            base_x + 630, base_y + 10, 25, 18
+            base_x + 830, base_y + 170, 30, 22
         )
         self.button_rects[self.BUTTON_PAT_DOWN] = pygame.Rect(
-            base_x + 630, base_y + 32, 25, 18
+            base_x + 830, base_y + 196, 30, 22
         )
         self.button_rects[self.BUTTON_PATTERN] = pygame.Rect(
-            base_x + 660, base_y + 10, 50, 40
+            base_x + 865, base_y + 170, 55, 48
         )
 
-        # Browser
+        # Browser (right side, below pattern)
         self.button_rects[self.BUTTON_BROWSER] = pygame.Rect(
-            base_x + 720, base_y + 10, 50, 25
+            base_x + 830, base_y + 230, 90, 25
         )
 
-        # Grid navigation
+        # Grid navigation (right side, below browser)
         self.button_rects[self.BUTTON_GRID_LEFT] = pygame.Rect(
-            base_x + 700, base_y + 140, 30, 20
+            base_x + 830, base_y + 265, 40, 22
         )
         self.button_rects[self.BUTTON_GRID_RIGHT] = pygame.Rect(
-            base_x + 770, base_y + 140, 30, 20
+            base_x + 880, base_y + 265, 40, 22
         )
 
-        # Bottom row - mode buttons
-        bottom_y = base_y + 250
+        # Bottom row - mode buttons (below pad grid)
+        bottom_y = base_y + 330
         self.button_rects[self.BUTTON_STEP] = pygame.Rect(
-            base_x + 180, bottom_y, 38, 20
+            base_x + 230, bottom_y, 42, 22
         )
         self.button_rects[self.BUTTON_NOTE] = pygame.Rect(
-            base_x + 222, bottom_y, 38, 20
+            base_x + 276, bottom_y, 42, 22
         )
         self.button_rects[self.BUTTON_DRUM] = pygame.Rect(
-            base_x + 264, bottom_y, 38, 20
+            base_x + 322, bottom_y, 42, 22
         )
         self.button_rects[self.BUTTON_PERFORM] = pygame.Rect(
-            base_x + 306, bottom_y, 48, 20
+            base_x + 368, bottom_y, 55, 22
         )
 
-        # Shift/Alt
+        # Shift/Alt (center-right of mode buttons)
         self.button_rects[self.BUTTON_SHIFT] = pygame.Rect(
-            base_x + 420, bottom_y, 38, 20
+            base_x + 500, bottom_y, 42, 22
         )
-        self.button_rects[self.BUTTON_ALT] = pygame.Rect(base_x + 462, bottom_y, 30, 20)
+        self.button_rects[self.BUTTON_ALT] = pygame.Rect(base_x + 546, bottom_y, 35, 22)
 
-        # Transport
+        # Transport (right side of bottom row)
         self.button_rects[self.BUTTON_PLAY] = pygame.Rect(
-            base_x + 650, bottom_y, 38, 20
+            base_x + 680, bottom_y, 42, 22
         )
         self.button_rects[self.BUTTON_STOP] = pygame.Rect(
-            base_x + 692, bottom_y, 38, 20
+            base_x + 726, bottom_y, 42, 22
         )
-        self.button_rects[self.BUTTON_REC] = pygame.Rect(base_x + 734, bottom_y, 38, 20)
+        self.button_rects[self.BUTTON_REC] = pygame.Rect(base_x + 772, bottom_y, 42, 22)
 
     def process_events(self):
         """Process events - must be called from main thread."""
@@ -593,11 +594,11 @@ class MockAkaiFire:
         base_x = 50
         base_y = 30
 
-        # Draw control bank section
+        # Draw control bank section (left side, above SOLO buttons)
         self._draw_control_bank(base_x + 20, base_y + 40)
 
-        # Draw mute/solo section
-        self._draw_mute_solo(base_x + 110, base_y + 85)
+        # Draw mute/solo section (left of pad grid)
+        self._draw_mute_solo(base_x + 155, base_y + 155)
 
         # Draw pads
         for i, rect in enumerate(self.pad_rects):
@@ -638,8 +639,11 @@ class MockAkaiFire:
             text_rect = text.get_rect(center=(x, y + radius + 10))
             self.screen.blit(text, text_rect)
 
-        # Draw OLED
-        self._draw_oled(base_x + 540, base_y + 20)
+        # Draw OLED (centered above pad grid, 2x scale)
+        # OLED is 256x128 (2x scaled), pad grid starts at base_x + 230
+        # Center OLED over pad grid: pad grid is 544px wide, OLED is 256px
+        # (544 - 256) / 2 = 144, so OLED x = base_x + 230 + 144 = base_x + 374
+        self._draw_oled(base_x + 374, base_y + 10)
 
         # Draw buttons
         button_labels = {
@@ -700,14 +704,14 @@ class MockAkaiFire:
         grid_rect = grid_text.get_rect(center=(grid_x, grid_y))
         self.screen.blit(grid_text, grid_rect)
 
-        # Branding
+        # Branding (bottom right area)
         akai_text = self.medium_font.render("AKAI", True, (200, 200, 200))
         pro_text = self.tiny_font.render("PROFESSIONAL", True, (120, 120, 120))
-        self.screen.blit(akai_text, (base_x + 540, base_y + 250))
-        self.screen.blit(pro_text, (base_x + 540, base_y + 262))
+        self.screen.blit(akai_text, (base_x + 830, base_y + 320))
+        self.screen.blit(pro_text, (base_x + 830, base_y + 332))
 
         fire_text = self.medium_font.render("FIRE", True, (200, 200, 200))
-        self.screen.blit(fire_text, (base_x + 780, base_y + 10))
+        self.screen.blit(fire_text, (base_x + 980, base_y + 10))
 
         pygame.display.flip()
 
@@ -773,26 +777,26 @@ class MockAkaiFire:
             self.screen.blit(text, text_rect)
 
     def _draw_oled(self, x, y):
-        """Draw OLED display."""
+        """Draw OLED display (2x scaled: 256x128)."""
         # Convert canvas to pygame
         pil_image = self.canvas.image.convert("RGB")
         raw_str = pil_image.tobytes("raw", "RGB")
         pygame_image = pygame.image.fromstring(raw_str, (128, 64), "RGB")
 
-        # Scale
-        scaled = pygame.transform.scale(pygame_image, (160, 80))
+        # Scale 2x (256x128)
+        scaled = pygame.transform.scale(pygame_image, (256, 128))
 
         # Apply contrast
-        for py in range(80):
-            for px in range(160):
+        for py in range(128):
+            for px in range(256):
                 color = scaled.get_at((px, py))
                 if color[0] > 128:
                     scaled.set_at((px, py), (0, 0, 0))
                 else:
                     scaled.set_at((px, py), (180, 180, 180))
 
-        # Frame
-        frame_rect = pygame.Rect(x - 3, y - 3, 166, 86)
+        # Frame (256x128 + 6px border)
+        frame_rect = pygame.Rect(x - 3, y - 3, 262, 134)
         pygame.draw.rect(self.screen, (25, 25, 25), frame_rect, border_radius=2)
         pygame.draw.rect(
             self.screen, (60, 60, 60), frame_rect, width=1, border_radius=2
