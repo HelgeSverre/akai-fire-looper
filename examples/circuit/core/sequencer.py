@@ -52,10 +52,14 @@ class Sequencer:
         self.pattern_chain_step_counts = [0] * 4  # Steps played in current pattern
 
         # Per-track step positions (for play_order and start/end point support)
-        self.track_step_positions = [0] * 4  # Current step within pattern for each track
+        self.track_step_positions = [
+            0
+        ] * 4  # Current step within pattern for each track
 
         # Queue system for beat-synced switching
-        self.queued_scene: Optional[int] = None  # Scene to switch to at pattern boundary
+        self.queued_scene: Optional[int] = (
+            None  # Scene to switch to at pattern boundary
+        )
         self.queued_patterns: Dict[int, int] = {}  # track_index -> pattern_index
 
         # Note scheduling for precise timing
@@ -210,7 +214,9 @@ class Sequencer:
                     step_data = current_pattern.get_step(pattern_step)
 
                     if step_data.has_notes():
-                        self._play_step(track, track_idx, step_data, current_pattern, step)
+                        self._play_step(
+                            track, track_idx, step_data, current_pattern, step
+                        )
 
                     # Advance to next step using pattern's play_order
                     next_step = current_pattern.get_next_step(pattern_step)
@@ -279,7 +285,9 @@ class Sequencer:
                             next_pattern_idx = track.pattern_chain[next_chain_pos]
                             next_pattern = track.get_pattern(next_pattern_idx)
                             next_pattern.reset_ping_pong()
-                            self.track_step_positions[track_idx] = next_pattern.get_first_step()
+                            self.track_step_positions[track_idx] = (
+                                next_pattern.get_first_step()
+                            )
 
     def _process_queued_changes(self):
         """Process queued scene and pattern changes at pattern boundary."""
@@ -311,11 +319,15 @@ class Sequencer:
                         track.set_current_pattern(pattern_idx)
                         # Clear chain when switching individual pattern
                         track.pattern_chain = []
-                        print(f"Applied queued pattern {pattern_idx + 1} to track {track_idx + 1}")
+                        print(
+                            f"Applied queued pattern {pattern_idx + 1} to track {track_idx + 1}"
+                        )
 
             self.queued_patterns.clear()
 
-    def _play_step(self, track: Track, track_idx: int, step, pattern: Pattern, global_step: int):
+    def _play_step(
+        self, track: Track, track_idx: int, step, pattern: Pattern, global_step: int
+    ):
         """Play a single step from a track."""
         # Check probability
         if step.probability < 1.0:
@@ -325,11 +337,15 @@ class Sequencer:
                 return  # Skip this step due to probability
 
         # Calculate base step duration with sync_rate modifier
-        base_step_duration = self.timing.step_duration * pattern.sync_rate.get_multiplier()
+        base_step_duration = (
+            self.timing.step_duration * pattern.sync_rate.get_multiplier()
+        )
 
         # Calculate timing with micro-timing and swing
         base_time = time.time()
-        micro_offset = (step.micro_timing / 6.0) * (base_step_duration * 0.1)  # +/- 10% of step
+        micro_offset = (step.micro_timing / 6.0) * (
+            base_step_duration * 0.1
+        )  # +/- 10% of step
         play_time = base_time + micro_offset
 
         # Play all notes in the step
@@ -433,7 +449,9 @@ class Sequencer:
         else:
             # Queue for next pattern boundary
             self.queued_scene = scene_index
-            print(f"Queued scene {scene_index + 1} (will apply at next pattern boundary)")
+            print(
+                f"Queued scene {scene_index + 1} (will apply at next pattern boundary)"
+            )
 
     def queue_pattern(self, track_index: int, pattern_index: int):
         """Queue a pattern change for a track at next pattern boundary.

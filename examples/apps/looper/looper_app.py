@@ -25,7 +25,12 @@ import os
 from enum import Enum, auto
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+sys.path.insert(
+    0,
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ),
+)
 
 from akai_fire_framework import (
     AkaiFireApp,
@@ -46,6 +51,7 @@ except ImportError:
 
 class Mode(Enum):
     """Looper modes."""
+
     MAIN = auto()
     SETTINGS = auto()
 
@@ -157,10 +163,10 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
 
     # Track colors for visual feedback
     TRACK_COLORS = [
-        (127, 0, 0),      # Track 1: Red
-        (0, 127, 0),      # Track 2: Green
-        (0, 0, 127),      # Track 3: Blue
-        (127, 127, 0),    # Track 4: Yellow
+        (127, 0, 0),  # Track 1: Red
+        (0, 127, 0),  # Track 2: Green
+        (0, 0, 127),  # Track 3: Blue
+        (127, 127, 0),  # Track 4: Yellow
     ]
 
     def on_init(self):
@@ -209,6 +215,7 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
         ]
 
         for idx, btn in enumerate(solo_buttons):
+
             @self.fire.on_button(btn)
             def handle_solo(event, track=idx):
                 if event == "press":
@@ -279,7 +286,9 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
             # Toggle global record state
             self.toggle_record()
 
-    def _on_transport_change(self, new_state: TransportState, old_state: TransportState):
+    def _on_transport_change(
+        self, new_state: TransportState, old_state: TransportState
+    ):
         """Handle transport state changes."""
         if new_state == TransportState.STOPPED:
             # Stop all clips
@@ -346,9 +355,9 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
                 f"Events: {info['events']}",
             ]
 
-            if info['clip_state'] == "EMPTY":
+            if info["clip_state"] == "EMPTY":
                 lines.append("Press pad to arm")
-            elif info['clip_state'] == "ARMED":
+            elif info["clip_state"] == "ARMED":
                 lines.append("Press REC to record")
 
             self.draw_content_lines(lines)

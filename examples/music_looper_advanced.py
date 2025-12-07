@@ -449,7 +449,9 @@ class MidiLooper:
         # Update selected clip
         self.selected_clip = (track, loop)
         loop_obj = self.tracks[track].loops[loop]
-        print(f"✅ SELECTED CLIP: track={track}, loop={loop}, state={loop_obj.state.name}")
+        print(
+            f"✅ SELECTED CLIP: track={track}, loop={loop}, state={loop_obj.state.name}"
+        )
 
         # Handle recording state changes
         if (
@@ -689,9 +691,9 @@ class MidiLooper:
                     # If global timing not initialized, pass through to output instead
                     else:
                         status = midi_data[0] & 0xF0
-                        new_message = [status | self.selected_midi_output_channel] + list(
-                            midi_data[1:]
-                        )
+                        new_message = [
+                            status | self.selected_midi_output_channel
+                        ] + list(midi_data[1:])
                         self.midi_out.send_message(new_message)
                 else:
                     # Redirect to selected output channel
@@ -836,12 +838,14 @@ class MidiLooper:
         # Draw transport status
         status = "REC" if self.is_recording else "PLAY" if self.is_playing else "STOP"
         self.canvas.draw_text(f"Bar: {self.current_bar + 1}  {status}", 64, 2, color=1)
-        
+
         # Debug info: show last pressed pad
         if self.last_pressed_pad is not None:
             debug_track = self.last_pressed_pad // 16
             debug_loop = self.last_pressed_pad % 16
-            debug_text = f"Debug: Pad {self.last_pressed_pad} -> T{debug_track}L{debug_loop}"
+            debug_text = (
+                f"Debug: Pad {self.last_pressed_pad} -> T{debug_track}L{debug_loop}"
+            )
             self.canvas.draw_text(debug_text, 2, 50, color=1)
 
         # Current state info
@@ -884,9 +888,11 @@ class MidiLooper:
                     and self.recording.track == track_idx
                     and self.recording.loop == loop_idx
                 )
-                
+
                 if is_recording_clip:
-                    print(f"🔴 LIGHTING PAD: pad_idx={pad_idx} (track={track_idx}, loop={loop_idx}) state={self.recording.state.name}")
+                    print(
+                        f"🔴 LIGHTING PAD: pad_idx={pad_idx} (track={track_idx}, loop={loop_idx}) state={self.recording.state.name}"
+                    )
 
                 if is_recording_clip:
                     if self.recording.state == RecordingState.ARMED:

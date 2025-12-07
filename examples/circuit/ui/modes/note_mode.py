@@ -39,33 +39,33 @@ class NoteMode:
         # Register mode callbacks
         self.mode_manager.register_mode_callback(Mode.NOTE, "on_enter", self._on_enter)
         self.mode_manager.register_mode_callback(Mode.NOTE, "on_exit", self._on_exit)
-        
+
         # Register this instance as the Note Mode handler
         self.mode_manager.register_mode_handler(Mode.NOTE, self)
-        
+
     @property
     def selected_track(self):
         """Get current track index from sequencer (single source of truth)."""
         return self.sequencer.current_track
-    
-    @property  
+
+    @property
     def selected_pattern(self):
         """Get current pattern index from current track."""
         track = self.sequencer.get_current_track()
         return track.current_pattern if track else 0
-        
+
     @property
     def current_scale(self):
         """Get current scale from current track."""
         track = self.sequencer.get_current_track()
         return track.scale if track else "MAJOR"
-        
+
     @property
     def root_note(self):
         """Get root note from current track."""
         track = self.sequencer.get_current_track()
         return track.root_note if track else 60
-        
+
     @property
     def octave_offset(self):
         """Get octave offset from current track."""
@@ -140,12 +140,14 @@ class NoteMode:
         if 0 <= track_index < len(self.sequencer.tracks):
             # Set track in sequencer (single source of truth)
             self.sequencer.set_current_track(track_index)
-            
+
             # Update mode state (properties will get updated values)
             self._update_mode_state()
-            
+
             track = self.sequencer.get_current_track()
-            print(f"Selected track {track_index + 1}: {track.name if track else 'Unknown'}")
+            print(
+                f"Selected track {track_index + 1}: {track.name if track else 'Unknown'}"
+            )
 
     def _select_pattern(self, pattern_index: int):
         """Select a different pattern for the current track."""
@@ -154,7 +156,7 @@ class NoteMode:
             track = self.sequencer.get_current_track()
             if track:
                 track.set_current_pattern(pattern_index)
-                
+
                 self._update_mode_state()
                 print(
                     f"Selected pattern {pattern_index + 1} for track {self.selected_track + 1}"
@@ -267,7 +269,7 @@ class NoteMode:
                     self._next_quantization()
                 else:  # counterclockwise
                     self._prev_quantization()
-                    
+
         except Exception as e:
             print(f"Error in encoder handling ({encoder}, {direction}): {e}")
 
@@ -369,7 +371,9 @@ class NoteMode:
                     track.root_note = root_note
 
                 self._update_mode_state()
-                print(f"Scale changed to: {get_note_name(track.root_note)} {scale_name}")
+                print(
+                    f"Scale changed to: {get_note_name(track.root_note)} {scale_name}"
+                )
         else:
             print(f"Unknown scale: {scale_name}")
 
@@ -393,4 +397,6 @@ class NoteMode:
         # Update mode state to reflect new track
         self._update_mode_state()
         track = self.sequencer.get_current_track()
-        print(f"Note Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}")
+        print(
+            f"Note Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}"
+        )

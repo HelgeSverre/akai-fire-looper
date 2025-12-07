@@ -26,6 +26,7 @@ class MidiMessage:
         value: Velocity or CC value
         timestamp: When the message was recorded
     """
+
     type: str
     channel: int
     note_or_cc: int
@@ -34,7 +35,9 @@ class MidiMessage:
 
     def __repr__(self):
         if self.type == "note_on":
-            return f"NoteOn(ch={self.channel}, note={self.note_or_cc}, vel={self.value})"
+            return (
+                f"NoteOn(ch={self.channel}, note={self.note_or_cc}, vel={self.value})"
+            )
         elif self.type == "note_off":
             return f"NoteOff(ch={self.channel}, note={self.note_or_cc})"
         elif self.type == "cc":
@@ -229,7 +232,9 @@ class MockMidiManager:
             if msg.type == "note_off" and (channel is None or msg.channel == channel)
         ]
 
-    def get_cc_values(self, channel: Optional[int] = None, cc: Optional[int] = None) -> List[Tuple[int, int]]:
+    def get_cc_values(
+        self, channel: Optional[int] = None, cc: Optional[int] = None
+    ) -> List[Tuple[int, int]]:
         """
         Get CC messages as (cc_number, value) tuples.
 
@@ -293,10 +298,12 @@ class MockMidiManager:
             AssertionError: If matching note_on not found
         """
         for msg in self.messages:
-            if (msg.type == "note_on" and
-                msg.channel == channel and
-                msg.note_or_cc == note and
-                msg.value == velocity):
+            if (
+                msg.type == "note_on"
+                and msg.channel == channel
+                and msg.note_or_cc == note
+                and msg.value == velocity
+            ):
                 return
         raise AssertionError(
             f"Expected note_on(ch={channel}, note={note}, vel={velocity}) not found. "
@@ -315,9 +322,11 @@ class MockMidiManager:
             AssertionError: If matching note_off not found
         """
         for msg in self.messages:
-            if (msg.type == "note_off" and
-                msg.channel == channel and
-                msg.note_or_cc == note):
+            if (
+                msg.type == "note_off"
+                and msg.channel == channel
+                and msg.note_or_cc == note
+            ):
                 return
         raise AssertionError(
             f"Expected note_off(ch={channel}, note={note}) not found. "
@@ -337,10 +346,12 @@ class MockMidiManager:
             AssertionError: If matching CC not found
         """
         for msg in self.messages:
-            if (msg.type == "cc" and
-                msg.channel == channel and
-                msg.note_or_cc == cc and
-                msg.value == value):
+            if (
+                msg.type == "cc"
+                and msg.channel == channel
+                and msg.note_or_cc == cc
+                and msg.value == value
+            ):
                 return
         raise AssertionError(
             f"Expected cc(ch={channel}, cc={cc}, val={value}) not found. "
@@ -370,7 +381,9 @@ class MockMidiManager:
         actual = len(self.messages)
         assert actual == expected, f"Expected {expected} messages, got {actual}"
 
-    def assert_note_sequence(self, expected: List[Tuple[int, int]], channel: Optional[int] = None):
+    def assert_note_sequence(
+        self, expected: List[Tuple[int, int]], channel: Optional[int] = None
+    ):
         """
         Assert a specific sequence of notes was played.
 

@@ -25,6 +25,7 @@ from core.timing import QuantizationMode
 @dataclass
 class TrackSettings:
     """Settings for a single track."""
+
     midi_channel: int = 1
     midi_port: str = ""
     scale: str = "MAJOR"
@@ -34,19 +35,43 @@ class TrackSettings:
 @dataclass
 class GlobalSettings:
     """Global sequencer settings."""
+
     bpm: float = 120.0
     swing: float = 0.0  # 0.0-0.75
     quantization: str = "1/16"
-    track_settings: List[Dict] = field(default_factory=lambda: [
-        {"midi_channel": 10, "midi_port": "", "scale": "MAJOR", "root_note": 60},  # Drums
-        {"midi_channel": 1, "midi_port": "", "scale": "MAJOR", "root_note": 60},   # Bass
-        {"midi_channel": 2, "midi_port": "", "scale": "MAJOR", "root_note": 60},   # Lead
-        {"midi_channel": 3, "midi_port": "", "scale": "MAJOR", "root_note": 60},   # Pad
-    ])
+    track_settings: List[Dict] = field(
+        default_factory=lambda: [
+            {
+                "midi_channel": 10,
+                "midi_port": "",
+                "scale": "MAJOR",
+                "root_note": 60,
+            },  # Drums
+            {
+                "midi_channel": 1,
+                "midi_port": "",
+                "scale": "MAJOR",
+                "root_note": 60,
+            },  # Bass
+            {
+                "midi_channel": 2,
+                "midi_port": "",
+                "scale": "MAJOR",
+                "root_note": 60,
+            },  # Lead
+            {
+                "midi_channel": 3,
+                "midi_port": "",
+                "scale": "MAJOR",
+                "root_note": 60,
+            },  # Pad
+        ]
+    )
 
 
 class SettingsCategory(Enum):
     """Settings menu categories."""
+
     GLOBAL = "Global"
     TRACK_1 = "Track 1"
     TRACK_2 = "Track 2"
@@ -83,8 +108,12 @@ class SettingsMode:
         self.settings_path = self.DEFAULT_SETTINGS_PATH
 
         # Register mode callbacks
-        self.mode_manager.register_mode_callback(Mode.SETTINGS, "on_enter", self._on_enter)
-        self.mode_manager.register_mode_callback(Mode.SETTINGS, "on_exit", self._on_exit)
+        self.mode_manager.register_mode_callback(
+            Mode.SETTINGS, "on_enter", self._on_enter
+        )
+        self.mode_manager.register_mode_callback(
+            Mode.SETTINGS, "on_exit", self._on_exit
+        )
 
         # Register this instance as the Settings Mode handler
         self.mode_manager.register_mode_handler(Mode.SETTINGS, self)
@@ -93,64 +122,124 @@ class SettingsMode:
         """Build the settings menu structure."""
         return [
             # Global settings
-            {"name": "BPM", "type": "value", "category": SettingsCategory.GLOBAL,
-             "get": lambda: self.sequencer.get_bpm(),
-             "set": lambda v: self.sequencer.set_bpm(v),
-             "min": 30, "max": 300, "step": 1},
-            {"name": "Swing", "type": "value", "category": SettingsCategory.GLOBAL,
-             "get": lambda: int(self.sequencer.get_swing() * 100),
-             "set": lambda v: self.sequencer.set_swing(v / 100.0),
-             "min": 0, "max": 75, "step": 5, "suffix": "%"},
-            {"name": "Quantization", "type": "options", "category": SettingsCategory.GLOBAL,
-             "options": ["Off", "1/4", "1/8", "1/16", "1/32"],
-             "get": lambda: self._get_quantization_index(),
-             "set": lambda v: self._set_quantization_index(v)},
-
+            {
+                "name": "BPM",
+                "type": "value",
+                "category": SettingsCategory.GLOBAL,
+                "get": lambda: self.sequencer.get_bpm(),
+                "set": lambda v: self.sequencer.set_bpm(v),
+                "min": 30,
+                "max": 300,
+                "step": 1,
+            },
+            {
+                "name": "Swing",
+                "type": "value",
+                "category": SettingsCategory.GLOBAL,
+                "get": lambda: int(self.sequencer.get_swing() * 100),
+                "set": lambda v: self.sequencer.set_swing(v / 100.0),
+                "min": 0,
+                "max": 75,
+                "step": 5,
+                "suffix": "%",
+            },
+            {
+                "name": "Quantization",
+                "type": "options",
+                "category": SettingsCategory.GLOBAL,
+                "options": ["Off", "1/4", "1/8", "1/16", "1/32"],
+                "get": lambda: self._get_quantization_index(),
+                "set": lambda v: self._set_quantization_index(v),
+            },
             # Track 1 settings
-            {"name": "T1 MIDI Ch", "type": "value", "category": SettingsCategory.TRACK_1,
-             "get": lambda: self.sequencer.tracks[0].midi_channel,
-             "set": lambda v: self._set_track_midi_channel(0, v),
-             "min": 1, "max": 16, "step": 1},
-            {"name": "T1 Scale", "type": "options", "category": SettingsCategory.TRACK_1,
-             "options": ["MAJOR", "MINOR", "DORIAN", "MIXOLYDIAN", "CHROMATIC"],
-             "get": lambda: self._get_track_scale_index(0),
-             "set": lambda v: self._set_track_scale_index(0, v)},
-
+            {
+                "name": "T1 MIDI Ch",
+                "type": "value",
+                "category": SettingsCategory.TRACK_1,
+                "get": lambda: self.sequencer.tracks[0].midi_channel,
+                "set": lambda v: self._set_track_midi_channel(0, v),
+                "min": 1,
+                "max": 16,
+                "step": 1,
+            },
+            {
+                "name": "T1 Scale",
+                "type": "options",
+                "category": SettingsCategory.TRACK_1,
+                "options": ["MAJOR", "MINOR", "DORIAN", "MIXOLYDIAN", "CHROMATIC"],
+                "get": lambda: self._get_track_scale_index(0),
+                "set": lambda v: self._set_track_scale_index(0, v),
+            },
             # Track 2 settings
-            {"name": "T2 MIDI Ch", "type": "value", "category": SettingsCategory.TRACK_2,
-             "get": lambda: self.sequencer.tracks[1].midi_channel,
-             "set": lambda v: self._set_track_midi_channel(1, v),
-             "min": 1, "max": 16, "step": 1},
-            {"name": "T2 Scale", "type": "options", "category": SettingsCategory.TRACK_2,
-             "options": ["MAJOR", "MINOR", "DORIAN", "MIXOLYDIAN", "CHROMATIC"],
-             "get": lambda: self._get_track_scale_index(1),
-             "set": lambda v: self._set_track_scale_index(1, v)},
-
+            {
+                "name": "T2 MIDI Ch",
+                "type": "value",
+                "category": SettingsCategory.TRACK_2,
+                "get": lambda: self.sequencer.tracks[1].midi_channel,
+                "set": lambda v: self._set_track_midi_channel(1, v),
+                "min": 1,
+                "max": 16,
+                "step": 1,
+            },
+            {
+                "name": "T2 Scale",
+                "type": "options",
+                "category": SettingsCategory.TRACK_2,
+                "options": ["MAJOR", "MINOR", "DORIAN", "MIXOLYDIAN", "CHROMATIC"],
+                "get": lambda: self._get_track_scale_index(1),
+                "set": lambda v: self._set_track_scale_index(1, v),
+            },
             # Track 3 settings
-            {"name": "T3 MIDI Ch", "type": "value", "category": SettingsCategory.TRACK_3,
-             "get": lambda: self.sequencer.tracks[2].midi_channel,
-             "set": lambda v: self._set_track_midi_channel(2, v),
-             "min": 1, "max": 16, "step": 1},
-            {"name": "T3 Scale", "type": "options", "category": SettingsCategory.TRACK_3,
-             "options": ["MAJOR", "MINOR", "DORIAN", "MIXOLYDIAN", "CHROMATIC"],
-             "get": lambda: self._get_track_scale_index(2),
-             "set": lambda v: self._set_track_scale_index(2, v)},
-
+            {
+                "name": "T3 MIDI Ch",
+                "type": "value",
+                "category": SettingsCategory.TRACK_3,
+                "get": lambda: self.sequencer.tracks[2].midi_channel,
+                "set": lambda v: self._set_track_midi_channel(2, v),
+                "min": 1,
+                "max": 16,
+                "step": 1,
+            },
+            {
+                "name": "T3 Scale",
+                "type": "options",
+                "category": SettingsCategory.TRACK_3,
+                "options": ["MAJOR", "MINOR", "DORIAN", "MIXOLYDIAN", "CHROMATIC"],
+                "get": lambda: self._get_track_scale_index(2),
+                "set": lambda v: self._set_track_scale_index(2, v),
+            },
             # Track 4 settings
-            {"name": "T4 MIDI Ch", "type": "value", "category": SettingsCategory.TRACK_4,
-             "get": lambda: self.sequencer.tracks[3].midi_channel,
-             "set": lambda v: self._set_track_midi_channel(3, v),
-             "min": 1, "max": 16, "step": 1},
-            {"name": "T4 Scale", "type": "options", "category": SettingsCategory.TRACK_4,
-             "options": ["MAJOR", "MINOR", "DORIAN", "MIXOLYDIAN", "CHROMATIC"],
-             "get": lambda: self._get_track_scale_index(3),
-             "set": lambda v: self._set_track_scale_index(3, v)},
-
+            {
+                "name": "T4 MIDI Ch",
+                "type": "value",
+                "category": SettingsCategory.TRACK_4,
+                "get": lambda: self.sequencer.tracks[3].midi_channel,
+                "set": lambda v: self._set_track_midi_channel(3, v),
+                "min": 1,
+                "max": 16,
+                "step": 1,
+            },
+            {
+                "name": "T4 Scale",
+                "type": "options",
+                "category": SettingsCategory.TRACK_4,
+                "options": ["MAJOR", "MINOR", "DORIAN", "MIXOLYDIAN", "CHROMATIC"],
+                "get": lambda: self._get_track_scale_index(3),
+                "set": lambda v: self._set_track_scale_index(3, v),
+            },
             # File operations
-            {"name": "Save Settings", "type": "action", "category": SettingsCategory.FILE,
-             "action": self.save_settings},
-            {"name": "Load Settings", "type": "action", "category": SettingsCategory.FILE,
-             "action": self.load_settings},
+            {
+                "name": "Save Settings",
+                "type": "action",
+                "category": SettingsCategory.FILE,
+                "action": self.save_settings,
+            },
+            {
+                "name": "Load Settings",
+                "type": "action",
+                "category": SettingsCategory.FILE,
+                "action": self.load_settings,
+            },
         ]
 
     def _on_enter(self, previous_mode: Mode):
@@ -182,10 +271,16 @@ class SettingsMode:
             else:
                 display_items.append(item["name"])
 
-        self.mode_manager.set_mode_state(Mode.SETTINGS, "selected_item", self.selected_item)
-        self.mode_manager.set_mode_state(Mode.SETTINGS, "editing_value", self.editing_value)
+        self.mode_manager.set_mode_state(
+            Mode.SETTINGS, "selected_item", self.selected_item
+        )
+        self.mode_manager.set_mode_state(
+            Mode.SETTINGS, "editing_value", self.editing_value
+        )
         self.mode_manager.set_mode_state(Mode.SETTINGS, "menu_items", display_items)
-        self.mode_manager.set_mode_state(Mode.SETTINGS, "selected_index", self.selected_item)
+        self.mode_manager.set_mode_state(
+            Mode.SETTINGS, "selected_index", self.selected_item
+        )
 
     def handle_pad_press(self, pad_index: int, velocity: int) -> bool:
         """Handle pad press in Settings Mode."""
@@ -268,7 +363,9 @@ class SettingsMode:
                 if item["type"] == "value":
                     current = item["get"]()
                     step = item.get("step", 1)
-                    new_value = max(item["min"], min(item["max"], current + delta * step))
+                    new_value = max(
+                        item["min"], min(item["max"], current + delta * step)
+                    )
                     item["set"](new_value)
                     self._update_mode_state()
                     suffix = item.get("suffix", "")
@@ -286,7 +383,9 @@ class SettingsMode:
                     print(f"{item['name']}: {options[new_idx]}")
 
         except Exception as e:
-            print(f"Error in Settings mode encoder handling ({encoder}, {direction}): {e}")
+            print(
+                f"Error in Settings mode encoder handling ({encoder}, {direction}): {e}"
+            )
 
     def handle_button_press(self, button: str):
         """Handle button presses in Settings Mode."""
@@ -315,7 +414,9 @@ class SettingsMode:
                 value_str = f"{current_value}{suffix}"
             elif item["type"] == "options":
                 idx = item["get"]()
-                value_str = item["options"][idx] if 0 <= idx < len(item["options"]) else "?"
+                value_str = (
+                    item["options"][idx] if 0 <= idx < len(item["options"]) else "?"
+                )
             else:
                 value_str = ""
         else:
@@ -384,22 +485,24 @@ class SettingsMode:
             "bpm": self.sequencer.get_bpm(),
             "swing": self.sequencer.get_swing(),
             "quantization": self.sequencer.timing.quantization.value,
-            "tracks": []
+            "tracks": [],
         }
 
         for track in self.sequencer.tracks:
-            settings["tracks"].append({
-                "name": track.name,
-                "midi_channel": track.midi_channel,
-                "midi_port": track.midi_port,
-                "scale": track.scale,
-                "root_note": track.root_note,
-                "level": track.level,
-                "pan": track.pan,
-            })
+            settings["tracks"].append(
+                {
+                    "name": track.name,
+                    "midi_channel": track.midi_channel,
+                    "midi_port": track.midi_port,
+                    "scale": track.scale,
+                    "root_note": track.root_note,
+                    "level": track.level,
+                    "pan": track.pan,
+                }
+            )
 
         try:
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump(settings, f, indent=2)
             print(f"Settings saved to {path}")
         except Exception as e:
@@ -415,7 +518,7 @@ class SettingsMode:
             return
 
         try:
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 settings = json.load(f)
 
             # Apply global settings

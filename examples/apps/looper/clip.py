@@ -12,20 +12,22 @@ import time
 
 class ClipState(Enum):
     """State of a clip slot."""
-    EMPTY = auto()      # No content
+
+    EMPTY = auto()  # No content
     RECORDING = auto()  # Currently recording
-    PLAYING = auto()    # Currently playing
-    STOPPED = auto()    # Has content, stopped
-    ARMED = auto()      # Ready to record on next beat
+    PLAYING = auto()  # Currently playing
+    STOPPED = auto()  # Has content, stopped
+    ARMED = auto()  # Ready to record on next beat
 
 
 @dataclass
 class MidiEvent:
     """A single MIDI event with timing."""
-    time: float         # Time offset from loop start (0.0 - 1.0 normalized)
-    note: int           # MIDI note number (0-127)
-    velocity: int       # MIDI velocity (0-127)
-    duration: float     # Note duration (normalized)
+
+    time: float  # Time offset from loop start (0.0 - 1.0 normalized)
+    note: int  # MIDI note number (0-127)
+    velocity: int  # MIDI velocity (0-127)
+    duration: float  # Note duration (normalized)
 
     def __post_init__(self):
         # Clamp values
@@ -144,12 +146,14 @@ class Clip:
         normalized_time = (elapsed % loop_seconds) / loop_seconds
         normalized_duration = min(duration / loop_seconds, 1.0)
 
-        self.events.append(MidiEvent(
-            time=normalized_time,
-            note=note,
-            velocity=velocity,
-            duration=normalized_duration,
-        ))
+        self.events.append(
+            MidiEvent(
+                time=normalized_time,
+                note=note,
+                velocity=velocity,
+                duration=normalized_duration,
+            )
+        )
 
     # =========================================================================
     # Playback
@@ -260,8 +264,7 @@ class ClipGrid:
         self.tracks = tracks
         self.slots = slots
         self.clips: List[List[Clip]] = [
-            [Clip() for _ in range(slots)]
-            for _ in range(tracks)
+            [Clip() for _ in range(slots)] for _ in range(tracks)
         ]
 
         # Currently selected clip for recording

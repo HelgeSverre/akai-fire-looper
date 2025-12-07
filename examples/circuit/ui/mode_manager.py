@@ -31,7 +31,7 @@ class ModeManager:
 
         # Mode transition callbacks
         self.mode_callbacks = {}
-        
+
         # Mode handler registry (will be populated by mode instances)
         self.mode_handlers = {}
 
@@ -84,9 +84,9 @@ class ModeManager:
 
         # Add menu data for SETTINGS mode
         if self.current_mode == Mode.SETTINGS:
-            if not hasattr(self, 'settings_menu'):
+            if not hasattr(self, "settings_menu"):
                 self.__init_menu_system()
-            
+
             menu = self.settings_menu
             # Convert menu items to display format
             menu_items = []
@@ -98,12 +98,14 @@ class ModeManager:
                     menu_items.append(f"{item['name']}: {current_option}")
                 else:
                     menu_items.append(item["name"])
-            
-            mode_kwargs.update({
-                "menu_items": menu_items,
-                "selected_index": menu["selected_index"],
-                "menu_title": menu["title"]
-            })
+
+            mode_kwargs.update(
+                {
+                    "menu_items": menu_items,
+                    "selected_index": menu["selected_index"],
+                    "menu_title": menu["title"],
+                }
+            )
 
         # Update screen and grid
         self.screen.update_display(sequencer_status, **mode_kwargs)
@@ -126,7 +128,7 @@ class ModeManager:
         if mode not in self.mode_callbacks:
             self.mode_callbacks[mode] = {}
         self.mode_callbacks[mode][callback_type] = callback
-    
+
     def register_mode_handler(self, mode: Mode, handler):
         """Register a mode handler instance."""
         self.mode_handlers[mode] = handler
@@ -139,9 +141,9 @@ class ModeManager:
         # First try to delegate to registered mode handler
         if self.current_mode in self.mode_handlers:
             handler = self.mode_handlers[self.current_mode]
-            if hasattr(handler, 'handle_pad_press'):
+            if hasattr(handler, "handle_pad_press"):
                 return handler.handle_pad_press(pad_index, velocity)
-        
+
         # Fallback to internal mode-specific handling
         if self.current_mode == Mode.NOTE:
             return self._handle_note_mode_pad(pad_index, velocity)
@@ -325,54 +327,86 @@ class ModeManager:
 
             return actions if actions else None
         return None
-    
+
     # Menu Navigation System
     def __init_menu_system(self):
         """Initialize the settings menu system."""
         # Settings menu system
         self.settings_menu = self._create_settings_menu()
         self.menu_selected_index = 0
-    
+
     def _create_settings_menu(self):
         """Create the settings menu structure."""
         return {
             "title": "Settings Menu",
             "items": [
-                {"name": "MIDI Channels", "type": "submenu", "options": ["Auto", "Manual"]},
+                {
+                    "name": "MIDI Channels",
+                    "type": "submenu",
+                    "options": ["Auto", "Manual"],
+                },
                 {"name": "BPM", "type": "value", "value": 120, "min": 30, "max": 300},
                 {"name": "Swing", "type": "value", "value": 0, "min": 0, "max": 75},
-                {"name": "Quantization", "type": "options", "options": ["Off", "1/4", "1/8", "1/16", "1/32"], "current": 3},
-                {"name": "Scale", "type": "options", "options": ["Major", "Minor", "Dorian", "Mixolydian"], "current": 0},
-                {"name": "Root Note", "type": "options", "options": ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], "current": 0},
+                {
+                    "name": "Quantization",
+                    "type": "options",
+                    "options": ["Off", "1/4", "1/8", "1/16", "1/32"],
+                    "current": 3,
+                },
+                {
+                    "name": "Scale",
+                    "type": "options",
+                    "options": ["Major", "Minor", "Dorian", "Mixolydian"],
+                    "current": 0,
+                },
+                {
+                    "name": "Root Note",
+                    "type": "options",
+                    "options": [
+                        "C",
+                        "C#",
+                        "D",
+                        "D#",
+                        "E",
+                        "F",
+                        "F#",
+                        "G",
+                        "G#",
+                        "A",
+                        "A#",
+                        "B",
+                    ],
+                    "current": 0,
+                },
                 {"name": "Save Settings", "type": "action"},
                 {"name": "Load Settings", "type": "action"},
             ],
-            "selected_index": 0
+            "selected_index": 0,
         }
-    
+
     def next_menu_item(self):
         """Navigate to next menu item."""
-        if not hasattr(self, 'settings_menu'):
+        if not hasattr(self, "settings_menu"):
             self.__init_menu_system()
         menu = self.settings_menu
         menu["selected_index"] = (menu["selected_index"] + 1) % len(menu["items"])
         print(f"Settings menu: {menu['items'][menu['selected_index']]['name']}")
-    
+
     def prev_menu_item(self):
         """Navigate to previous menu item."""
-        if not hasattr(self, 'settings_menu'):
+        if not hasattr(self, "settings_menu"):
             self.__init_menu_system()
         menu = self.settings_menu
         menu["selected_index"] = (menu["selected_index"] - 1) % len(menu["items"])
         print(f"Settings menu: {menu['items'][menu['selected_index']]['name']}")
-    
+
     def get_current_menu_item(self):
         """Get currently selected menu item."""
-        if not hasattr(self, 'settings_menu'):
+        if not hasattr(self, "settings_menu"):
             self.__init_menu_system()
         menu = self.settings_menu
         return menu["items"][menu["selected_index"]]
-    
+
     def adjust_menu_value(self, direction: int):
         """Adjust the current menu item's value."""
         item = self.get_current_menu_item()
@@ -390,7 +424,7 @@ class ModeManager:
             new_idx = (current_idx + direction) % len(options)
             item["current"] = new_idx
             print(f"{item['name']}: {options[new_idx]}")
-    
+
     def activate_menu_item(self):
         """Activate/execute current menu item."""
         item = self.get_current_menu_item()

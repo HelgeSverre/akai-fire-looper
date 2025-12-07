@@ -36,9 +36,11 @@ class PatternMode:
         self.chain_start: int = -1  # -1 means not building a chain
 
         # Register mode callbacks
-        self.mode_manager.register_mode_callback(Mode.PATTERN, "on_enter", self._on_enter)
+        self.mode_manager.register_mode_callback(
+            Mode.PATTERN, "on_enter", self._on_enter
+        )
         self.mode_manager.register_mode_callback(Mode.PATTERN, "on_exit", self._on_exit)
-        
+
         # Register this instance as the Pattern Mode handler
         self.mode_manager.register_mode_handler(Mode.PATTERN, self)
 
@@ -102,9 +104,11 @@ class PatternMode:
             self.selected_track = track_index
             self.sequencer.set_current_track(track_index)
             self._update_mode_state()
-            
+
             track = self.sequencer.get_current_track()
-            print(f"Selected track {track_index + 1}: {track.name if track else 'Unknown'}")
+            print(
+                f"Selected track {track_index + 1}: {track.name if track else 'Unknown'}"
+            )
 
     def _select_pattern_for_track(self, track_index: int, pattern_index: int):
         """Select a pattern for a specific track."""
@@ -112,7 +116,9 @@ class PatternMode:
             track = self.sequencer.tracks[track_index]
             if track:
                 track.set_current_pattern(pattern_index)
-                print(f"Track {track_index + 1} now playing pattern {pattern_index + 1}")
+                print(
+                    f"Track {track_index + 1} now playing pattern {pattern_index + 1}"
+                )
 
     def _add_pattern_to_chain(self, chain_slot: int):
         """Build pattern chain using chain slots.
@@ -181,7 +187,9 @@ class PatternMode:
                 pass
 
         except Exception as e:
-            print(f"Error in Pattern mode encoder handling ({encoder}, {direction}): {e}")
+            print(
+                f"Error in Pattern mode encoder handling ({encoder}, {direction}): {e}"
+            )
 
     def handle_button_press(self, button: str):
         """Handle button presses in Pattern Mode."""
@@ -191,7 +199,7 @@ class PatternMode:
                 self.selected_scene -= 1
                 self._update_mode_state()
                 print(f"Selected scene {self.selected_scene + 1}")
-                
+
         elif button == "grid_right":
             # Next scene
             if self.selected_scene < 15:
@@ -203,7 +211,7 @@ class PatternMode:
         """Get information for display updates."""
         track = self.sequencer.get_current_track()
         pattern = track.get_current_pattern() if track else None
-        
+
         return {
             "selected_scene": self.selected_scene,
             "selected_track": self.selected_track,

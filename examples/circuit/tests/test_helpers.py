@@ -98,7 +98,7 @@ def run_circuit_tests():
     import unittest
 
     loader = unittest.TestLoader()
-    suite = loader.discover(os.path.dirname(__file__), pattern='test_*.py')
+    suite = loader.discover(os.path.dirname(__file__), pattern="test_*.py")
     runner = unittest.TextTestRunner(verbosity=2)
     return runner.run(suite)
 

@@ -66,27 +66,34 @@ except ImportError:
     # Define stub exceptions if akai_fire not available
     class AkaiFireError(Exception):
         """Base exception for AKAI Fire library."""
+
         pass
 
     class MIDIConnectionError(AkaiFireError):
         """Raised when MIDI connection fails."""
+
         pass
 
     class MIDISendError(AkaiFireError):
         """Raised when sending MIDI message fails."""
+
         pass
 
     class InvalidParameterError(AkaiFireError):
         """Raised when invalid parameters are provided."""
+
         pass
 
     class HardwareError(AkaiFireError):
         """Raised when hardware communication fails."""
+
         pass
 
     class StateError(AkaiFireError):
         """Raised when operation is invalid for current state."""
+
         pass
+
 
 # =============================================================================
 # Core Mock Classes
@@ -180,7 +187,6 @@ from .fixtures import (
 __all__ = [
     # Version
     "__version__",
-
     # Exceptions (for testing error handling)
     "AkaiFireError",
     "MIDIConnectionError",
@@ -188,49 +194,39 @@ __all__ = [
     "InvalidParameterError",
     "HardwareError",
     "StateError",
-
     # Core Mocks
     "MockAkaiFire",
     "MockCanvas",
     "PadEvent",
     "ButtonEvent",
-
     # MIDI
     "MockMidiManager",
     "MidiMessage",
-
     # Timing
     "ControllableTimingEngine",
-
     # Screenshots
     "ScreenshotComparator",
     "ComparisonResult",
-
     # Assertions - Pads
     "assert_pad_grid",
     "assert_row_pattern",
     "assert_column_pattern",
     "assert_step_indicator",
-
     # Assertions - Buttons
     "assert_button_state",
     "assert_transport_state",
-
     # Assertions - Screen
     "assert_screen_contains",
     "assert_screen_title",
     "assert_screen_empty",
     "assert_menu_selection",
-
     # Assertions - MIDI
     "assert_notes_in_order",
     "assert_chord",
-
     # Assertions - State
     "snapshot_pad_state",
     "assert_pad_state_changed",
     "assert_pad_state_unchanged",
-
     # Fixtures
     "create_test_fire",
     "create_test_canvas",

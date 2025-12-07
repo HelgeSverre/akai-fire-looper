@@ -31,17 +31,17 @@ class GridMixin:
     TOTAL_PADS = 64
 
     # Standard row assignments (customize in subclass if needed)
-    ROW_STEP = 0       # Step sequencer
-    ROW_TRACK = 1      # Track/pattern selection
-    ROW_INPUT_1 = 2    # Keyboard/input (upper)
-    ROW_INPUT_2 = 3    # Keyboard/input (lower)
+    ROW_STEP = 0  # Step sequencer
+    ROW_TRACK = 1  # Track/pattern selection
+    ROW_INPUT_1 = 2  # Keyboard/input (upper)
+    ROW_INPUT_2 = 3  # Keyboard/input (lower)
 
     # Default track colors (can be overridden)
     TRACK_COLORS = [
-        (127, 0, 0),      # Track 1: Red
-        (0, 127, 0),      # Track 2: Green
-        (0, 0, 127),      # Track 3: Blue
-        (127, 127, 0),    # Track 4: Yellow
+        (127, 0, 0),  # Track 1: Red
+        (0, 127, 0),  # Track 2: Green
+        (0, 0, 127),  # Track 3: Blue
+        (127, 127, 0),  # Track 4: Yellow
     ]
 
     # Brightness levels
@@ -214,7 +214,9 @@ class GridMixin:
             return (0, 0, 0)
         return tuple(c * level // 127 for c in color)
 
-    def get_track_color(self, track: int, brightness: str = "bright") -> Tuple[int, int, int]:
+    def get_track_color(
+        self, track: int, brightness: str = "bright"
+    ) -> Tuple[int, int, int]:
         """
         Get the color for a track.
 

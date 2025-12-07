@@ -11,34 +11,36 @@ import random
 
 class PlayOrder(Enum):
     """Pattern playback order modes."""
-    FORWARD = "forward"      # Play steps 0 -> length-1
-    REVERSE = "reverse"      # Play steps length-1 -> 0
+
+    FORWARD = "forward"  # Play steps 0 -> length-1
+    REVERSE = "reverse"  # Play steps length-1 -> 0
     PING_PONG = "ping_pong"  # Play 0 -> length-1 -> 0 ...
-    RANDOM = "random"        # Random step order
+    RANDOM = "random"  # Random step order
 
 
 class SyncRate(Enum):
     """Pattern sync rates relative to BPM (step duration multipliers)."""
-    QUARTER = "1/4"          # 4x slower (quarter notes)
-    QUARTER_T = "1/4T"       # Quarter triplets
-    EIGHTH = "1/8"           # 2x slower (eighth notes)
-    EIGHTH_T = "1/8T"        # Eighth triplets
-    SIXTEENTH = "1/16"       # Default (sixteenth notes)
-    SIXTEENTH_T = "1/16T"    # Sixteenth triplets
-    THIRTY_SECOND = "1/32"   # 2x faster
+
+    QUARTER = "1/4"  # 4x slower (quarter notes)
+    QUARTER_T = "1/4T"  # Quarter triplets
+    EIGHTH = "1/8"  # 2x slower (eighth notes)
+    EIGHTH_T = "1/8T"  # Eighth triplets
+    SIXTEENTH = "1/16"  # Default (sixteenth notes)
+    SIXTEENTH_T = "1/16T"  # Sixteenth triplets
+    THIRTY_SECOND = "1/32"  # 2x faster
     THIRTY_SECOND_T = "1/32T"  # Thirty-second triplets
 
     def get_multiplier(self) -> float:
         """Get the step duration multiplier for this sync rate."""
         multipliers = {
             SyncRate.QUARTER: 4.0,
-            SyncRate.QUARTER_T: 4.0 * 2/3,
+            SyncRate.QUARTER_T: 4.0 * 2 / 3,
             SyncRate.EIGHTH: 2.0,
-            SyncRate.EIGHTH_T: 2.0 * 2/3,
+            SyncRate.EIGHTH_T: 2.0 * 2 / 3,
             SyncRate.SIXTEENTH: 1.0,
-            SyncRate.SIXTEENTH_T: 1.0 * 2/3,
+            SyncRate.SIXTEENTH_T: 1.0 * 2 / 3,
             SyncRate.THIRTY_SECOND: 0.5,
-            SyncRate.THIRTY_SECOND_T: 0.5 * 2/3,
+            SyncRate.THIRTY_SECOND_T: 0.5 * 2 / 3,
         }
         return multipliers.get(self, 1.0)
 
@@ -52,7 +54,9 @@ class Step:
 
     notes: List[int] = field(default_factory=list)  # MIDI note numbers (polyphonic)
     velocities: List[int] = field(default_factory=list)  # Per-note velocities
-    gate_length: float = 1.0  # Duration in steps (0.167 = 1/6 step, 16.0 = tie across 16 steps)
+    gate_length: float = (
+        1.0  # Duration in steps (0.167 = 1/6 step, 16.0 = tie across 16 steps)
+    )
     probability: float = 1.0  # 0.0-1.0 (trigger probability)
     micro_timing: int = 0  # -6 to +6 (micro-step offset)
     enabled: bool = True  # Step on/off
@@ -225,10 +229,7 @@ class Pattern:
         end = self.get_effective_end_point()
 
         # Get steps in the playback range that have content
-        active_indices = [
-            i for i in range(start, end + 1)
-            if self.steps[i].has_notes()
-        ]
+        active_indices = [i for i in range(start, end + 1) if self.steps[i].has_notes()]
 
         if len(active_indices) < 2:
             return  # Nothing to mutate

@@ -34,7 +34,7 @@ class MixerMode:
         # Register mode callbacks
         self.mode_manager.register_mode_callback(Mode.MIXER, "on_enter", self._on_enter)
         self.mode_manager.register_mode_callback(Mode.MIXER, "on_exit", self._on_exit)
-        
+
         # Register this instance as the Mixer Mode handler
         self.mode_manager.register_mode_handler(Mode.MIXER, self)
 
@@ -94,16 +94,18 @@ class MixerMode:
             self.selected_track = track_index
             self.sequencer.set_current_track(track_index)
             self._update_mode_state()
-            
+
             track = self.sequencer.get_current_track()
-            print(f"Selected track {track_index + 1} for mixing: {track.name if track else 'Unknown'}")
+            print(
+                f"Selected track {track_index + 1} for mixing: {track.name if track else 'Unknown'}"
+            )
 
     def _toggle_track_mute(self, track_index: int):
         """Toggle mute state for a track."""
         if 0 <= track_index < len(self.sequencer.tracks):
             track = self.sequencer.tracks[track_index]
             if track:
-                track.muted = not getattr(track, 'muted', False)
+                track.muted = not getattr(track, "muted", False)
                 state = "muted" if track.muted else "unmuted"
                 print(f"Track {track_index + 1} {state}")
 
@@ -112,7 +114,7 @@ class MixerMode:
         if 0 <= track_index < len(self.sequencer.tracks):
             track = self.sequencer.tracks[track_index]
             if track:
-                track.solo = not getattr(track, 'solo', False)
+                track.solo = not getattr(track, "solo", False)
                 state = "solo" if track.solo else "normal"
                 print(f"Track {track_index + 1} {state}")
 
@@ -137,7 +139,7 @@ class MixerMode:
                 # Apply to current track for now
                 track = self.sequencer.get_current_track()
                 if track:
-                    current_level = getattr(track, 'level', 64)
+                    current_level = getattr(track, "level", 64)
                     new_level = max(0, min(127, current_level + level_change))
                     track.level = new_level
                     print(f"Track {self.selected_track + 1} level: {new_level}")
@@ -150,7 +152,7 @@ class MixerMode:
                     pan_change = -velocity
                 track = self.sequencer.get_current_track()
                 if track:
-                    current_pan = getattr(track, 'pan', 64)
+                    current_pan = getattr(track, "pan", 64)
                     new_pan = max(0, min(127, current_pan + pan_change))
                     track.pan = new_pan
                     print(f"Track {self.selected_track + 1} pan: {new_pan}")
@@ -163,7 +165,7 @@ class MixerMode:
                     send_change = -velocity
                 track = self.sequencer.get_current_track()
                 if track:
-                    current_send = getattr(track, 'reverb_send', 0)
+                    current_send = getattr(track, "reverb_send", 0)
                     new_send = max(0, min(127, current_send + send_change))
                     track.reverb_send = new_send
                     print(f"Track {self.selected_track + 1} reverb send: {new_send}")
@@ -188,10 +190,10 @@ class MixerMode:
         return {
             "selected_track": self.selected_track,
             "track_name": track.name if track else "Unknown",
-            "track_level": getattr(track, 'level', 64) if track else 0,
-            "track_pan": getattr(track, 'pan', 64) if track else 64,
-            "track_muted": getattr(track, 'muted', False) if track else False,
-            "track_solo": getattr(track, 'solo', False) if track else False,
+            "track_level": getattr(track, "level", 64) if track else 0,
+            "track_pan": getattr(track, "pan", 64) if track else 64,
+            "track_muted": getattr(track, "muted", False) if track else False,
+            "track_solo": getattr(track, "solo", False) if track else False,
         }
 
     def on_track_changed(self):
@@ -199,4 +201,6 @@ class MixerMode:
         self.selected_track = self.sequencer.current_track
         self._update_mode_state()
         track = self.sequencer.get_current_track()
-        print(f"Mixer Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}")
+        print(
+            f"Mixer Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}"
+        )

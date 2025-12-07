@@ -99,7 +99,9 @@ class ScreenManager:
         # Draw status on right side if provided
         if status:
             status_width = len(status) * 6  # Approximate width
-            self.canvas.draw_text(status, 128 - status_width - 4, self.TEXT_MARGIN_Y, color=1)
+            self.canvas.draw_text(
+                status, 128 - status_width - 4, self.TEXT_MARGIN_Y, color=1
+            )
 
         # Draw separator line
         self.canvas.draw_line(0, self.HEADER_HEIGHT, 128, self.HEADER_HEIGHT)

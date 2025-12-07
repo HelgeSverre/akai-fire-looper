@@ -50,6 +50,7 @@ class TestGridManager(unittest.TestCase):
         # Use factory function for cleaner setup
         self.mock_fire, self.mock_midi = create_test_fire()
         from ui.grid_manager import GridManager
+
         self.grid = GridManager(self.mock_fire)
 
     def test_grid_dimensions(self):
@@ -124,6 +125,7 @@ class TestGridManager(unittest.TestCase):
         snapshot = snapshot_pad_state(self.mock_fire)
 
         from ui.screen_manager import Mode
+
         self.grid.set_mode(Mode.MIXER)
 
         # Assert pad changed
@@ -133,19 +135,40 @@ class TestGridManager(unittest.TestCase):
     def test_update_grid_note_mode(self):
         """Should update grid for note mode."""
         from ui.screen_manager import Mode
+
         self.grid.set_mode(Mode.NOTE)
 
         status = {
             "current_track": 1,
             "tracks": [
-                {"name": "Drums", "enabled": True, "soloed": False,
-                 "current_pattern": 1, "has_content": True},
-                {"name": "Bass", "enabled": True, "soloed": False,
-                 "current_pattern": 1, "has_content": False},
-                {"name": "Lead", "enabled": True, "soloed": False,
-                 "current_pattern": 1, "has_content": False},
-                {"name": "Pad", "enabled": True, "soloed": False,
-                 "current_pattern": 1, "has_content": False},
+                {
+                    "name": "Drums",
+                    "enabled": True,
+                    "soloed": False,
+                    "current_pattern": 1,
+                    "has_content": True,
+                },
+                {
+                    "name": "Bass",
+                    "enabled": True,
+                    "soloed": False,
+                    "current_pattern": 1,
+                    "has_content": False,
+                },
+                {
+                    "name": "Lead",
+                    "enabled": True,
+                    "soloed": False,
+                    "current_pattern": 1,
+                    "has_content": False,
+                },
+                {
+                    "name": "Pad",
+                    "enabled": True,
+                    "soloed": False,
+                    "current_pattern": 1,
+                    "has_content": False,
+                },
             ],
             "timing": {"step": 0, "is_playing": False},
         }
@@ -159,19 +182,40 @@ class TestGridManager(unittest.TestCase):
     def test_track_selection_pads_lit(self):
         """Track selection pads (row 1, cols 0-3) should be lit."""
         from ui.screen_manager import Mode
+
         self.grid.set_mode(Mode.NOTE)
 
         status = {
             "current_track": 1,
             "tracks": [
-                {"name": "T1", "enabled": True, "soloed": False,
-                 "current_pattern": 1, "has_content": False},
-                {"name": "T2", "enabled": True, "soloed": False,
-                 "current_pattern": 1, "has_content": False},
-                {"name": "T3", "enabled": True, "soloed": False,
-                 "current_pattern": 1, "has_content": False},
-                {"name": "T4", "enabled": True, "soloed": False,
-                 "current_pattern": 1, "has_content": False},
+                {
+                    "name": "T1",
+                    "enabled": True,
+                    "soloed": False,
+                    "current_pattern": 1,
+                    "has_content": False,
+                },
+                {
+                    "name": "T2",
+                    "enabled": True,
+                    "soloed": False,
+                    "current_pattern": 1,
+                    "has_content": False,
+                },
+                {
+                    "name": "T3",
+                    "enabled": True,
+                    "soloed": False,
+                    "current_pattern": 1,
+                    "has_content": False,
+                },
+                {
+                    "name": "T4",
+                    "enabled": True,
+                    "soloed": False,
+                    "current_pattern": 1,
+                    "has_content": False,
+                },
             ],
             "timing": {"step": 0, "is_playing": False},
         }
@@ -196,16 +240,19 @@ class TestModeManager(unittest.TestCase):
         self.screen = ScreenManager(self.mock_fire.get_canvas())
 
         from ui.mode_manager import ModeManager
+
         self.mode_manager = ModeManager(self.screen, self.grid)
 
     def test_default_mode_is_note(self):
         """Default mode should be NOTE."""
         from ui.screen_manager import Mode
+
         self.assertEqual(self.mode_manager.get_current_mode(), Mode.NOTE)
 
     def test_set_mode(self):
         """Should be able to change mode."""
         from ui.screen_manager import Mode
+
         self.mode_manager.set_mode(Mode.MIXER)
         self.assertEqual(self.mode_manager.get_current_mode(), Mode.MIXER)
 
@@ -305,7 +352,7 @@ class TestNoteMode(unittest.TestCase):
         self.mock_fire, _ = create_test_fire()
 
         # Patch MIDI with our MockMidiManager
-        self.midi_patcher = patch('core.sequencer.MidiManager')
+        self.midi_patcher = patch("core.sequencer.MidiManager")
         self.mock_midi_class = self.midi_patcher.start()
         self.mock_midi = MockMidiManager()
         self.mock_midi_class.return_value = self.mock_midi
@@ -317,12 +364,15 @@ class TestNoteMode(unittest.TestCase):
         self.screen = ScreenManager(self.mock_fire.get_canvas())
 
         from ui.mode_manager import ModeManager
+
         self.mode_manager = ModeManager(self.screen, self.grid)
 
         from core.sequencer import Sequencer
+
         self.sequencer = Sequencer()
 
         from ui.modes.note_mode import NoteMode
+
         self.note_mode = NoteMode(self.sequencer, self.mode_manager)
 
     def tearDown(self):
@@ -384,6 +434,7 @@ class TestScreenManager(unittest.TestCase):
         self.canvas = create_test_canvas()
 
         from ui.screen_manager import ScreenManager
+
         self.screen = ScreenManager(self.canvas)
 
     def test_draw_header(self):
@@ -403,6 +454,7 @@ class TestScreenManager(unittest.TestCase):
     def test_update_display_note_mode(self):
         """Should update display for note mode."""
         from ui.screen_manager import Mode
+
         self.screen.set_mode(Mode.NOTE)
 
         status = {
@@ -427,7 +479,7 @@ class TestMixerMode(unittest.TestCase):
         self.mock_fire, _ = create_test_fire()
 
         # Patch MIDI
-        self.midi_patcher = patch('core.sequencer.MidiManager')
+        self.midi_patcher = patch("core.sequencer.MidiManager")
         self.mock_midi_class = self.midi_patcher.start()
         self.mock_midi = MockMidiManager()
         self.mock_midi_class.return_value = self.mock_midi
@@ -439,12 +491,15 @@ class TestMixerMode(unittest.TestCase):
         self.screen = ScreenManager(self.mock_fire.get_canvas())
 
         from ui.mode_manager import ModeManager
+
         self.mode_manager = ModeManager(self.screen, self.grid)
 
         from core.sequencer import Sequencer
+
         self.sequencer = Sequencer()
 
         from ui.modes.mixer_mode import MixerMode
+
         self.mixer_mode = MixerMode(self.sequencer, self.mode_manager)
 
     def tearDown(self):
@@ -453,7 +508,7 @@ class TestMixerMode(unittest.TestCase):
     def test_toggle_track_mute(self):
         """Should toggle track mute state."""
         track = self.sequencer.tracks[0]
-        initial_state = getattr(track, 'muted', False)
+        initial_state = getattr(track, "muted", False)
 
         self.mixer_mode._toggle_track_mute(0)
 
@@ -462,7 +517,7 @@ class TestMixerMode(unittest.TestCase):
     def test_toggle_track_solo(self):
         """Should toggle track solo state."""
         track = self.sequencer.tracks[0]
-        initial_state = getattr(track, 'solo', False)
+        initial_state = getattr(track, "solo", False)
 
         self.mixer_mode._toggle_track_solo(0)
 
@@ -476,7 +531,7 @@ class TestPatternMode(unittest.TestCase):
         self.mock_fire, _ = create_test_fire()
 
         # Patch MIDI
-        self.midi_patcher = patch('core.sequencer.MidiManager')
+        self.midi_patcher = patch("core.sequencer.MidiManager")
         self.mock_midi_class = self.midi_patcher.start()
         self.mock_midi = MockMidiManager()
         self.mock_midi_class.return_value = self.mock_midi
@@ -488,12 +543,15 @@ class TestPatternMode(unittest.TestCase):
         self.screen = ScreenManager(self.mock_fire.get_canvas())
 
         from ui.mode_manager import ModeManager
+
         self.mode_manager = ModeManager(self.screen, self.grid)
 
         from core.sequencer import Sequencer
+
         self.sequencer = Sequencer()
 
         from ui.modes.pattern_mode import PatternMode
+
         self.pattern_mode = PatternMode(self.sequencer, self.mode_manager)
 
     def tearDown(self):
@@ -535,7 +593,7 @@ class TestStepEditMode(unittest.TestCase):
         self.mock_fire, _ = create_test_fire()
 
         # Patch MIDI
-        self.midi_patcher = patch('core.sequencer.MidiManager')
+        self.midi_patcher = patch("core.sequencer.MidiManager")
         self.mock_midi_class = self.midi_patcher.start()
         self.mock_midi = MockMidiManager()
         self.mock_midi_class.return_value = self.mock_midi
@@ -547,12 +605,15 @@ class TestStepEditMode(unittest.TestCase):
         self.screen = ScreenManager(self.mock_fire.get_canvas())
 
         from ui.mode_manager import ModeManager
+
         self.mode_manager = ModeManager(self.screen, self.grid)
 
         from core.sequencer import Sequencer
+
         self.sequencer = Sequencer()
 
         from ui.modes.step_edit_mode import StepEditMode
+
         self.step_edit_mode = StepEditMode(self.sequencer, self.mode_manager)
 
     def tearDown(self):

@@ -50,11 +50,16 @@ class ScreenMixin:
             # Approximate character width for positioning
             status_width = len(status) * 6
             self.canvas.draw_text(
-                status, self.SCREEN_WIDTH - status_width - 4, self.TEXT_MARGIN_Y, color=1
+                status,
+                self.SCREEN_WIDTH - status_width - 4,
+                self.TEXT_MARGIN_Y,
+                color=1,
             )
 
         # Bottom border line
-        self.canvas.draw_line(0, self.HEADER_HEIGHT, self.SCREEN_WIDTH, self.HEADER_HEIGHT)
+        self.canvas.draw_line(
+            0, self.HEADER_HEIGHT, self.SCREEN_WIDTH, self.HEADER_HEIGHT
+        )
 
     def draw_content_lines(
         self, lines: List[str], start_y: Optional[int] = None, indent: int = 4
@@ -208,9 +213,7 @@ class ScreenMixin:
         mid_x = self.SCREEN_WIDTH // 2
 
         # Divider line
-        self.canvas.draw_line(
-            mid_x, self.HEADER_HEIGHT, mid_x, self.SCREEN_HEIGHT
-        )
+        self.canvas.draw_line(mid_x, self.HEADER_HEIGHT, mid_x, self.SCREEN_HEIGHT)
 
         # Left content
         y = self.CONTENT_START

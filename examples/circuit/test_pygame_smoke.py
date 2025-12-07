@@ -10,7 +10,9 @@ import os
 import time
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from mock_gui_pygame import MockAkaiFire
 
@@ -60,6 +62,7 @@ def main():
     except Exception as e:
         print(f"\n✗ Pygame smoke test FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

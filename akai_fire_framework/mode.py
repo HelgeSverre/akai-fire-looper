@@ -183,9 +183,7 @@ class ModeManagerMixin:
         self._mode_state[mode_id] = {}
         self._mode_callbacks[mode_id] = {"on_enter": [], "on_exit": []}
 
-    def register_mode_callback(
-        self, mode_id: Enum, event: str, callback: Callable
-    ):
+    def register_mode_callback(self, mode_id: Enum, event: str, callback: Callable):
         """
         Register a callback for mode lifecycle events.
 
@@ -283,9 +281,7 @@ class ModeManagerMixin:
             return self.current_handler.handle_pad_press(pad, velocity)
         return False
 
-    def dispatch_encoder_turn(
-        self, encoder_id: int, direction: str, velocity: int
-    ):
+    def dispatch_encoder_turn(self, encoder_id: int, direction: str, velocity: int):
         """
         Route encoder turn to current mode handler.
 

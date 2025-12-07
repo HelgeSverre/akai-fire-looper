@@ -30,6 +30,7 @@ class ComparisonResult:
         actual_path: Path to actual (captured) image
         diff_path: Path to diff image (if generated)
     """
+
     matches: bool
     diff_percentage: float
     diff_pixels: int
@@ -65,17 +66,33 @@ class ComparisonResult:
             # Red = only in baseline, Green = only in actual, Yellow = both different
             width = max(baseline.width, actual.width)
             height = max(baseline.height, actual.height)
-            diff = Image.new('RGB', (width, height), (0, 0, 0))
+            diff = Image.new("RGB", (width, height), (0, 0, 0))
             diff_pixels = diff.load()
 
             for y in range(height):
                 for x in range(width):
-                    base_pixel = baseline.getpixel((x, y)) if x < baseline.width and y < baseline.height else (0, 0, 0)
-                    act_pixel = actual.getpixel((x, y)) if x < actual.width and y < actual.height else (0, 0, 0)
+                    base_pixel = (
+                        baseline.getpixel((x, y))
+                        if x < baseline.width and y < baseline.height
+                        else (0, 0, 0)
+                    )
+                    act_pixel = (
+                        actual.getpixel((x, y))
+                        if x < actual.width and y < actual.height
+                        else (0, 0, 0)
+                    )
 
                     # Convert to grayscale comparison
-                    base_val = sum(base_pixel[:3]) // 3 if isinstance(base_pixel, tuple) else base_pixel
-                    act_val = sum(act_pixel[:3]) // 3 if isinstance(act_pixel, tuple) else act_pixel
+                    base_val = (
+                        sum(base_pixel[:3]) // 3
+                        if isinstance(base_pixel, tuple)
+                        else base_pixel
+                    )
+                    act_val = (
+                        sum(act_pixel[:3]) // 3
+                        if isinstance(act_pixel, tuple)
+                        else act_pixel
+                    )
 
                     if base_val != act_val:
                         if base_val > act_val:
@@ -110,6 +127,7 @@ class ComparisonResult:
             Destination path
         """
         import shutil
+
         dir_path = os.path.dirname(path)
         if dir_path:
             os.makedirs(dir_path, exist_ok=True)
@@ -192,7 +210,9 @@ class ScreenshotComparator:
 
         # Compare images
         diff_pixels, total_pixels = self._compare_images(baseline_path, actual_path)
-        diff_percentage = (diff_pixels / total_pixels * 100) if total_pixels > 0 else 0.0
+        diff_percentage = (
+            (diff_pixels / total_pixels * 100) if total_pixels > 0 else 0.0
+        )
         matches = diff_percentage <= self.threshold
 
         return ComparisonResult(
@@ -212,6 +232,7 @@ class ScreenshotComparator:
         """
         try:
             from PIL import Image
+
             return self._compare_with_pil(path1, path2)
         except ImportError:
             return self._compare_raw_bmp(path1, path2)
@@ -252,14 +273,14 @@ class ScreenshotComparator:
 
         def read_bmp_pixels(path):
             """Read pixel data from BMP file."""
-            with open(path, 'rb') as f:
+            with open(path, "rb") as f:
                 # Read header
                 f.read(10)  # Magic + file size + reserved
-                offset = struct.unpack('<I', f.read(4))[0]
+                offset = struct.unpack("<I", f.read(4))[0]
 
                 f.read(4)  # Header size
-                width = struct.unpack('<i', f.read(4))[0]
-                height = struct.unpack('<i', f.read(4))[0]
+                width = struct.unpack("<i", f.read(4))[0]
+                height = struct.unpack("<i", f.read(4))[0]
 
                 # Seek to pixel data
                 f.seek(offset)
@@ -270,7 +291,7 @@ class ScreenshotComparator:
                 for y in range(abs(height)):
                     row = f.read(row_size)
                     for x in range(abs(width)):
-                        b, g, r = row[x*3], row[x*3+1], row[x*3+2]
+                        b, g, r = row[x * 3], row[x * 3 + 1], row[x * 3 + 2]
                         pixels.append((r, g, b))
 
                 return width, abs(height), pixels
@@ -313,7 +334,7 @@ class ScreenshotComparator:
         baselines = []
         if os.path.exists(self.baseline_dir):
             for f in os.listdir(self.baseline_dir):
-                if f.endswith('.bmp'):
+                if f.endswith(".bmp"):
                     baselines.append(f[:-4])  # Remove .bmp
         return sorted(baselines)
 
@@ -336,6 +357,7 @@ class ScreenshotComparator:
     def clean_actuals(self):
         """Remove all actual screenshots."""
         import shutil
+
         if os.path.exists(self._actual_dir):
             shutil.rmtree(self._actual_dir)
             os.makedirs(self._actual_dir)

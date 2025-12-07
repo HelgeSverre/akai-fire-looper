@@ -197,7 +197,9 @@ def assert_button_state(
         for button_id in expected_off:
             value = fire.button_leds.get(button_id, 0)
             if value != 0:
-                raise AssertionError(f"Button {button_id} should be off but has value {value}")
+                raise AssertionError(
+                    f"Button {button_id} should be off but has value {value}"
+                )
 
 
 def assert_transport_state(
@@ -323,7 +325,9 @@ def assert_menu_selection(canvas: "MockCanvas", selected_item: str):
 # =============================================================================
 
 
-def assert_notes_in_order(midi, expected_notes: List[int], channel: Optional[int] = None):
+def assert_notes_in_order(
+    midi, expected_notes: List[int], channel: Optional[int] = None
+):
     """
     Assert notes were played in a specific order.
 

@@ -100,7 +100,9 @@ class DemoRunner:
         self.annotation = text
         print(f"[DEMO] {text}")
 
-    def simulate_pad_press(self, pad: int, velocity: int = 100, hold_time: float = 0.15):
+    def simulate_pad_press(
+        self, pad: int, velocity: int = 100, hold_time: float = 0.15
+    ):
         """
         Simulate pressing a pad with visual feedback.
 
@@ -110,7 +112,11 @@ class DemoRunner:
             hold_time: How long to "hold" the pad
         """
         # Save original color
-        original_color = self.fire.pad_colors[pad].copy() if hasattr(self.fire, 'pad_colors') else (0, 0, 0)
+        original_color = (
+            self.fire.pad_colors[pad].copy()
+            if hasattr(self.fire, "pad_colors")
+            else (0, 0, 0)
+        )
 
         # Flash white to show press
         self.fire.set_pad_color(pad, 127, 127, 127)

@@ -98,7 +98,7 @@ class MidiLooper:
         """Setup MIDI connections."""
         self.midi_inputs = self.midi_in.get_ports()
         self.midi_outputs = self.midi_out.get_ports()
-        
+
         print("Available MIDI inputs:", self.midi_inputs)
         print("Available MIDI outputs:", self.midi_outputs)
 
@@ -110,7 +110,7 @@ class MidiLooper:
                 print(f"Opened MIDI input: {self.midi_inputs[0]}")
             except Exception as e:
                 print(f"Error opening MIDI input: {e}")
-        
+
         if self.midi_outputs:
             try:
                 self.midi_out.open_port(0)
@@ -202,7 +202,9 @@ class MidiLooper:
             else:
                 clip.is_recording = False
                 clip.length = time.time() - clip.start_time
-                print(f"Stopped recording clip {self.recording_clip}, length: {clip.length:.2f}s")
+                print(
+                    f"Stopped recording clip {self.recording_clip}, length: {clip.length:.2f}s"
+                )
 
             self.recording_clip = None
             self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_OFF)
@@ -304,31 +306,33 @@ class MidiLooper:
     def _update_screen(self):
         """Update the OLED screen with current status."""
         self.canvas.clear(color=0)  # Clear to black background
-        
+
         # Title
         self.canvas.draw_text("MIDI LOOPER", 2, 2, color=1)
-        
+
         # BPM
         self.canvas.draw_text(f"BPM: {self.bpm:.0f}", 2, 15, color=1)
-        
+
         # Recording status
         if self.recording_clip is not None:
             self.canvas.draw_text(f"REC: Clip {self.recording_clip}", 2, 28, color=1)
         elif self.pending_record is not None:
             self.canvas.draw_text(f"ARM: Clip {self.pending_record}", 2, 28, color=1)
-        
+
         # Playing clips count
-        playing_count = sum(1 for clip in self.clips.values() if clip and clip.is_playing)
+        playing_count = sum(
+            1 for clip in self.clips.values() if clip and clip.is_playing
+        )
         if playing_count > 0:
             self.canvas.draw_text(f"Playing: {playing_count}", 2, 41, color=1)
-        
+
         # Global timing
         if self.global_start_time:
             current_time = time.time()
             elapsed = current_time - self.global_start_time
             bar = int(elapsed / self.bar_duration) + 1
             self.canvas.draw_text(f"Bar: {bar}", 2, 54, color=1)
-        
+
         self.fire.render_to_display(self.canvas)
 
     def _process_midi(self):
@@ -351,11 +355,13 @@ class MidiLooper:
 
             if message:
                 midi_data, _ = message
-                
+
                 # Store message with timestamp relative to clip start
                 timestamp = current_time - clip.start_time
                 clip.midi_messages.append((timestamp, midi_data))
-                print(f"Recorded MIDI: {decode_midi_message(midi_data)} at {timestamp:.3f}s")
+                print(
+                    f"Recorded MIDI: {decode_midi_message(midi_data)} at {timestamp:.3f}s"
+                )
 
         # Update global timing
         if self.global_start_time is not None:
@@ -389,7 +395,9 @@ class MidiLooper:
                             self.midi_out.send_message(message)
                             # Only print on note on messages to reduce spam
                             if message[0] & 0xF0 == 0x90 and message[2] > 0:
-                                print(f"Played from clip {clip_idx}: {decode_midi_message(message)}")
+                                print(
+                                    f"Played from clip {clip_idx}: {decode_midi_message(message)}"
+                                )
 
     def run(self):
         """Main loop."""
@@ -397,23 +405,23 @@ class MidiLooper:
         try:
             last_display_update = 0
             display_update_interval = 0.1  # Update display every 100ms
-            
+
             while True:
                 current_time = time.time()
-                
+
                 # Process hardware events
                 if hasattr(self.fire, "process_events"):
                     if not self.fire.process_events():
                         break
-                
+
                 # Process MIDI
                 self._process_midi()
-                
+
                 # Update display periodically
                 if current_time - last_display_update > display_update_interval:
                     self._update_display()
                     last_display_update = current_time
-                
+
                 time.sleep(0.001)  # 1ms sleep for tight timing
 
         except KeyboardInterrupt:
@@ -427,12 +435,12 @@ class MidiLooper:
         self._all_notes_off()
         self.fire.clear_all_pads()
         self.fire.clear_all_button_leds()
-        
+
         if self.selected_midi_input is not None:
             self.midi_in.close_port()
         if self.selected_midi_output is not None:
             self.midi_out.close_port()
-            
+
         self.fire.close()
 
 

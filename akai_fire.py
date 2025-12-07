@@ -252,7 +252,9 @@ class Canvas:
 
             # Highlight selected item
             if idx == selected_index:
-                self.fill_rect(0, y_offset + (i * line_height), self.WIDTH, line_height, color=0)
+                self.fill_rect(
+                    0, y_offset + (i * line_height), self.WIDTH, line_height, color=0
+                )
                 self.draw_text(items[idx], 4, y_offset + (i * line_height), color=1)
             else:
                 self.draw_text(items[idx], 4, y_offset + (i * line_height))

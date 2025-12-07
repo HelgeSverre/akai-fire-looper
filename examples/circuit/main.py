@@ -79,7 +79,7 @@ class CircuitSequencer:
         # Application state
         self.running = False
         self.last_update_time = 0.0
-        
+
         # Thread-safe state for UI updates
         self._current_step = 0
         self._step_lock = threading.Lock()
@@ -145,22 +145,22 @@ class CircuitSequencer:
         def handle_note_button(event):
             if event == "press":
                 self.mode_manager.set_mode(Mode.NOTE)
-                
+
         @self.fire.on_button(self.fire.BUTTON_STEP)
         def handle_step_button(event):
             if event == "press":
                 self.mode_manager.set_mode(Mode.STEP_EDIT)
-                
+
         @self.fire.on_button(self.fire.BUTTON_DRUM)
         def handle_drum_button(event):
             if event == "press":
                 self.mode_manager.set_mode(Mode.MIXER)
-                
+
         @self.fire.on_button(self.fire.BUTTON_PERFORM)
         def handle_perform_button(event):
             if event == "press":
                 self.mode_manager.set_mode(Mode.PATTERN)
-                
+
         # Browser button for settings/menu access
         @self.fire.on_button(self.fire.BUTTON_BROWSER)
         def handle_browser(event):
@@ -228,8 +228,8 @@ class CircuitSequencer:
         def handle_pan_encoder(direction, velocity):
             if self.mode_manager.get_current_mode() == Mode.NOTE:
                 self.note_mode.handle_encoder_turn("pan", direction, velocity)
-                
-        # Menu navigation with SELECT encoder  
+
+        # Menu navigation with SELECT encoder
         @self.fire.on_rotary_turn(self.fire.ROTARY_SELECT)
         def handle_select_encoder(direction, velocity):
             if self.mode_manager.get_current_mode() == Mode.SETTINGS:
@@ -242,7 +242,10 @@ class CircuitSequencer:
         # Menu item selection with SELECT button
         @self.fire.on_button(self.fire.BUTTON_SELECT)
         def handle_select_button(event):
-            if event == "press" and self.mode_manager.get_current_mode() == Mode.SETTINGS:
+            if (
+                event == "press"
+                and self.mode_manager.get_current_mode() == Mode.SETTINGS
+            ):
                 # Adjust current menu item value or activate action
                 current_item = self.mode_manager.get_current_menu_item()
                 if current_item["type"] in ["value", "options"]:
@@ -328,7 +331,7 @@ class CircuitSequencer:
 
         # Add current step information for grid highlighting
         if current_step is not None:
-            display_kwargs['current_step'] = current_step
+            display_kwargs["current_step"] = current_step
 
         # Update displays
         self.mode_manager.update_display(status, **display_kwargs)
@@ -386,12 +389,12 @@ class CircuitSequencer:
                 if current_time - self.last_update_time > 0.033:  # ~30 FPS
                     # Update transport LEDs (needs to be in main thread)
                     self._update_transport_leds()
-                    
+
                     # Get current step (thread-safe) and update display with step info
                     with self._step_lock:
                         current_step = self._current_step
                     self._update_display(current_step)
-                    
+
                     self.last_update_time = current_time
 
                 # Process mock events if in mock mode

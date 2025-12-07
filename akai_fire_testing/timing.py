@@ -15,6 +15,7 @@ from dataclasses import dataclass
 @dataclass
 class StepEvent:
     """Recorded step event for debugging."""
+
     step: int
     callback_count: int
 
@@ -43,7 +44,9 @@ class ControllableTimingEngine:
         >>> assert steps_fired == [0, 1, 2]
     """
 
-    def __init__(self, bpm: float = 120.0, steps_per_beat: int = 4, total_steps: int = 16):
+    def __init__(
+        self, bpm: float = 120.0, steps_per_beat: int = 4, total_steps: int = 16
+    ):
         """
         Initialize timing engine.
 
@@ -297,7 +300,8 @@ class ControllableTimingEngine:
             "total_steps": self._total_steps,
             "steps_per_beat": self._steps_per_beat,
             "step_duration_ms": self._calculate_step_duration_ms(),
-            "beat_duration_ms": self._calculate_step_duration_ms() * self._steps_per_beat,
+            "beat_duration_ms": self._calculate_step_duration_ms()
+            * self._steps_per_beat,
             "bar_duration_ms": self._calculate_step_duration_ms() * self._total_steps,
         }
 

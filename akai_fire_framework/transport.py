@@ -69,7 +69,10 @@ class TransportMixin:
     @property
     def is_playing(self) -> bool:
         """Check if currently playing."""
-        return self._transport_state in (TransportState.PLAYING, TransportState.RECORDING)
+        return self._transport_state in (
+            TransportState.PLAYING,
+            TransportState.RECORDING,
+        )
 
     @property
     def is_recording(self) -> bool:
@@ -191,11 +194,13 @@ class TransportMixin:
             self.fire.set_button_led(self.fire.BUTTON_PLAY, 2)  # Bright green
 
         elif self._transport_state == TransportState.RECORDING:
-            self.fire.set_button_led(self.fire.BUTTON_REC, 2)   # Bright red
+            self.fire.set_button_led(self.fire.BUTTON_REC, 2)  # Bright red
             self.fire.set_button_led(self.fire.BUTTON_PLAY, 1)  # Dim green
 
         elif self._transport_state == TransportState.ARMED:
-            self.fire.set_button_led(self.fire.BUTTON_REC, 1)   # Dim red (blinking ideally)
+            self.fire.set_button_led(
+                self.fire.BUTTON_REC, 1
+            )  # Dim red (blinking ideally)
 
         else:  # STOPPED
             self.fire.set_button_led(self.fire.BUTTON_STOP, 1)  # Dim red

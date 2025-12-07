@@ -138,9 +138,9 @@ class TestMockCanvas(unittest.TestCase):
             result = canvas.save_screenshot(path)
             self.assertTrue(os.path.exists(result))
             # Check it's a valid BMP (starts with BM)
-            with open(result, 'rb') as f:
+            with open(result, "rb") as f:
                 magic = f.read(2)
-                self.assertEqual(magic, b'BM')
+                self.assertEqual(magic, b"BM")
 
 
 class TestMockAkaiFire(unittest.TestCase):
@@ -618,11 +618,13 @@ class TestMockAkaiFireNewFeatures(unittest.TestCase):
 
         # set_multiple_pad_colors
         fire.clear_all_pads()
-        fire.set_multiple_pad_colors([
-            (0, 127, 0, 0),
-            (5, 0, 127, 0),
-            (10, 0, 0, 127),
-        ])
+        fire.set_multiple_pad_colors(
+            [
+                (0, 127, 0, 0),
+                (5, 0, 127, 0),
+                (10, 0, 0, 127),
+            ]
+        )
         self.assertEqual(fire.pad_colors[0], (127, 0, 0))
         self.assertEqual(fire.pad_colors[5], (0, 127, 0))
         self.assertEqual(fire.pad_colors[10], (0, 0, 127))

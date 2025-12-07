@@ -17,7 +17,9 @@ from .midi import MockMidiManager
 from .timing import ControllableTimingEngine
 
 
-def create_test_fire(with_midi: bool = True) -> Tuple[MockAkaiFire, Optional[MockMidiManager]]:
+def create_test_fire(
+    with_midi: bool = True,
+) -> Tuple[MockAkaiFire, Optional[MockMidiManager]]:
     """
     Create a configured MockAkaiFire for testing.
 
@@ -104,7 +106,9 @@ def create_test_midi() -> MockMidiManager:
     return MockMidiManager()
 
 
-def create_test_environment() -> Tuple[MockAkaiFire, MockMidiManager, ControllableTimingEngine]:
+def create_test_environment() -> (
+    Tuple[MockAkaiFire, MockMidiManager, ControllableTimingEngine]
+):
     """
     Create a complete test environment with all components.
 
@@ -263,7 +267,7 @@ def create_note_recorder(midi: MockMidiManager) -> Callable[[], List[Tuple[int, 
 
     def get_new_notes() -> List[Tuple[int, int]]:
         all_notes = midi.get_notes_on()
-        new_notes = all_notes[last_count[0]:]
+        new_notes = all_notes[last_count[0] :]
         last_count[0] = len(all_notes)
         return new_notes
 

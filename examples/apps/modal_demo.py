@@ -18,7 +18,9 @@ import os
 from enum import Enum, auto
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from akai_fire_framework import (
     AkaiFireApp,
@@ -32,6 +34,7 @@ from akai_fire_framework import (
 
 class Mode(Enum):
     """App modes."""
+
     MAIN = auto()
     SETTINGS = auto()
 
@@ -112,7 +115,9 @@ class SettingsMode(ModeHandler):
         self.app.clear_grid()
 
 
-class ModalDemoApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, TransportMixin):
+class ModalDemoApp(
+    AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, TransportMixin
+):
     """Demo app with modes, screen, grid, and transport."""
 
     APP_NAME = "Modal Demo"
@@ -120,8 +125,8 @@ class ModalDemoApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transp
 
     # Button to mode mapping
     MODE_BUTTONS = {
-        Mode.MAIN: 0x2D,     # BUTTON_NOTE
-        Mode.SETTINGS: 0x21, # BUTTON_BROWSER
+        Mode.MAIN: 0x2D,  # BUTTON_NOTE
+        Mode.SETTINGS: 0x21,  # BUTTON_BROWSER
     }
 
     def on_init(self):
@@ -178,12 +183,14 @@ class ModalDemoApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transp
                 status = "REC"
 
             self.draw_header("MAIN MODE", status)
-            self.draw_content_lines([
-                f"Track: {info['track']}",
-                f"BPM: {info['bpm']}",
-                "",
-                "NOTE=Main, BROWSER=Settings",
-            ])
+            self.draw_content_lines(
+                [
+                    f"Track: {info['track']}",
+                    f"BPM: {info['bpm']}",
+                    "",
+                    "NOTE=Main, BROWSER=Settings",
+                ]
+            )
 
         elif self.current_mode == Mode.SETTINGS:
             # Settings menu

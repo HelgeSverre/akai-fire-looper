@@ -38,9 +38,13 @@ class StepEditMode:
         self.clipboard_step = None  # Holds a deep copy of a Step
 
         # Register mode callbacks
-        self.mode_manager.register_mode_callback(Mode.STEP_EDIT, "on_enter", self._on_enter)
-        self.mode_manager.register_mode_callback(Mode.STEP_EDIT, "on_exit", self._on_exit)
-        
+        self.mode_manager.register_mode_callback(
+            Mode.STEP_EDIT, "on_enter", self._on_enter
+        )
+        self.mode_manager.register_mode_callback(
+            Mode.STEP_EDIT, "on_exit", self._on_exit
+        )
+
         # Register this instance as the Step Edit Mode handler
         self.mode_manager.register_mode_handler(Mode.STEP_EDIT, self)
 
@@ -104,14 +108,16 @@ class StepEditMode:
         if 0 <= step_index < 16:
             self.selected_step = step_index
             self._update_mode_state()
-            
+
             track = self.sequencer.get_current_track()
             if track:
                 pattern = track.get_current_pattern()
                 if pattern:
                     step = pattern.get_step(step_index)
                     has_content = step is not None
-                    print(f"Selected step {step_index + 1} ({'has content' if has_content else 'empty'})")
+                    print(
+                        f"Selected step {step_index + 1} ({'has content' if has_content else 'empty'})"
+                    )
 
     def _select_track(self, track_index: int):
         """Select a different track for step editing."""
@@ -119,9 +125,11 @@ class StepEditMode:
             self.selected_track = track_index
             self.sequencer.set_current_track(track_index)
             self._update_mode_state()
-            
+
             track = self.sequencer.get_current_track()
-            print(f"Selected track {track_index + 1}: {track.name if track else 'Unknown'}")
+            print(
+                f"Selected track {track_index + 1}: {track.name if track else 'Unknown'}"
+            )
 
     def _select_parameter(self, param_index: int):
         """Select which parameter to edit."""
@@ -180,16 +188,16 @@ class StepEditMode:
         track = self.sequencer.get_current_track()
         if not track:
             return
-            
+
         pattern = track.get_current_pattern()
         if not pattern:
             return
-            
+
         step = pattern.get_step(self.selected_step)
         if not step:
             print(f"No step content at step {self.selected_step + 1}")
             return
-            
+
         if self.edit_parameter == "velocity":
             # Map pad velocity to step velocity
             new_velocity = max(1, min(127, velocity * 2))
@@ -208,7 +216,9 @@ class StepEditMode:
                 self._select_step(next_step)
 
         except Exception as e:
-            print(f"Error in Step Edit mode encoder handling ({encoder}, {direction}): {e}")
+            print(
+                f"Error in Step Edit mode encoder handling ({encoder}, {direction}): {e}"
+            )
 
     def handle_button_press(self, button: str):
         """Handle button presses in Step Edit Mode."""
@@ -216,7 +226,7 @@ class StepEditMode:
             # Previous step
             if self.selected_step > 0:
                 self._select_step(self.selected_step - 1)
-                
+
         elif button == "grid_right":
             # Next step
             if self.selected_step < 15:
@@ -242,4 +252,6 @@ class StepEditMode:
         self.selected_track = self.sequencer.current_track
         self._update_mode_state()
         track = self.sequencer.get_current_track()
-        print(f"Step Edit Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}")
+        print(
+            f"Step Edit Mode: Track changed to {self.selected_track + 1}: {track.name if track else 'Unknown'}"
+        )

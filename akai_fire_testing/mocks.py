@@ -24,6 +24,7 @@ import os
 @dataclass
 class PadEvent:
     """Recorded pad color change event."""
+
     pad_index: int
     color: Tuple[int, int, int]
     timestamp: float = field(default_factory=time.time)
@@ -32,6 +33,7 @@ class PadEvent:
 @dataclass
 class ButtonEvent:
     """Recorded button LED event."""
+
     button_id: int
     value: int
     timestamp: float = field(default_factory=time.time)
@@ -70,8 +72,8 @@ class MockCanvas:
 
     # Typography constants for consistent spacing (matching real Canvas)
     HEADER_HEIGHT = 16  # Standard header height
-    TEXT_MARGIN_Y = 3   # Top margin for header text
-    CONTENT_GAP = 2     # Gap between header and content
+    TEXT_MARGIN_Y = 3  # Top margin for header text
+    CONTENT_GAP = 2  # Gap between header and content
     CONTENT_START = HEADER_HEIGHT + CONTENT_GAP  # Y=18
 
     def __init__(self, width: int = 128, height: int = 64):
@@ -88,7 +90,9 @@ class MockCanvas:
 
         # Operation recording for assertions
         self.text_drawn: List[Tuple[str, int, int]] = []
-        self.rects_drawn: List[Tuple[int, int, int, int, bool]] = []  # (x, y, w, h, filled)
+        self.rects_drawn: List[Tuple[int, int, int, int, bool]] = (
+            []
+        )  # (x, y, w, h, filled)
         self.lines_drawn: List[Tuple[int, int, int, int]] = []  # (x0, y0, x1, y1)
         self.circles_drawn: List[Tuple[int, int, int, bool]] = []  # (cx, cy, r, filled)
         self.clear_count = 0
@@ -181,7 +185,7 @@ class MockCanvas:
         char_width = 5
         char_height = 7
         for i, char in enumerate(text):
-            if char != ' ':
+            if char != " ":
                 cx = x + i * char_width
                 for dy in range(min(char_height, 6)):
                     for dx in range(min(char_width - 1, 4)):
@@ -345,8 +349,14 @@ class MockCanvas:
         for i, line in enumerate(lines):
             self.draw_text(line, 2, 14 + i * 10)
 
-    def draw_value_page(self, title: str, value: Any, unit: str = "",
-                        min_value: float = 0, max_value: float = 100):
+    def draw_value_page(
+        self,
+        title: str,
+        value: Any,
+        unit: str = "",
+        min_value: float = 0,
+        max_value: float = 100,
+    ):
         """Draw a value display page."""
         self.draw_text(title, 2, 2)
         self.draw_text(f"{value}{unit}", 40, 30)
@@ -358,13 +368,20 @@ class MockCanvas:
             prefix = ">" if i == selected_index else " "
             self.draw_text(f"{prefix}{item}", 4, 14 + i * 10)
 
-    def draw_grid_info(self, title: str, rows: int, cols: int,
-                       cell_values: list = None, selected_cell: tuple = None):
+    def draw_grid_info(
+        self,
+        title: str,
+        rows: int,
+        cols: int,
+        cell_values: list = None,
+        selected_cell: tuple = None,
+    ):
         """Draw a grid information display."""
         self.draw_text(title, 2, 2)
 
-    def draw_split_screen(self, left_title: str, left_content: list,
-                          right_title: str, right_content: list):
+    def draw_split_screen(
+        self, left_title: str, left_content: list, right_title: str, right_content: list
+    ):
         """Draw a split-screen layout."""
         self.draw_vertical_line(64, 0, self.height)
         self.draw_text(left_title, 2, 2)
@@ -406,7 +423,7 @@ class MockCanvas:
         from PIL import Image
 
         # Create scaled monochrome image (white on black)
-        img = Image.new('RGB', (self.width * scale, self.height * scale), (0, 0, 0))
+        img = Image.new("RGB", (self.width * scale, self.height * scale), (0, 0, 0))
         pixels_out = img.load()
 
         for y in range(self.height):
@@ -433,22 +450,22 @@ class MockCanvas:
         pixel_data_size = row_size * scaled_height
         file_size = 54 + pixel_data_size  # Header + pixels
 
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             # BMP Header (14 bytes)
-            f.write(b'BM')                          # Magic
-            f.write(struct.pack('<I', file_size))   # File size
-            f.write(struct.pack('<HH', 0, 0))       # Reserved
-            f.write(struct.pack('<I', 54))          # Pixel data offset
+            f.write(b"BM")  # Magic
+            f.write(struct.pack("<I", file_size))  # File size
+            f.write(struct.pack("<HH", 0, 0))  # Reserved
+            f.write(struct.pack("<I", 54))  # Pixel data offset
 
             # DIB Header (40 bytes)
-            f.write(struct.pack('<I', 40))          # Header size
-            f.write(struct.pack('<i', scaled_width))   # Width
-            f.write(struct.pack('<i', scaled_height))  # Height (positive = bottom-up)
-            f.write(struct.pack('<HH', 1, 24))      # Planes, bits per pixel
-            f.write(struct.pack('<I', 0))           # Compression (none)
-            f.write(struct.pack('<I', pixel_data_size))  # Image size
-            f.write(struct.pack('<ii', 2835, 2835)) # Pixels per meter
-            f.write(struct.pack('<II', 0, 0))       # Colors
+            f.write(struct.pack("<I", 40))  # Header size
+            f.write(struct.pack("<i", scaled_width))  # Width
+            f.write(struct.pack("<i", scaled_height))  # Height (positive = bottom-up)
+            f.write(struct.pack("<HH", 1, 24))  # Planes, bits per pixel
+            f.write(struct.pack("<I", 0))  # Compression (none)
+            f.write(struct.pack("<I", pixel_data_size))  # Image size
+            f.write(struct.pack("<ii", 2835, 2835))  # Pixels per meter
+            f.write(struct.pack("<II", 0, 0))  # Colors
 
             # Pixel data (bottom-up) - monochrome white on black
             for y in range(scaled_height - 1, -1, -1):
@@ -717,7 +734,9 @@ class MockAkaiFire:
         """
         return self.set_pad_color(pad_index, r, g, b)
 
-    def set_multiple_pad_colors(self, pad_colors: List[Tuple[int, int, int, int]]) -> bool:
+    def set_multiple_pad_colors(
+        self, pad_colors: List[Tuple[int, int, int, int]]
+    ) -> bool:
         """
         Set multiple pad colors efficiently.
 
@@ -1053,6 +1072,7 @@ class MockAkaiFire:
             @fire.on_pad()  # All pads
             def handle_any_pad(pad_index, velocity): ...
         """
+
         def decorator(func):
             if pad_index is None:
                 self._global_pad_handlers.append(func)
@@ -1062,6 +1082,7 @@ class MockAkaiFire:
             else:
                 self._pad_handlers.append((pad_index, func))
             return func
+
         return decorator
 
     def on_button(self, button_id=None):
@@ -1081,6 +1102,7 @@ class MockAkaiFire:
             @fire.on_button()  # Global handler
             def handle_any_button(button_id, event): ...
         """
+
         def decorator(func):
             if button_id is None:
                 self._global_button_handlers.append(func)
@@ -1089,10 +1111,17 @@ class MockAkaiFire:
                     self._button_handlers[button_id] = []
                 self._button_handlers[button_id].append(func)
             return func
+
         return decorator
 
     # Valid rotary IDs (for validation)
-    VALID_ROTARY_IDS = [0x10, 0x11, 0x12, 0x13, 0x76]  # VOLUME, PAN, FILTER, RESONANCE, SELECT
+    VALID_ROTARY_IDS = [
+        0x10,
+        0x11,
+        0x12,
+        0x13,
+        0x76,
+    ]  # VOLUME, PAN, FILTER, RESONANCE, SELECT
 
     def on_rotary_turn(self, rotary_id=None):
         """
@@ -1114,6 +1143,7 @@ class MockAkaiFire:
         Raises:
             ValueError: If rotary_id is not a valid rotary constant
         """
+
         def decorator(func):
             if rotary_id is None:
                 self._global_rotary_handlers.append(func)
@@ -1124,6 +1154,7 @@ class MockAkaiFire:
                     self._rotary_handlers[rotary_id] = []
                 self._rotary_handlers[rotary_id].append(func)
             return func
+
         return decorator
 
     def on_rotary_touch(self, rotary_id=None):
@@ -1146,6 +1177,7 @@ class MockAkaiFire:
         Raises:
             ValueError: If rotary_id is not a valid rotary constant
         """
+
         def decorator(func):
             if rotary_id is None:
                 self._global_rotary_touch_handlers.append(func)
@@ -1156,6 +1188,7 @@ class MockAkaiFire:
                     self._rotary_touch_handlers[rotary_id] = []
                 self._rotary_touch_handlers[rotary_id].append(func)
             return func
+
         return decorator
 
     def on_solo(self, index: Optional[int] = None):
@@ -1175,6 +1208,7 @@ class MockAkaiFire:
             @fire.on_solo()  # Global handler
             def handle_any_solo(index, event): ...
         """
+
         def decorator(func):
             if index is None:
                 # Global solo handler - wrap to translate button_id to index
@@ -1182,6 +1216,7 @@ class MockAkaiFire:
                     solo_index = self.get_solo_index(button_id)
                     if solo_index is not None:
                         func(solo_index, event)
+
                 self._global_button_handlers.append(global_wrapper)
             else:
                 # Specific solo button
@@ -1193,6 +1228,7 @@ class MockAkaiFire:
                 else:
                     raise ValueError("Solo index must be 1-4")
             return func
+
         return decorator
 
     # =========================================================================
@@ -1453,7 +1489,9 @@ class MockAkaiFire:
             AssertionError: If color doesn't match
         """
         actual = self.pad_colors[pad_index]
-        assert actual == expected_color, f"Pad {pad_index}: expected {expected_color}, got {actual}"
+        assert (
+            actual == expected_color
+        ), f"Pad {pad_index}: expected {expected_color}, got {actual}"
 
     def assert_pad_not_black(self, pad_index: int):
         """
@@ -1480,7 +1518,9 @@ class MockAkaiFire:
             AssertionError: If value doesn't match
         """
         actual = self.button_leds.get(button_id, 0)
-        assert actual == expected_value, f"Button {button_id}: expected {expected_value}, got {actual}"
+        assert (
+            actual == expected_value
+        ), f"Button {button_id}: expected {expected_value}, got {actual}"
 
     def get_lit_pads(self) -> List[int]:
         """
@@ -1498,10 +1538,7 @@ class MockAkaiFire:
         Returns:
             List of 4 rows, each containing 16 color tuples
         """
-        return [
-            self.pad_colors[row * 16:(row + 1) * 16]
-            for row in range(4)
-        ]
+        return [self.pad_colors[row * 16 : (row + 1) * 16] for row in range(4)]
 
     def get_pads_with_color(self, color: Tuple[int, int, int]) -> List[int]:
         """

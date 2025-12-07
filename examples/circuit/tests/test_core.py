@@ -42,6 +42,7 @@ class TestPattern(unittest.TestCase):
 
     def setUp(self):
         from core.pattern import Pattern
+
         self.pattern = Pattern(name="Test Pattern")
 
     def test_default_length_is_16(self):
@@ -51,6 +52,7 @@ class TestPattern(unittest.TestCase):
     def test_get_step_returns_step_object(self):
         """get_step should return a Step object."""
         from core.pattern import Step
+
         step = self.pattern.get_step(0)
         self.assertIsInstance(step, Step)
 
@@ -73,8 +75,8 @@ class TestPattern(unittest.TestCase):
         """Steps should support multiple notes."""
         step = self.pattern.get_step(0)
         step.add_note(60, 100)  # C4
-        step.add_note(64, 80)   # E4
-        step.add_note(67, 90)   # G4
+        step.add_note(64, 80)  # E4
+        step.add_note(67, 90)  # G4
 
         notes = step.get_notes_with_velocities()
         self.assertEqual(len(notes), 3)
@@ -156,6 +158,7 @@ class TestPattern(unittest.TestCase):
         data = self.pattern.to_dict()
 
         from core.pattern import Pattern
+
         restored = Pattern.from_dict(data)
 
         self.assertEqual(restored.name, self.pattern.name)
@@ -191,11 +194,13 @@ class TestPattern(unittest.TestCase):
     def test_play_order_default_forward(self):
         """Pattern should default to FORWARD play order."""
         from core.pattern import PlayOrder
+
         self.assertEqual(self.pattern.play_order, PlayOrder.FORWARD)
 
     def test_get_next_step_forward(self):
         """FORWARD play order should increment step."""
         from core.pattern import PlayOrder
+
         self.pattern.play_order = PlayOrder.FORWARD
 
         self.assertEqual(self.pattern.get_next_step(0), 1)
@@ -205,6 +210,7 @@ class TestPattern(unittest.TestCase):
     def test_get_next_step_reverse(self):
         """REVERSE play order should decrement step."""
         from core.pattern import PlayOrder
+
         self.pattern.play_order = PlayOrder.REVERSE
 
         self.assertEqual(self.pattern.get_next_step(15), 14)
@@ -214,6 +220,7 @@ class TestPattern(unittest.TestCase):
     def test_get_next_step_with_start_end(self):
         """Play order should respect start/end points."""
         from core.pattern import PlayOrder
+
         self.pattern.start_point = 4
         self.pattern.end_point = 8
         self.pattern.play_order = PlayOrder.FORWARD
@@ -229,6 +236,7 @@ class TestPattern(unittest.TestCase):
     def test_get_first_step_reverse(self):
         """REVERSE should start at end_point."""
         from core.pattern import PlayOrder
+
         self.pattern.play_order = PlayOrder.REVERSE
         self.pattern.end_point = 10
         self.assertEqual(self.pattern.get_first_step(), 10)
@@ -236,6 +244,7 @@ class TestPattern(unittest.TestCase):
     def test_sync_rate_default(self):
         """Pattern should default to SIXTEENTH sync rate."""
         from core.pattern import SyncRate
+
         self.assertEqual(self.pattern.sync_rate, SyncRate.SIXTEENTH)
 
     def test_sync_rate_multiplier(self):
@@ -324,11 +333,8 @@ class TestTrack(unittest.TestCase):
 
     def setUp(self):
         from core.track import Track
-        self.track = Track(
-            name="Test Track",
-            color=(127, 0, 0),
-            midi_channel=1
-        )
+
+        self.track = Track(name="Test Track", color=(127, 0, 0), midi_channel=1)
 
     def test_track_has_8_patterns(self):
         """Track should have 8 pattern slots."""
@@ -351,6 +357,7 @@ class TestTrack(unittest.TestCase):
     def test_get_current_pattern(self):
         """Should return current pattern object."""
         from core.pattern import Pattern
+
         pattern = self.track.get_current_pattern()
         self.assertIsInstance(pattern, Pattern)
 
@@ -445,6 +452,7 @@ class TestTrack(unittest.TestCase):
         data = self.track.to_dict()
 
         from core.track import Track
+
         restored = Track.from_dict(data)
 
         self.assertEqual(restored.name, self.track.name)
@@ -461,11 +469,12 @@ class TestSequencer(unittest.TestCase):
         self.mock_midi = create_test_midi()
 
         # Patch the MidiManager to avoid actual MIDI operations
-        self.midi_patcher = patch('core.sequencer.MidiManager')
+        self.midi_patcher = patch("core.sequencer.MidiManager")
         self.mock_midi_class = self.midi_patcher.start()
         self.mock_midi_class.return_value = self.mock_midi
 
         from core.sequencer import Sequencer
+
         self.sequencer = Sequencer()
 
     def tearDown(self):
@@ -478,9 +487,9 @@ class TestSequencer(unittest.TestCase):
     def test_default_track_colors(self):
         """Tracks should have Circuit-style colors."""
         colors = [t.color for t in self.sequencer.tracks]
-        self.assertEqual(colors[0], (255, 0, 0))    # Red
-        self.assertEqual(colors[1], (0, 255, 0))    # Green
-        self.assertEqual(colors[2], (0, 0, 255))    # Blue
+        self.assertEqual(colors[0], (255, 0, 0))  # Red
+        self.assertEqual(colors[1], (0, 255, 0))  # Green
+        self.assertEqual(colors[2], (0, 0, 255))  # Blue
         self.assertEqual(colors[3], (255, 255, 0))  # Yellow
 
     def test_default_midi_channels(self):
@@ -491,17 +500,20 @@ class TestSequencer(unittest.TestCase):
     def test_transport_starts_stopped(self):
         """Transport should start in stopped state."""
         from core.sequencer import TransportState
+
         self.assertEqual(self.sequencer.transport_state, TransportState.STOPPED)
 
     def test_play_starts_playback(self):
         """play() should start playback."""
         from core.sequencer import TransportState
+
         self.sequencer.play()
         self.assertEqual(self.sequencer.transport_state, TransportState.PLAYING)
 
     def test_stop_stops_playback(self):
         """stop() should stop playback."""
         from core.sequencer import TransportState
+
         self.sequencer.play()
         self.sequencer.stop()
         self.assertEqual(self.sequencer.transport_state, TransportState.STOPPED)
@@ -509,6 +521,7 @@ class TestSequencer(unittest.TestCase):
     def test_record_starts_recording(self):
         """record() should start recording."""
         from core.sequencer import TransportState
+
         self.sequencer.record()
         self.assertEqual(self.sequencer.transport_state, TransportState.RECORDING)
 
@@ -573,6 +586,7 @@ class TestSequencer(unittest.TestCase):
         self.sequencer.play()
 
         from core.sequencer import TransportState
+
         self.assertIn(TransportState.PLAYING, callback_called)
 
     def test_16_scenes(self):
@@ -585,6 +599,7 @@ class TestSequencer(unittest.TestCase):
         self.sequencer.cleanup()
 
         from core.sequencer import TransportState
+
         self.assertEqual(self.sequencer.transport_state, TransportState.STOPPED)
 
 
@@ -594,11 +609,13 @@ class TestScales(unittest.TestCase):
     def test_major_scale_intervals(self):
         """Major scale should have correct intervals."""
         from core.scales import SCALES
+
         self.assertEqual(SCALES["MAJOR"], [0, 2, 4, 5, 7, 9, 11])
 
     def test_minor_scale_intervals(self):
         """Natural minor should have correct intervals."""
         from core.scales import SCALES
+
         self.assertEqual(SCALES["NATURAL_MINOR"], [0, 2, 3, 5, 7, 8, 10])
 
     def test_get_scale_notes(self):
@@ -623,8 +640,8 @@ class TestScales(unittest.TestCase):
         """is_root_note should identify root notes."""
         from core.scales import is_root_note
 
-        self.assertTrue(is_root_note(60, 60))   # C4 is root of C
-        self.assertTrue(is_root_note(72, 60))   # C5 is also root of C
+        self.assertTrue(is_root_note(60, 60))  # C4 is root of C
+        self.assertTrue(is_root_note(72, 60))  # C5 is also root of C
         self.assertFalse(is_root_note(62, 60))  # D is not root of C
 
     def test_get_note_name(self):
@@ -646,6 +663,7 @@ class TestScales(unittest.TestCase):
     def test_chromatic_scale(self):
         """Chromatic scale should include all 12 notes."""
         from core.scales import SCALES
+
         self.assertEqual(len(SCALES["CHROMATIC"]), 12)
 
 
@@ -654,6 +672,7 @@ class TestTiming(unittest.TestCase):
 
     def setUp(self):
         from core.timing import TimingEngine
+
         self.timing = TimingEngine(bpm=120.0)
 
     def test_default_bpm(self):
@@ -693,10 +712,7 @@ class TestTiming(unittest.TestCase):
         from core.timing import QuantizationMode
 
         self.timing.set_quantization(QuantizationMode.SIXTEENTH)
-        self.assertEqual(
-            self.timing.get_quantization(),
-            QuantizationMode.SIXTEENTH
-        )
+        self.assertEqual(self.timing.get_quantization(), QuantizationMode.SIXTEENTH)
 
     def test_timing_info(self):
         """get_timing_info should return current state."""
@@ -754,6 +770,7 @@ class TestScene(unittest.TestCase):
 
     def setUp(self):
         from core.scene import Scene
+
         self.scene = Scene(name="Test Scene")
 
     def test_default_scene_is_empty(self):
@@ -785,6 +802,7 @@ class TestScene(unittest.TestCase):
     def test_copy_current_state(self):
         """Should copy track state into scene."""
         from core.track import Track
+
         tracks = [
             Track(name="Track 1"),
             Track(name="Track 2"),
@@ -802,6 +820,7 @@ class TestScene(unittest.TestCase):
     def test_apply_to_tracks(self):
         """Should apply scene settings to tracks."""
         from core.track import Track
+
         tracks = [
             Track(name="Track 1"),
             Track(name="Track 2"),
@@ -840,6 +859,7 @@ class TestScene(unittest.TestCase):
         data = self.scene.to_dict()
 
         from core.scene import Scene
+
         restored = Scene.from_dict(data)
 
         self.assertEqual(restored.name, "Test Scene")
@@ -855,11 +875,7 @@ class TestMidiMessage(unittest.TestCase):
         from core.midi_manager import MidiMessage
 
         msg = MidiMessage(
-            channel=1,
-            data=[0x90, 60, 100],
-            timestamp=0.0,
-            note=60,
-            velocity=100
+            channel=1, data=[0x90, 60, 100], timestamp=0.0, note=60, velocity=100
         )
 
         self.assertEqual(msg.channel, 1)
@@ -881,6 +897,7 @@ class TestTapTempo(unittest.TestCase):
 
     def setUp(self):
         from core.timing import TimingEngine
+
         self.timing = TimingEngine(bpm=120.0)
 
     def test_first_tap_returns_none(self):
@@ -956,10 +973,10 @@ class TestModeHandler(unittest.TestCase):
         from ui.mode_handler import ModeHandler
 
         # Check abstract methods exist
-        self.assertTrue(hasattr(ModeHandler, 'handle_pad_press'))
-        self.assertTrue(hasattr(ModeHandler, 'handle_encoder_turn'))
-        self.assertTrue(hasattr(ModeHandler, 'handle_button_press'))
-        self.assertTrue(hasattr(ModeHandler, 'get_display_info'))
+        self.assertTrue(hasattr(ModeHandler, "handle_pad_press"))
+        self.assertTrue(hasattr(ModeHandler, "handle_encoder_turn"))
+        self.assertTrue(hasattr(ModeHandler, "handle_button_press"))
+        self.assertTrue(hasattr(ModeHandler, "get_display_info"))
 
 
 class TestSettingsMode(unittest.TestCase):

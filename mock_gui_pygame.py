@@ -18,8 +18,8 @@ class PygameCanvas:
 
     # Typography constants for consistent spacing (matching real Canvas)
     HEADER_HEIGHT = 16  # Standard header height
-    TEXT_MARGIN_Y = 3   # Top margin for header text
-    CONTENT_GAP = 2     # Gap between header and content
+    TEXT_MARGIN_Y = 3  # Top margin for header text
+    CONTENT_GAP = 2  # Gap between header and content
     CONTENT_START = HEADER_HEIGHT + CONTENT_GAP  # Y=18
 
     def __init__(self):
