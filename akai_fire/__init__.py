@@ -385,90 +385,17 @@ class _HandlerDispatcher:
             logger.exception("Error shutting down handler dispatcher")
 
 
+from akai_fire.constants import install as _install_constants
+
+
 # noinspection GrazieInspection
+@_install_constants
 class AkaiFire:
-    # MIDI Constants
-    NOTE_ON = 0x90
-    NOTE_OFF = 0x80
-    CC = 0xB0
+    """Real AKAI Fire MIDI controller.
 
-    # Rotary Controls
-    ROTARY_VOLUME = 0x10
-    ROTARY_PAN = 0x11
-    ROTARY_FILTER = 0x12
-    ROTARY_RESONANCE = 0x13
-    ROTARY_SELECT = 0x76
-
-    # Buttons
-    BUTTON_SELECT = 0x19
-    BUTTON_STEP = 0x2C
-    BUTTON_NOTE = 0x2D
-    BUTTON_DRUM = 0x2E
-    BUTTON_PERFORM = 0x2F
-    BUTTON_SHIFT = 0x30
-    BUTTON_ALT = 0x31
-    BUTTON_PATTERN = 0x32
-    BUTTON_PLAY = 0x33
-    BUTTON_STOP = 0x34
-    BUTTON_REC = 0x35
-    BUTTON_BANK = 0x1A
-    BUTTON_BROWSER = 0x21
-    BUTTON_SOLO_1 = 0x24
-    BUTTON_SOLO_2 = 0x25
-    BUTTON_SOLO_3 = 0x26
-    BUTTON_SOLO_4 = 0x27
-    BUTTON_PAT_UP = 0x1F
-    BUTTON_PAT_DOWN = 0x20
-    BUTTON_GRID_LEFT = 0x22
-    BUTTON_GRID_RIGHT = 0x23
-
-    # Solo Button mapped to index
-    SOLO_BUTTONS = {
-        1: BUTTON_SOLO_1,
-        2: BUTTON_SOLO_2,
-        3: BUTTON_SOLO_3,
-        4: BUTTON_SOLO_4,
-    }
-
-    # LED Values
-    LED_OFF = 0x00
-    LED_DULL_RED = 0x01
-    LED_HIGH_RED = 0x02
-    LED_DULL_GREEN = 0x01
-    LED_HIGH_GREEN = 0x02
-    LED_DULL_YELLOW = 0x01
-    LED_HIGH_YELLOW = 0x02
-
-    # Rectangle LED Values
-    RECTANGLE_LED_OFF = 0x00
-    RECTANGLE_LED_DULL_RED = 0x01
-    RECTANGLE_LED_DULL_GREEN = 0x02
-    RECTANGLE_LED_HIGH_RED = 0x03
-    RECTANGLE_LED_HIGH_GREEN = 0x04
-
-    # todo    temporary
-    FIELD_BASE = 0x10  # Base flag, must be set for valid combinations
-    FIELD_CHANNEL = 0x01
-    FIELD_MIXER = 0x02
-    FIELD_USER1 = 0x04
-    FIELD_USER2 = 0x08
-
-    # Constants for Control Bank LED States
-    CONTROL_BANK_ALL_OFF = 0x10
-    CONTROL_BANK_ALL_ON = 0x1F
-    CONTROL_BANK_CHANNEL = 0x11
-    CONTROL_BANK_CHANNEL_AND_MIXER = 0x13
-    CONTROL_BANK_CHANNEL_AND_MIXER_AND_USER1 = 0x17
-    CONTROL_BANK_CHANNEL_AND_MIXER_AND_USER2 = 0x1B
-    CONTROL_BANK_CHANNEL_AND_USER1 = 0x15
-    CONTROL_BANK_CHANNEL_AND_USER1_AND_USER2 = 0x1D
-    CONTROL_BANK_CHANNEL_AND_USER2 = 0x19
-    CONTROL_BANK_MIXER = 0x12
-    CONTROL_BANK_MIXER_AND_USER1_AND_USER2 = 0x1E
-    CONTROL_BANK_MIXER_AND_USER2 = 0x1A
-    CONTROL_BANK_USER1 = 0x14
-    CONTROL_BANK_USER1_AND_USER2 = 0x1C
-    CONTROL_BANK_USER2 = 0x03
+    MIDI constants (``BUTTON_*``, ``ROTARY_*``, ``LED_*``, etc.) are
+    installed from :mod:`akai_fire.constants` at class-definition time.
+    """
 
     def render_to_display(self, canvas=None):
         """Render the canvas to the OLED display with optimizations.

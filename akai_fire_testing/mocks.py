@@ -538,19 +538,26 @@ class MockCanvas:
 # =============================================================================
 
 
+from akai_fire.constants import install as _install_constants
+
+
+@_install_constants
 class MockAkaiFire:
-    """
-    Lightweight mock of AkaiFire for testing.
+    """Lightweight headless mock of AkaiFire for testing.
 
     Unlike the pygame MockAkaiFire, this doesn't create any windows
-    and is suitable for headless testing.
+    and is suitable for headless CI.
 
     Features:
-        - Records all pad color changes
-        - Records all button LED changes
-        - Simulates pad presses and button presses for testing event handlers
-        - Provides assertions for verifying visual state
+        - Records all pad color changes (``pad_events``)
+        - Records all button LED changes (``button_events``)
+        - ``simulate_*`` helpers for programmatic event injection
+        - ``assert_*`` helpers for verifying visual state
         - Connection simulation for testing connect/disconnect scenarios
+
+    MIDI constants (``BUTTON_*``, ``ROTARY_*``, ``LED_*``, etc.) are
+    installed from ``akai_fire.constants`` at class-definition time —
+    do NOT redefine them here.
 
     Example:
         >>> fire = MockAkaiFire()
@@ -560,89 +567,6 @@ class MockAkaiFire:
         >>> fire.simulate_pad_press(5, velocity=100)
         >>> fire.assert_pad_color(5, (127, 0, 0))
     """
-
-    # MIDI Constants (matching real AkaiFire)
-    NOTE_ON = 0x90
-    NOTE_OFF = 0x80
-    CC = 0xB0
-
-    # Button constants (matching real AkaiFire hex values)
-    BUTTON_SELECT = 0x19
-    BUTTON_BANK = 0x1A
-    BUTTON_PAT_UP = 0x1F
-    BUTTON_PAT_DOWN = 0x20
-    BUTTON_BROWSER = 0x21
-    BUTTON_GRID_LEFT = 0x22
-    BUTTON_GRID_RIGHT = 0x23
-    BUTTON_SOLO_1 = 0x24
-    BUTTON_SOLO_2 = 0x25
-    BUTTON_SOLO_3 = 0x26
-    BUTTON_SOLO_4 = 0x27
-    BUTTON_STEP = 0x2C
-    BUTTON_NOTE = 0x2D
-    BUTTON_DRUM = 0x2E
-    BUTTON_PERFORM = 0x2F
-    BUTTON_SHIFT = 0x30
-    BUTTON_ALT = 0x31
-    BUTTON_PATTERN = 0x32
-    BUTTON_PLAY = 0x33
-    BUTTON_STOP = 0x34
-    BUTTON_REC = 0x35
-
-    # Solo button index mapping (matches real AkaiFire)
-    SOLO_BUTTONS = {
-        1: 0x24,  # BUTTON_SOLO_1
-        2: 0x25,  # BUTTON_SOLO_2
-        3: 0x26,  # BUTTON_SOLO_3
-        4: 0x27,  # BUTTON_SOLO_4
-    }
-
-    # Rotary constants (matching real AkaiFire hex values)
-    ROTARY_VOLUME = 0x10
-    ROTARY_PAN = 0x11
-    ROTARY_FILTER = 0x12
-    ROTARY_RESONANCE = 0x13
-    ROTARY_SELECT = 0x76
-
-    # LED values
-    LED_OFF = 0x00
-    LED_DULL_RED = 0x01
-    LED_HIGH_RED = 0x02
-    LED_DULL_GREEN = 0x01
-    LED_HIGH_GREEN = 0x02
-    LED_DULL_YELLOW = 0x01
-    LED_HIGH_YELLOW = 0x02
-
-    # Rectangle LED Values
-    RECTANGLE_LED_OFF = 0x00
-    RECTANGLE_LED_DULL_RED = 0x01
-    RECTANGLE_LED_DULL_GREEN = 0x02
-    RECTANGLE_LED_HIGH_RED = 0x03
-    RECTANGLE_LED_HIGH_GREEN = 0x04
-
-    # Control Bank Field Constants
-    FIELD_BASE = 0x10
-    FIELD_CHANNEL = 0x01
-    FIELD_MIXER = 0x02
-    FIELD_USER1 = 0x04
-    FIELD_USER2 = 0x08
-
-    # Control Bank LED State Constants (matching real AkaiFire)
-    CONTROL_BANK_ALL_OFF = 0x10
-    CONTROL_BANK_ALL_ON = 0x1F
-    CONTROL_BANK_CHANNEL = 0x11
-    CONTROL_BANK_MIXER = 0x12
-    CONTROL_BANK_USER1 = 0x14
-    CONTROL_BANK_USER2 = 0x03  # Note: Real uses 0x03 (different from pattern)
-    CONTROL_BANK_CHANNEL_AND_MIXER = 0x13
-    CONTROL_BANK_CHANNEL_AND_MIXER_AND_USER1 = 0x17
-    CONTROL_BANK_CHANNEL_AND_MIXER_AND_USER2 = 0x1B
-    CONTROL_BANK_CHANNEL_AND_USER1 = 0x15
-    CONTROL_BANK_CHANNEL_AND_USER1_AND_USER2 = 0x1D
-    CONTROL_BANK_CHANNEL_AND_USER2 = 0x19
-    CONTROL_BANK_MIXER_AND_USER1_AND_USER2 = 0x1E
-    CONTROL_BANK_MIXER_AND_USER2 = 0x1A
-    CONTROL_BANK_USER1_AND_USER2 = 0x1C
 
     def __init__(self):
         """Initialize mock controller."""

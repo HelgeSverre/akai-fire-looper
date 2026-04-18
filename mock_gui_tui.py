@@ -70,6 +70,10 @@ _TRANSPORT_ROW = [("PAT", 0x32), ("PLAY", 0x33), ("STOP", 0x34), ("REC", 0x35)]
 _BROWSER_BUTTON = ("BROWSER", 0x21)
 
 
+from akai_fire.constants import install as _install_constants
+
+
+@_install_constants
 class MockAkaiFire:
     """Terminal-UI mock of the AKAI Fire controller.
 
@@ -77,84 +81,11 @@ class MockAkaiFire:
     for semantic contracts. The TUI-specific rendering and input threads
     are filled in by later commits — this scaffold already supports
     every setter, decorator, and state query.
+
+    MIDI constants (``BUTTON_*``, ``ROTARY_*``, ``LED_*``, etc.) are
+    installed from ``akai_fire.constants`` at class-definition time — do
+    NOT redefine them here.
     """
-
-    # ------------------------------------------------------------------
-    # MIDI constants — copied verbatim from mock_gui_pygame.MockAkaiFire
-    # ------------------------------------------------------------------
-    NOTE_ON = 0x90
-    NOTE_OFF = 0x80
-    CC = 0xB0
-
-    # Button Constants
-    BUTTON_PLAY = 0x33
-    BUTTON_STOP = 0x34
-    BUTTON_REC = 0x35
-    BUTTON_SHIFT = 0x30
-    BUTTON_ALT = 0x31
-    BUTTON_STEP = 0x2C
-    BUTTON_NOTE = 0x2D
-    BUTTON_DRUM = 0x2E
-    BUTTON_PERFORM = 0x2F
-    BUTTON_PATTERN = 0x32
-    BUTTON_BROWSER = 0x21
-    BUTTON_GRID_LEFT = 0x22
-    BUTTON_GRID_RIGHT = 0x23
-    BUTTON_BANK = 0x1A
-    BUTTON_SELECT = 0x19
-    BUTTON_SOLO_1 = 0x24
-    BUTTON_SOLO_2 = 0x25
-    BUTTON_SOLO_3 = 0x26
-    BUTTON_SOLO_4 = 0x27
-    BUTTON_PAT_UP = 0x1F
-    BUTTON_PAT_DOWN = 0x20
-
-    # Rotary Controls
-    ROTARY_VOLUME = 0x10
-    ROTARY_PAN = 0x11
-    ROTARY_FILTER = 0x12
-    ROTARY_RESONANCE = 0x13
-    ROTARY_SELECT = 0x76
-
-    # LED Values
-    LED_OFF = 0x00
-    LED_DULL_RED = 0x01
-    LED_HIGH_RED = 0x02
-    LED_DULL_GREEN = 0x01
-    LED_HIGH_GREEN = 0x02
-    LED_DULL_YELLOW = 0x03
-    LED_HIGH_YELLOW = 0x04
-
-    # Rectangle (track) LED values
-    RECTANGLE_LED_OFF = 0x00
-    RECTANGLE_LED_DULL_RED = 0x01
-    RECTANGLE_LED_DULL_GREEN = 0x02
-    RECTANGLE_LED_HIGH_RED = 0x03
-    RECTANGLE_LED_HIGH_GREEN = 0x04
-
-    # Control bank field constants
-    FIELD_BASE = 0x10
-    FIELD_CHANNEL = 0x01
-    FIELD_MIXER = 0x02
-    FIELD_USER1 = 0x04
-    FIELD_USER2 = 0x08
-
-    # Control bank LED states
-    CONTROL_BANK_ALL_OFF = 0x00
-    CONTROL_BANK_CHANNEL = FIELD_BASE | FIELD_CHANNEL
-    CONTROL_BANK_MIXER = FIELD_BASE | FIELD_MIXER
-    CONTROL_BANK_USER1 = FIELD_BASE | FIELD_USER1
-    CONTROL_BANK_USER2 = FIELD_BASE | FIELD_USER2
-    CONTROL_BANK_ALL_ON = (
-        FIELD_BASE | FIELD_CHANNEL | FIELD_MIXER | FIELD_USER1 | FIELD_USER2
-    )
-
-    SOLO_BUTTONS: Dict[int, int] = {
-        1: BUTTON_SOLO_1,
-        2: BUTTON_SOLO_2,
-        3: BUTTON_SOLO_3,
-        4: BUTTON_SOLO_4,
-    }
 
     # ------------------------------------------------------------------
     # Lifecycle
