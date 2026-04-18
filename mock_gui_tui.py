@@ -24,18 +24,50 @@ from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 try:
-    import rich  # noqa: F401  # late-imported in rendering code, probe here
+    from rich.align import Align
+    from rich.console import Console, Group
+    from rich.live import Live
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
 except ImportError as e:  # pragma: no cover - dep guard
     raise ImportError(
         "mock_gui_tui requires the 'rich' package. "
         "Install with: pip install rich   (or uv pip install rich)"
     ) from e
 
+from PIL import Image
+
 # Reuse the real Canvas from akai_fire so the OLED API is identical.
 from akai_fire import Canvas
 
 
 logger = logging.getLogger(__name__)
+
+RENDER_FPS = 20
+OLED_FG = "rgb(255,160,50)"
+OLED_BG = "black"
+PANEL_BORDER = "grey42"
+
+# Regions cycled by Tab (commit 3 uses this order).
+REGIONS = (
+    "rotary",
+    "btn_bank",
+    "btn_mode",
+    "btn_transport",
+    "pad",
+    "mutesolo",
+    "pattern",
+    "btn_bottom",
+)
+
+# Button-row layouts: (region_name, [(label, button_id), ...]).
+# Duplicated from MockAkaiFire's button constants so the renderer doesn't
+# need to reach back into the class (avoids a self-import cycle).
+_BANK_ROW = [("BANK", 0x1A), ("SEL", 0x19)]
+_MODE_ROW = [("STEP", 0x2C), ("NOTE", 0x2D), ("DRUM", 0x2E), ("PERF", 0x2F)]
+_TRANSPORT_ROW = [("PAT", 0x32), ("PLAY", 0x33), ("STOP", 0x34), ("REC", 0x35)]
+_BROWSER_BUTTON = ("BROWSER", 0x21)
 
 
 class MockAkaiFire:
@@ -214,11 +246,23 @@ class MockAkaiFire:
     # ------------------------------------------------------------------
 
     def _start_threads(self) -> None:
-        """Start render + input threads. Filled in by later commits."""
-        # Placeholder — commits 2 (render) and 3 (input) will populate.
+        """Start render + input threads.
+
+        The render thread owns a ``rich.live.Live`` that redraws on
+        ``self._dirty`` edges (fallback cadence = 1 / RENDER_FPS).
+        The input thread is wired up in commit 3.
+        """
+        self._stop_flag = threading.Event()
+        self._render_thread = threading.Thread(
+            target=self._render_loop, name="akai-fire-tui-render", daemon=True
+        )
+        self._render_thread.start()
 
     def _stop_threads(self) -> None:
         """Stop render + input threads. Idempotent."""
+        if hasattr(self, "_stop_flag"):
+            self._stop_flag.set()
+        self._dirty.set()  # wake a waiting render thread
         for t in (self._render_thread, self._input_thread):
             if t and t.is_alive():
                 t.join(timeout=0.5)
@@ -227,6 +271,27 @@ class MockAkaiFire:
 
     def _mark_dirty(self) -> None:
         self._dirty.set()
+
+    def _render_loop(self) -> None:
+        console = Console()
+        interval = 1.0 / RENDER_FPS
+        try:
+            with Live(
+                self._build_view(),
+                console=console,
+                refresh_per_second=RENDER_FPS,
+                screen=False,
+                transient=False,
+            ) as live:
+                while not self._stop_flag.is_set():
+                    # Wait for a dirty flag or the fallback interval.
+                    self._dirty.wait(timeout=interval)
+                    self._dirty.clear()
+                    if self._stop_flag.is_set():
+                        break
+                    live.update(self._build_view(), refresh=True)
+        except Exception:  # pragma: no cover - render-thread guard
+            logger.exception("TUI render thread crashed")
 
     # ------------------------------------------------------------------
     # Pad / LED setters
@@ -509,6 +574,312 @@ class MockAkaiFire:
     @staticmethod
     def list_midi_ports() -> Dict[str, List[str]]:
         return {"input": [], "output": []}
+
+    # ------------------------------------------------------------------
+    # Rendering — ported from tui_mockup.py prototype
+    # ------------------------------------------------------------------
+
+    def _build_view(self) -> Group:
+        """Snapshot state and compose the chassis Group under a single lock."""
+        with self._state_lock:
+            pads = [tuple(c) for c in self.pad_colors]
+            button_leds = dict(self.button_leds)
+            track_leds = list(self.track_leds)
+            oled_img = self.canvas.image.copy()
+            shift = self._shift_pressed
+            alt = self._alt_pressed
+            focus = self._focus
+            last_event = getattr(self, "_last_event_text", "")
+
+        return _compose_chassis(
+            oled_img=oled_img,
+            pads=pads,
+            button_leds=button_leds,
+            track_leds=track_leds,
+            shift=shift,
+            alt=alt,
+            focus=focus,
+            last_event=last_event,
+            port_name=self.port_name,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Pure rendering helpers — no state mutation, safe to call from any thread
+# once a state snapshot has been taken.
+# ---------------------------------------------------------------------------
+
+
+def _braille_from_oled(img: Image.Image) -> Text:
+    """128x64 1-bit PIL image -> 64x16 Text of Braille cells (2x4 pixels each)."""
+    pixels = img.load()
+    w, h = img.size
+    # Braille dot bit layout (ISO 11548-1):
+    #   (0,0)->0  (1,0)->3
+    #   (0,1)->1  (1,1)->4
+    #   (0,2)->2  (1,2)->5
+    #   (0,3)->6  (1,3)->7
+    DOT_BITS = (
+        (0, 0, 0), (0, 1, 1), (0, 2, 2), (0, 3, 6),
+        (1, 0, 3), (1, 1, 4), (1, 2, 5), (1, 3, 7),
+    )
+    lit = f"{OLED_FG} on {OLED_BG}"
+    dim = f"on {OLED_BG}"
+
+    out = Text(no_wrap=True, overflow="ignore")
+    for y in range(0, h, 4):
+        for x in range(0, w, 2):
+            mask = 0
+            for dx, dy, bit in DOT_BITS:
+                if pixels[x + dx, y + dy] == 0:
+                    mask |= 1 << bit
+            if mask:
+                out.append(chr(0x2800 + mask), style=lit)
+            else:
+                out.append(" ", style=dim)
+        if y + 4 < h:
+            out.append("\n")
+    return out
+
+
+def _pad_cell(color: Tuple[int, int, int], focused: bool) -> Text:
+    r, g, b = color
+    if max(color) < 8:
+        if focused:
+            return Text("[·]", style="bold reverse grey50")
+        return Text(" · ", style="grey27")
+    # Pad colors are 0-127 (MIDI range); scale up to 0-255 for truecolor.
+    r255, g255, b255 = min(255, r * 2), min(255, g * 2), min(255, b * 2)
+    bg = f"rgb({r255},{g255},{b255})"
+    if focused:
+        return Text(" ◉ ", style=f"bold black on {bg}")
+    return Text("   ", style=f"on {bg}")
+
+
+def _render_pad_grid(pads: List[Tuple[int, int, int]], focus_idx: Optional[int]) -> Text:
+    out = Text(no_wrap=True)
+    for row in range(4):
+        for col in range(16):
+            idx = row * 16 + col
+            out.append_text(_pad_cell(pads[idx], focus_idx == idx))
+            if col < 15:
+                out.append(" ")
+        if row < 3:
+            out.append("\n")
+    return out
+
+
+def _render_knob(name: str, value: float, focused: bool) -> Text:
+    bars = "▁▂▃▄▅▆▇█"
+    bar_idx = min(len(bars) - 1, max(0, int(value * len(bars))))
+    val_bar = bars[bar_idx] * 5
+    face = "◉" if focused else "●"
+    out = Text(no_wrap=True)
+    out.append(f"  {face}  \n", style="bold cyan" if focused else "white")
+    out.append(f" {val_bar} \n", style=OLED_FG)
+    out.append(f" {name:^5}", style="bold cyan" if focused else "grey70")
+    return out
+
+
+def _render_knobs_row(focus: Tuple[str, int]) -> Table:
+    names = ("VOL", "PAN", "FIL", "RES", "SEL")
+    # Placeholder values; commit 3 will track real rotary positions.
+    values = (0.5, 0.5, 0.5, 0.5, 0.5)
+    focused = focus[1] if focus[0] == "rotary" else -1
+    t = Table.grid(padding=(0, 2), expand=False)
+    for _ in names:
+        t.add_column(justify="center")
+    t.add_row(
+        *(_render_knob(n, v, focused == i) for i, (n, v) in enumerate(zip(names, values)))
+    )
+    return t
+
+
+def _render_button(label: str, lit: bool, focused: bool, width: int = 6) -> Text:
+    text = f" {label:^{width-2}} "
+    if lit and focused:
+        style = "bold black on yellow"
+    elif lit:
+        style = "black on bright_yellow"
+    elif focused:
+        style = "bold reverse"
+    else:
+        style = "bright_white on grey23"
+    return Text(text, style=style)
+
+
+def _btn_lit(button_leds: Dict[int, int], button_id: int) -> bool:
+    value = button_leds.get(button_id, 0)
+    # Any non-zero LED value counts as "lit" for the renderer.
+    return value > 0
+
+
+def _render_button_row(
+    labels: List[Tuple[str, int]],  # (label, button_id)
+    button_leds: Dict[int, int],
+    focus_idx: int,
+    width: int = 6,
+) -> Text:
+    out = Text(no_wrap=True)
+    for i, (label, bid) in enumerate(labels):
+        out.append_text(_render_button(label, _btn_lit(button_leds, bid), focus_idx == i, width))
+        if i < len(labels) - 1:
+            out.append(" ")
+    return out
+
+
+def _render_mute_solo_column(
+    track_leds: List[int], focus: Tuple[str, int]
+) -> Text:
+    focused_idx = focus[1] if focus[0] == "mutesolo" else -1
+    out = Text(no_wrap=True)
+    for i in range(4):
+        mute_focused = focused_idx == i * 2
+        solo_focused = focused_idx == i * 2 + 1
+        lit = track_leds[i] > 0
+        out.append_text(_render_button(f"M{i+1}", False, mute_focused, width=4))
+        out.append("  ")
+        out.append_text(_render_button(f"S{i+1}", lit, solo_focused, width=4))
+        if i < 3:
+            out.append("\n")
+    return out
+
+
+def _render_pattern_controls(focus: Tuple[str, int]) -> Text:
+    idx = focus[1] if focus[0] == "pattern" else -1
+    out = Text(no_wrap=True)
+    out.append_text(_render_button("<", False, idx == 0, width=4))
+    out.append(" ")
+    out.append_text(_render_button(">", False, idx == 1, width=4))
+    out.append("\n")
+    out.append_text(_render_button("▲", False, idx == 2, width=4))
+    out.append(" ")
+    out.append_text(_render_button("▼", False, idx == 3, width=4))
+    return out
+
+
+def _render_modifier_strip(shift: bool, alt: bool) -> Text:
+    out = Text()
+    for name, on in (("SHIFT", shift), ("ALT", alt)):
+        style = "bold black on yellow" if on else "dim"
+        out.append(f" {name} ", style=style)
+        out.append(" ")
+    return out
+
+
+def _render_footer(focus: Tuple[str, int], last_event: str) -> Text:
+    t = Text()
+    t.append(f" focus: {focus[0].upper()} #{focus[1]} ", style="black on cyan")
+    t.append("   last: ", style="dim")
+    t.append(last_event or "(no events yet)", style="bold")
+    t.append("     ")
+    for label, action in (
+        ("Tab", "region"),
+        ("←→↑↓", "nav"),
+        ("Enter", "press"),
+        ("s/a", "mods"),
+        ("Ctrl+Q", "quit"),
+    ):
+        t.append(label, style="bold")
+        t.append(f"={action}  ", style="dim")
+    return t
+
+
+def _compose_chassis(
+    *,
+    oled_img: Image.Image,
+    pads: List[Tuple[int, int, int]],
+    button_leds: Dict[int, int],
+    track_leds: List[int],
+    shift: bool,
+    alt: bool,
+    focus: Tuple[str, int],
+    last_event: str,
+    port_name: str,
+) -> Group:
+    oled_panel = Panel(
+        _braille_from_oled(oled_img),
+        title="[bold]OLED[/]",
+        title_align="left",
+        border_style=PANEL_BORDER,
+        padding=(0, 1),
+        width=68,
+    )
+    knobs_panel = Panel(
+        _render_knobs_row(focus),
+        title="[bold]knobs[/]",
+        title_align="left",
+        border_style=PANEL_BORDER,
+        padding=(0, 1),
+    )
+    top_row = Table.grid(expand=False, padding=(0, 2))
+    top_row.add_column()
+    top_row.add_column()
+    top_row.add_row(oled_panel, knobs_panel)
+
+    focus_of = lambda region: focus[1] if focus[0] == region else -1
+
+    button_bar = Table.grid(expand=False, padding=(0, 3))
+    button_bar.add_column()
+    button_bar.add_column()
+    button_bar.add_column()
+    button_bar.add_row(
+        _render_button_row(_BANK_ROW, button_leds, focus_of("btn_bank")),
+        _render_button_row(_MODE_ROW, button_leds, focus_of("btn_mode")),
+        _render_button_row(_TRANSPORT_ROW, button_leds, focus_of("btn_transport")),
+    )
+
+    pad_panel = Panel(
+        _render_pad_grid(pads, focus[1] if focus[0] == "pad" else None),
+        title="[bold]pads 16×4[/]",
+        title_align="left",
+        border_style=PANEL_BORDER,
+        padding=(0, 1),
+    )
+    mute_solo_panel = Panel(
+        _render_mute_solo_column(track_leds, focus),
+        title="[bold]mute/solo[/]",
+        title_align="left",
+        border_style=PANEL_BORDER,
+        padding=(0, 1),
+    )
+    pattern_panel = Panel(
+        _render_pattern_controls(focus),
+        title="[bold]pattern[/]",
+        title_align="left",
+        border_style=PANEL_BORDER,
+        padding=(0, 1),
+    )
+    grid_row = Table.grid(expand=False, padding=(0, 1))
+    grid_row.add_column()
+    grid_row.add_column()
+    grid_row.add_column()
+    grid_row.add_row(mute_solo_panel, pad_panel, pattern_panel)
+
+    mod_strip = Table.grid(expand=False, padding=(0, 4))
+    mod_strip.add_column()
+    mod_strip.add_column()
+    mod_strip.add_row(
+        _render_modifier_strip(shift, alt),
+        _render_button_row(
+            [_BROWSER_BUTTON],
+            button_leds,
+            focus_of("btn_bottom"),
+            width=11,
+        ),
+    )
+
+    return Group(
+        Align.left(top_row),
+        Text(""),
+        button_bar,
+        Text(""),
+        grid_row,
+        Text(""),
+        mod_strip,
+        Text(""),
+        _render_footer(focus, last_event),
+    )
 
 
 if __name__ == "__main__":
