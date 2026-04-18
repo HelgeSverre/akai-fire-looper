@@ -760,5 +760,83 @@ class TestMockCanvasNewFeatures(unittest.TestCase):
             self.assertTrue(os.path.exists(result))
 
 
+class TestMockParity(unittest.TestCase):
+    """Both mock classes must latch shift/alt state identically.
+
+    The headless ``akai_fire_testing.MockAkaiFire`` and the interactive
+    ``mock_gui_pygame.MockAkaiFire`` serve different purposes but must
+    agree on observable state so code ported between dev and CI behaves
+    the same.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # Pygame needs a video driver even in headless unit tests; SDL's
+        # "dummy" driver gives us a working window surface we never show.
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+
+    def test_headless_mock_latches_shift_on_press(self):
+        fire = MockAkaiFire()
+        self.assertFalse(fire.is_shift_pressed())
+        fire.simulate_button_press(fire.BUTTON_SHIFT)
+        self.assertTrue(fire.is_shift_pressed())
+        fire.simulate_button_release(fire.BUTTON_SHIFT)
+        self.assertFalse(fire.is_shift_pressed())
+
+    def test_headless_mock_latches_alt_on_press(self):
+        fire = MockAkaiFire()
+        self.assertFalse(fire.is_alt_pressed())
+        fire.simulate_button_press(fire.BUTTON_ALT)
+        self.assertTrue(fire.is_alt_pressed())
+        fire.simulate_button_release(fire.BUTTON_ALT)
+        self.assertFalse(fire.is_alt_pressed())
+
+    def test_pygame_mock_latches_shift_on_mouse_down(self):
+        from mock_gui_pygame import MockAkaiFire as PygameMock
+
+        fire = PygameMock()
+        try:
+            self.assertFalse(fire.is_shift_pressed())
+            pos = fire.button_rects[fire.BUTTON_SHIFT].center
+
+            class FakeEvent:
+                pass
+
+            down = FakeEvent()
+            down.pos = pos
+            fire._handle_mouse_down(down)
+            self.assertTrue(fire.is_shift_pressed())
+
+            up = FakeEvent()
+            up.pos = pos
+            fire._handle_mouse_up(up)
+            self.assertFalse(fire.is_shift_pressed())
+        finally:
+            fire.close()
+
+    def test_pygame_mock_latches_alt_on_mouse_down(self):
+        from mock_gui_pygame import MockAkaiFire as PygameMock
+
+        fire = PygameMock()
+        try:
+            self.assertFalse(fire.is_alt_pressed())
+            pos = fire.button_rects[fire.BUTTON_ALT].center
+
+            class FakeEvent:
+                pass
+
+            down = FakeEvent()
+            down.pos = pos
+            fire._handle_mouse_down(down)
+            self.assertTrue(fire.is_alt_pressed())
+
+            up = FakeEvent()
+            up.pos = pos
+            fire._handle_mouse_up(up)
+            self.assertFalse(fire.is_alt_pressed())
+        finally:
+            fire.close()
+
+
 if __name__ == "__main__":
     unittest.main()

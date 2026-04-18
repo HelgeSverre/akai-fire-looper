@@ -1,3 +1,15 @@
+"""Interactive pygame-based mock of the AKAI Fire controller.
+
+Use this mock when developing without hardware and you want a clickable
+window that visualizes pad/LED/OLED state. It's what ``get_akai_fire()``
+falls back to when no device is found.
+
+For automated tests (headless CI, pytest, etc.) prefer the canonical
+testing mock at :class:`akai_fire_testing.mocks.MockAkaiFire`, which
+has no pygame dependency, records events, and exposes ``simulate_*``
+helpers for deterministic event injection.
+"""
+
 import pygame
 import math
 import threading
@@ -577,6 +589,13 @@ class MockAkaiFire:
         # Check buttons
         for button_id, rect in self.button_rects.items():
             if rect.collidepoint(event.pos):
+                # Update modifier state before dispatching so listeners
+                # observing is_shift_pressed() / is_alt_pressed() see the
+                # latched value.
+                if button_id == self.BUTTON_SHIFT:
+                    self._shift_pressed = True
+                elif button_id == self.BUTTON_ALT:
+                    self._alt_pressed = True
                 for listener in self.button_listeners.get(button_id, []):
                     listener("press")
                 for listener in self.global_button_listeners:
