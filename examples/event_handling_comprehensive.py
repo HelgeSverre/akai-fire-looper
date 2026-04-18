@@ -142,6 +142,21 @@ class EventMonitor:
 
     # -- handler registration ---------------------------------------------
 
+    def _mod_suffix(self) -> str:
+        """Return "+S" / "+A" / "+SA" / "" for the current modifier state.
+
+        Proof that inline modifier latching works: this reads the same
+        ``is_shift_pressed`` / ``is_alt_pressed`` that pad handlers do,
+        and appears consistently in every event log line regardless of
+        event type.
+        """
+        mods = ""
+        if self.fire.is_shift_pressed():
+            mods += "S"
+        if self.fire.is_alt_pressed():
+            mods += "A"
+        return ("+" + mods) if mods else ""
+
     def _register_handlers(self) -> None:
         fire = self.fire
 
@@ -149,13 +164,7 @@ class EventMonitor:
         @fire.on_pad()
         def any_pad(pad_index: int, velocity: int) -> None:
             self.stats.pads += 1
-            mods = []
-            if fire.is_shift_pressed():
-                mods.append("S")
-            if fire.is_alt_pressed():
-                mods.append("A")
-            mod_str = ("+" + "".join(mods)) if mods else ""
-            self._log(f"PAD {pad_index:02d} v{velocity}{mod_str}")
+            self._log(f"PAD {pad_index:02d} v{velocity}{self._mod_suffix()}")
 
             # Cycle the pad's color on every press; SHIFT dims, ALT brightens.
             palette_idx = self.pad_press_count[pad_index] % len(PAD_PALETTE)
@@ -176,7 +185,7 @@ class EventMonitor:
         @fire.on_button()
         def any_button(button_id: int, event: str) -> None:
             self.stats.buttons += 1
-            self._log(f"BTN {button_name(fire, button_id)} {event}")
+            self._log(f"BTN {button_name(fire, button_id)} {event}{self._mod_suffix()}")
             # Light the LED on press, dim on release so you can see it flash.
             try:
                 if event == "press":
@@ -221,7 +230,10 @@ class EventMonitor:
         def any_rotary(controller_id: int, direction: str, velocity: int) -> None:
             self.stats.rotaries += 1
             arrow = "+" if direction == "clockwise" else "-"
-            self._log(f"ROT {rotary_name(fire, controller_id)} {arrow}{velocity}")
+            self._log(
+                f"ROT {rotary_name(fire, controller_id)} "
+                f"{arrow}{velocity}{self._mod_suffix()}"
+            )
 
             # Blink a track LED to show rotary activity visually.
             rotary_to_track = {
@@ -243,7 +255,9 @@ class EventMonitor:
         @fire.on_rotary_touch()
         def any_rotary_touch(controller_id: int, event: str) -> None:
             self.stats.rotary_touches += 1
-            self._log(f"TOUCH {rotary_name(fire, controller_id)} {event}")
+            self._log(
+                f"TOUCH {rotary_name(fire, controller_id)} {event}{self._mod_suffix()}"
+            )
 
         @fire.on_rotary_touch(fire.ROTARY_PAN)
         def pan_touch(event: str) -> None:
@@ -253,7 +267,7 @@ class EventMonitor:
         @fire.on_solo()
         def any_solo(index: int, event: str) -> None:
             self.stats.solos += 1
-            self._log(f"SOLO {index} {event}")
+            self._log(f"SOLO {index} {event}{self._mod_suffix()}")
 
         @fire.on_solo(1)
         def solo_one(event: str) -> None:
