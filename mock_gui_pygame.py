@@ -290,15 +290,9 @@ class MockAkaiFire(AkaiFireDevice):
         self.track_leds = [0, 0, 0, 0]
         self.control_bank_state = 0
 
-        # Event listeners
-        self.pad_listeners = defaultdict(list)
-        self.global_pad_listeners = []
-        self.button_listeners = defaultdict(list)
-        self.global_button_listeners = []
-        self.rotary_listeners = defaultdict(list)
-        self.global_rotary_listeners = []
-        self.rotary_touch_listeners = defaultdict(list)
-        self.global_rotary_touch_listeners = []
+        # Listener registries (pad_listeners / button_listeners /
+        # rotary_listeners / rotary_touch_listeners) are provided by
+        # AkaiFireDevice.__init__.
 
         # UI Elements
         self.pad_rects = []
@@ -492,43 +486,20 @@ class MockAkaiFire(AkaiFireDevice):
         # Check pads
         for i, rect in enumerate(self.pad_rects):
             if rect.collidepoint(event.pos):
-                for listener in self.pad_listeners.get(i, []):
-                    listener(100)
-                for listener in self.global_pad_listeners:
-                    listener(i, 100)
+                self._dispatch_pad(i, 100)
                 return
 
-        # Check buttons
+        # Check buttons — modifier-first latching happens inside _dispatch_button.
         for button_id, rect in self.button_rects.items():
             if rect.collidepoint(event.pos):
-                # Update modifier state before dispatching so listeners
-                # observing is_shift_pressed() / is_alt_pressed() see the
-                # latched value.
-                if button_id == self.BUTTON_SHIFT:
-                    self._shift_pressed = True
-                elif button_id == self.BUTTON_ALT:
-                    self._alt_pressed = True
-                for listener in self.button_listeners.get(button_id, []):
-                    listener("press")
-                for listener in self.global_button_listeners:
-                    listener(button_id, "press")
+                self._dispatch_button(button_id, "press")
                 return
 
     def _handle_mouse_up(self, event):
         """Handle mouse button up."""
-        # Only release the button that was actually clicked
         for button_id, rect in self.button_rects.items():
             if rect.collidepoint(event.pos):
-                # Update modifier state
-                if button_id == self.BUTTON_SHIFT:
-                    self._shift_pressed = False
-                elif button_id == self.BUTTON_ALT:
-                    self._alt_pressed = False
-
-                for listener in self.button_listeners.get(button_id, []):
-                    listener("release")
-                for listener in self.global_button_listeners:
-                    listener(button_id, "release")
+                self._dispatch_button(button_id, "release")
                 return
 
     def _handle_mouse_motion(self, event):
@@ -537,18 +508,13 @@ class MockAkaiFire(AkaiFireDevice):
             for rotary_id, data in self.rotary_data.items():
                 x, y = data["pos"]
                 if abs(event.pos[0] - x) < 25 and abs(event.pos[1] - y) < 25:
-                    # Update value
                     delta = -event.rel[1]
                     new_val = max(0, min(127, data["value"] + delta))
                     data["value"] = new_val
 
-                    # Trigger event
                     if delta != 0:
                         direction = "clockwise" if delta > 0 else "counterclockwise"
-                        for listener in self.rotary_listeners.get(rotary_id, []):
-                            listener(direction, abs(delta))
-                        for listener in self.global_rotary_listeners:
-                            listener(rotary_id, direction, abs(delta))
+                        self._dispatch_rotary_turn(rotary_id, direction, abs(delta))
 
     def _draw(self):
         """Draw the interface."""
@@ -942,98 +908,15 @@ class MockAkaiFire(AkaiFireDevice):
         except Exception:
             pass
 
-    def start_listening(self):
-        """Start listening (no-op)."""
-        pass
+    # Decorators, listener adders, on_solo — all inherited from
+    # AkaiFireDevice. start_listening is a no-op (already on base).
 
-    # Decorators
-    def on_pad(self, pad_index=None):
-        """Pad decorator."""
-
-        def decorator(func):
-            if pad_index is None:
-                self.global_pad_listeners.append(func)
-            elif isinstance(pad_index, (list, tuple)):
-                for idx in pad_index:
-                    if 0 <= idx <= 63:
-                        self.pad_listeners[idx].append(func)
-            else:
-                if 0 <= pad_index <= 63:
-                    self.pad_listeners[pad_index].append(func)
-            return func
-
-        return decorator
-
-    def on_button(self, button_id=None):
-        """Button decorator."""
-
-        def decorator(func):
-            if button_id is None:
-                self.global_button_listeners.append(func)
-            else:
-                self.button_listeners[button_id].append(func)
-            return func
-
-        return decorator
-
-    def on_rotary_turn(self, rotary_id=None):
-        """Rotary decorator."""
-
-        def decorator(func):
-            if rotary_id is None:
-                self.global_rotary_listeners.append(func)
-            else:
-                self.rotary_listeners[rotary_id].append(func)
-            return func
-
-        return decorator
-
-    def on_rotary_touch(self, rotary_id=None):
-        """Rotary touch decorator."""
-
-        def decorator(func):
-            if rotary_id is None:
-                self.global_rotary_touch_listeners.append(func)
-            else:
-                self.rotary_touch_listeners[rotary_id].append(func)
-            return func
-
-        return decorator
-
-    # Compatibility methods (note: set_multiple_pad_colors is defined above with full implementation)
+    # Compatibility helpers (single-pad / single-track clears)
 
     def reset_pads(self, red=0, green=0, blue=0):
         """Reset all pads."""
         for i in range(64):
             self.set_pad_color(i, red, green, blue)
-
-    def add_listener(self, pad_indices, callback):
-        """Add pad listener."""
-        if isinstance(pad_indices, (list, tuple)):
-            for idx in pad_indices:
-                if 0 <= idx <= 63:
-                    self.pad_listeners[idx].append(callback)
-        else:
-            if 0 <= pad_indices <= 63:
-                self.pad_listeners[pad_indices].append(callback)
-
-    def add_global_listener(self, callback):
-        """Add global pad listener."""
-        self.global_pad_listeners.append(callback)
-
-    def add_button_listener(self, button_id, callback):
-        """Add button listener."""
-        self.button_listeners[button_id].append(callback)
-
-    def add_rotary_listener(self, rotary_id, callback):
-        """Add rotary listener."""
-        self.rotary_listeners[rotary_id].append(callback)
-
-    def add_rotary_touch_listener(self, rotary_id, callback):
-        """Add rotary touch listener."""
-        self.rotary_touch_listeners[rotary_id].append(callback)
-
-    # Compatibility helpers (single-pad / single-track clears)
 
     def clear_pad(self, index: int) -> bool:
         """Clear a single pad."""
@@ -1042,31 +925,6 @@ class MockAkaiFire(AkaiFireDevice):
     def clear_track_led(self, track_number: int) -> bool:
         """Clear a single track LED."""
         return self.set_track_led(track_number, 0)
-
-    def on_solo(self, index=None):
-        """Decorator for solo button events.
-
-        Args:
-            index: Solo button index (1-4), or None for all solo buttons
-        """
-
-        def decorator(func):
-            if index is None:
-                # Global solo handler
-                def wrapper(button_id, event):
-                    solo_index = self.get_solo_index(button_id)
-                    if solo_index is not None:
-                        func(solo_index, event)
-
-                self.global_button_listeners.append(wrapper)
-            else:
-                # Specific solo button (index 1-4)
-                if 1 <= index <= 4:
-                    button_id = self.SOLO_BUTTONS[index]
-                    self.button_listeners[button_id].append(func)
-            return func
-
-        return decorator
 
     def __enter__(self):
         return self

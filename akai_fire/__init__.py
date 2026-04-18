@@ -544,11 +544,7 @@ class AkaiFire(AkaiFireDevice):
         self.canvas = Canvas()
         self.look_for_port = port_name or "FL STUDIO FIRE"
 
-        # Initialize listener collections (thread-safe)
-        self.button_listeners = defaultdict(list)
-        self.pad_listeners = defaultdict(list)
-        self.rotary_listeners = defaultdict(list)
-        self.rotary_touch_listeners = defaultdict(list)
+        # Listener registries are provided by AkaiFireDevice.__init__.
 
         # Performance optimizations
         self._last_pad_states = {}  # Track pad states to avoid redundant updates
@@ -584,192 +580,8 @@ class AkaiFire(AkaiFireDevice):
         # Initialize performance caches
         self._init_performance_caches()
 
-    def on_button(self, button_id=None):
-        """
-        Decorator for button events.
-
-        By default handlers run on a background thread pool (see
-        ``async_handlers``/``max_workers`` on ``__init__``). Keep them
-        short; offload heavy work to your own thread. Exceptions are
-        logged per-handler and never block siblings. Modifier-key state
-        (``is_shift_pressed()`` / ``is_alt_pressed()``) is latched before
-        any handler runs, so it is always coherent.
-
-        It is safe to register or remove listeners from inside a handler;
-        the change takes effect on the next event.
-
-        Usage:
-            @fire.on_button(BUTTON_PLAY)  # Specific button
-            def handle_play(event):
-                print(f"Play button {event}")
-
-            @fire.on_button()  # Global button handler
-            def handle_any_button(button_id, event):
-                print(f"Button {button_id} {event}")
-        """
-
-        def decorator(func):
-            with self._lock:
-                key = "global" if button_id is None else button_id
-                if key not in self.button_listeners:
-                    self.button_listeners[key] = []
-                self.button_listeners[key].append(func)
-            self.start_listening()
-            return func
-
-        return decorator
-
-    def on_rotary_turn(self, rotary_id=None):
-        """
-        Decorator for rotary knob turns. Supports multiple listeners per rotary.
-
-        Usage:
-            @fire.on_rotary_turn(ROTARY_VOLUME)  # Specific rotary
-            def handle_volume(direction, velocity):
-                print(f"Volume turned {direction} at {velocity}")
-
-            @fire.on_rotary_turn()  # Global rotary handler
-            def handle_any_rotary(rotary_id, direction, velocity):
-                print(f"Rotary {rotary_id} turned {direction} at {velocity}")
-        """
-
-        def decorator(func):
-            with self._lock:
-                if rotary_id is None:
-                    self.rotary_listeners["global"].append(func)
-                else:
-                    if rotary_id not in [
-                        self.ROTARY_VOLUME,
-                        self.ROTARY_PAN,
-                        self.ROTARY_FILTER,
-                        self.ROTARY_RESONANCE,
-                        self.ROTARY_SELECT,
-                    ]:
-                        raise ValueError("Invalid rotary ID")
-
-                    if rotary_id not in self.rotary_listeners:
-                        self.rotary_listeners[rotary_id] = []
-                    self.rotary_listeners[rotary_id].append(func)
-
-            self.start_listening()
-
-            return func
-
-        return decorator
-
-    def on_rotary_touch(self, rotary_id=None):
-        """
-        Decorator for rotary touch events. Supports multiple listeners per rotary.
-
-        Usage:
-            @fire.on_rotary_touch(ROTARY_VOLUME)  # Specific rotary
-            def handle_volume_touch(event):
-                print(f"Volume knob {event}")
-
-            @fire.on_rotary_touch()  # Global touch handler
-            def handle_any_touch(rotary_id, event):
-                print(f"Rotary {rotary_id} {event}")
-        """
-
-        def decorator(func):
-            with self._lock:
-                if rotary_id is None:
-                    self.rotary_touch_listeners["global"].append(func)
-                else:
-                    if rotary_id not in [
-                        self.ROTARY_VOLUME,
-                        self.ROTARY_PAN,
-                        self.ROTARY_FILTER,
-                        self.ROTARY_RESONANCE,
-                        self.ROTARY_SELECT,
-                    ]:
-                        raise ValueError("Invalid rotary ID")
-                    self.rotary_touch_listeners[rotary_id].append(func)
-            self.start_listening()
-            return func
-
-        return decorator
-
-    def on_pad(self, pad_index=None):
-        """
-        Decorator for pad presses. Supports multiple listeners per pad.
-
-        Usage:
-            @fire.on_pad(0)  # Single pad
-            def handle_pad(velocity):
-                print(f"Pad pressed with velocity {velocity}")
-
-            @fire.on_pad([0,1,2,3])  # Multiple pads
-            def handle_pads(pad_index, velocity):
-                print(f"Pad {pad_index} pressed with velocity {velocity}")
-
-            @fire.on_pad()  # All pads
-            def handle_any_pad(pad_index, velocity):
-                print(f"Pad {pad_index} pressed with velocity {velocity}")
-        """
-
-        def decorator(func):
-            with self._lock:
-                if pad_index is None:
-                    self.pad_listeners["global"].append(func)
-                elif isinstance(pad_index, (list, tuple)):
-                    for idx in pad_index:
-                        if not (0 <= idx <= 63):
-                            raise ValueError("Pad index must be between 0 and 63")
-                        self.pad_listeners[idx].append(func)
-                else:
-                    if not (0 <= pad_index <= 63):
-                        raise ValueError("Pad index must be between 0 and 63")
-                    self.pad_listeners[pad_index].append(func)
-            self.start_listening()
-            return func
-
-        return decorator
-
-    def on_solo(self, index: Optional[Union[int]] = None):
-        """
-        Decorator for solo button events. Supports index (1-4) for specific solo buttons.
-
-        Args:
-            index: Solo button number (1-4) or None for global handler
-
-        Usage:
-            @fire.on_solo(1)  # Specific solo button
-            def handle_solo_1(event):  # event will be "press" or "release"
-                print(f"Solo 1 {event}")
-
-            @fire.on_solo()  # Global handler
-            def handle_any_solo(index, event):  # index will be 1-4
-                print(f"Solo {index} {event}")
-
-        Raises:
-            ValueError: If the index is invalid (must be 1-4)
-        """
-
-        def decorator(func):
-            with self._lock:
-                if index is None:
-                    # For global handler, register for all solo buttons
-                    # We use a wrapper to translate button_id to index for consistent API
-                    def global_wrapper(button_id, event):
-                        if button_id in self.SOLO_BUTTONS.values():
-                            solo_index = self.get_solo_index(button_id)
-                            func(solo_index, event)
-
-                    self.button_listeners["global"].append(global_wrapper)
-                else:
-                    # Validate index
-                    if not isinstance(index, int) or index not in self.SOLO_BUTTONS:
-                        raise ValueError("Solo button index must be 1-4")
-
-                    # Get the actual button ID from index
-                    button_id = self.SOLO_BUTTONS[index]
-                    self.button_listeners[button_id].append(func)
-
-            self.start_listening()
-            return func
-
-        return decorator
+    # Decorators (on_pad / on_button / on_rotary_turn / on_rotary_touch /
+    # on_solo) and listener adders are inherited from AkaiFireDevice.
 
     def _init_performance_caches(self):
         """Initialize performance optimization caches."""
@@ -1268,123 +1080,32 @@ class AkaiFire(AkaiFireDevice):
         message = [self.CC, 0x1B, state & 0x7F]
         return self._send_midi_safe(message)
 
-    def add_rotary_listener(self, rotary_id, callback):
-        """
-        Adds a listener for rotary control turn events.
-        :param rotary_id: One of the ROTARY_* constants.
-        :param callback: Function to call when the rotary control is turned.
-                     The callback receives (direction, velocity).
-        """
-        if rotary_id not in [
-            self.ROTARY_VOLUME,
-            self.ROTARY_PAN,
-            self.ROTARY_FILTER,
-            self.ROTARY_RESONANCE,
-            self.ROTARY_SELECT,
-        ]:
-            raise ValueError(f"Invalid rotary ID: {rotary_id}")
+    # Listener adders (add_listener / add_rotary_listener / etc.) and
+    # _invoke are inherited from AkaiFireDevice.
 
-        with self._lock:
-            self.rotary_listeners[rotary_id].append(callback)
-        self.start_listening()
-
-    def add_rotary_touch_listener(self, rotary_id, callback):
-        """
-        Adds a listener for rotary control touch events.
-        :param rotary_id: One of the ROTARY_* constants.
-        :param callback: Function to call when the rotary control is touched or released.
-                         The callback receives (event), where event is "touch" or "release".
-        """
-        if rotary_id not in [
-            self.ROTARY_VOLUME,
-            self.ROTARY_PAN,
-            self.ROTARY_FILTER,
-            self.ROTARY_RESONANCE,
-            self.ROTARY_SELECT,
-        ]:
-            raise ValueError(f"Invalid rotary ID: {rotary_id}")
-
-        with self._lock:
-            self.rotary_touch_listeners[rotary_id].append(callback)
-        self.start_listening()
-
-    def add_button_listener(self, button_id, callback):
-        """
-        Adds a listener for button press and release events.
-        :param button_id: One of the BUTTON_* constants.
-        :param callback: Function to call when the button is pressed or released.
-                     The callback receives (event), where event is "press" or "release".
-        """
-        if button_id not in [
-            self.BUTTON_SELECT,
-            self.BUTTON_STEP,
-            self.BUTTON_NOTE,
-            self.BUTTON_DRUM,
-            self.BUTTON_PERFORM,
-            self.BUTTON_SHIFT,
-            self.BUTTON_ALT,
-            self.BUTTON_PATTERN,
-            self.BUTTON_PLAY,
-            self.BUTTON_STOP,
-            self.BUTTON_REC,
-            self.BUTTON_BANK,
-            self.BUTTON_BROWSER,
-            self.BUTTON_SOLO_1,
-            self.BUTTON_SOLO_2,
-            self.BUTTON_SOLO_3,
-            self.BUTTON_SOLO_4,
-            self.BUTTON_PAT_UP,
-            self.BUTTON_PAT_DOWN,
-            self.BUTTON_GRID_LEFT,
-            self.BUTTON_GRID_RIGHT,
-        ]:
-            raise ValueError(f"Invalid button ID: {button_id}")
-
-        with self._lock:
-            self.button_listeners[button_id].append(callback)
-        self.start_listening()
-
-    def add_listener(self, pad_indices, callback):
-        """
-        Adds a listener for specific pad presses.
-        :param pad_indices: List of pad indices to listen for.
-        :param callback: Function to call when a pad in the list is pressed.
-        """
-        with self._lock:
-            for index in pad_indices:
-                if not (0 <= index <= 63):
-                    raise ValueError("Pad index must be between 0 and 63")
-                if index not in self.pad_listeners:
-                    self.pad_listeners[index] = []
-
-                self.pad_listeners[index].append(callback)
-
-        self.start_listening()
-
-    def _invoke(self, handler, *args):
-        """Dispatch a user handler with per-handler exception isolation.
-
-        If ``async_handlers=True`` (the default), submits to the thread-pool
-        dispatcher. Otherwise runs inline on the polling thread. In either
-        mode a raised exception is logged but never prevents sibling
-        handlers from running.
-        """
-        if self._dispatcher is not None:
-            self._dispatcher.submit(handler, *args)
-            return
-        try:
-            handler(*args)
-        except Exception:
-            logger.exception("Handler %r raised", handler)
+    # Controller IDs for the two categories that overlap 0x90/0x80 with
+    # buttons (rotary touches precede button decoding for that reason).
+    _TOUCHABLE_ROTARIES = (
+        0x10,  # ROTARY_VOLUME
+        0x11,  # ROTARY_PAN
+        0x12,  # ROTARY_FILTER
+        0x13,  # ROTARY_RESONANCE
+    )
+    _BUTTON_IDS = (
+        0x19, 0x1A, 0x1F, 0x20, 0x21, 0x22, 0x23,
+        0x24, 0x25, 0x26, 0x27, 0x2C, 0x2D, 0x2E, 0x2F,
+        0x30, 0x31, 0x32, 0x33, 0x34, 0x35,
+    )
+    _ROTARY_IDS = (0x10, 0x11, 0x12, 0x13, 0x76)
 
     def _process_message(self, message):
-        """Process a single MIDI message and dispatch to listeners.
+        """Decode a raw MIDI message and route it to a ``_dispatch_*`` helper.
 
-        Message parsing errors are logged and swallowed so a malformed packet
-        does not kill the listening thread. Handler exceptions are isolated
-        per-handler via :meth:`_invoke`.
+        Parsing errors are logged and swallowed so a malformed packet
+        doesn't kill the listening thread. Dispatch itself (modifier
+        latching, listener-list snapshot, per-handler exception
+        isolation) lives on :class:`AkaiFireDevice`.
         """
-        # --- message parsing (narrow exception scope) ---------------------
         try:
             if not message or not isinstance(message, (list, tuple)):
                 return
@@ -1402,109 +1123,27 @@ class AkaiFire(AkaiFireDevice):
             logger.warning("Malformed MIDI message: %r", message, exc_info=True)
             return
 
-        # --- dispatch (per-handler exception isolation via _invoke) -------
-
-        # Handle rotary touch events first. (Note On/Off for rotary controls)
-        # This needs to come before button handling since they share the same status codes.
-        if status in [0x90, 0x80] and controller in [
-            self.ROTARY_VOLUME,
-            self.ROTARY_PAN,
-            self.ROTARY_FILTER,
-            self.ROTARY_RESONANCE,
-        ]:
+        # Rotary touch events share 0x90/0x80 with buttons — must come first.
+        if status in (0x90, 0x80) and controller in self._TOUCHABLE_ROTARIES:
             event = "touch" if status == 0x90 else "release"
-
-            with self._lock:
-                handlers = list(self.rotary_touch_listeners[controller])
-                global_handlers = list(self.rotary_touch_listeners["global"])
-
-            for handler in handlers:
-                self._invoke(handler, event)
-            for handler in global_handlers:
-                self._invoke(handler, controller, event)
+            self._dispatch_rotary_touch(controller, event)
             return
 
-        # Latch modifier-key state inline, before any user handler runs.
-        # This preserves the invariant that a pad/button handler reading
-        # fire.is_shift_pressed() / is_alt_pressed() observes coherent
-        # state, even when handlers are later dispatched asynchronously.
-        if status in (0x90, 0x80) and controller in (self.BUTTON_SHIFT, self.BUTTON_ALT):
-            pressed = status == 0x90
-            if controller == self.BUTTON_SHIFT:
-                self._shift_pressed = pressed
-            else:
-                self._alt_pressed = pressed
-            # fall through into the normal button-dispatch block below
-
-        # Handle button events
-        if status in [0x90, 0x80] and controller in [
-            self.BUTTON_SELECT,
-            self.BUTTON_STEP,
-            self.BUTTON_NOTE,
-            self.BUTTON_DRUM,
-            self.BUTTON_PERFORM,
-            self.BUTTON_SHIFT,
-            self.BUTTON_ALT,
-            self.BUTTON_PATTERN,
-            self.BUTTON_PLAY,
-            self.BUTTON_STOP,
-            self.BUTTON_REC,
-            self.BUTTON_BANK,
-            self.BUTTON_BROWSER,
-            self.BUTTON_SOLO_1,
-            self.BUTTON_SOLO_2,
-            self.BUTTON_SOLO_3,
-            self.BUTTON_SOLO_4,
-            self.BUTTON_PAT_UP,
-            self.BUTTON_PAT_DOWN,
-            self.BUTTON_GRID_LEFT,
-            self.BUTTON_GRID_RIGHT,
-        ]:
+        if status in (0x90, 0x80) and controller in self._BUTTON_IDS:
             event = "press" if status == 0x90 else "release"
-
-            with self._lock:
-                handlers = list(self.button_listeners[controller])
-                global_handlers = list(self.button_listeners["global"])
-
-            for handler in handlers:
-                self._invoke(handler, event)
-            for handler in global_handlers:
-                self._invoke(handler, controller, event)
+            self._dispatch_button(controller, event)
             return
 
-        # Handle pad events (0x90 = Note On, value > 0 = velocity)
         if status == 0x90 and value > 0:
             pad_index = controller - 54
             if 0 <= pad_index <= 63:
-                with self._lock:
-                    handlers = list(self.pad_listeners[pad_index])
-                    global_handlers = list(self.pad_listeners["global"])
-
-                for handler in handlers:
-                    self._invoke(handler, value)
-                for handler in global_handlers:
-                    self._invoke(handler, pad_index, value)
+                self._dispatch_pad(pad_index, value)
             return
 
-        # Handle rotary turn events (Control Change)
-        if status == 0xB0 and controller in [
-            self.ROTARY_VOLUME,
-            self.ROTARY_PAN,
-            self.ROTARY_FILTER,
-            self.ROTARY_RESONANCE,
-            self.ROTARY_SELECT,
-        ]:
+        if status == 0xB0 and controller in self._ROTARY_IDS:
             direction = "clockwise" if value < 0x40 else "counterclockwise"
             velocity = value if value < 0x40 else (0x80 - value)
-
-            with self._lock:
-                handlers = list(self.rotary_listeners[controller])
-                global_handlers = list(self.rotary_listeners["global"])
-
-            for handler in handlers:
-                self._invoke(handler, direction, velocity)
-            for handler in global_handlers:
-                self._invoke(handler, controller, direction, velocity)
+            self._dispatch_rotary_turn(controller, direction, velocity)
             return
 
     def _listen(self):

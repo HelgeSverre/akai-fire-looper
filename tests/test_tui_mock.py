@@ -170,8 +170,8 @@ class TestTuiMockScaffold(unittest.TestCase):
         def h(pad, vel):
             calls.append((pad, vel))
 
-        self.assertEqual(len(self.fire.global_pad_listeners), 1)
-        self.assertIs(self.fire.global_pad_listeners[0], h)
+        self.assertEqual(len(self.fire.pad_listeners["global"]), 1)
+        self.assertIs(self.fire.pad_listeners["global"][0], h)
 
     def test_on_pad_specific(self):
         @self.fire.on_pad(5)
@@ -197,7 +197,7 @@ class TestTuiMockScaffold(unittest.TestCase):
         def s(event):
             pass
 
-        self.assertIn(g, self.fire.global_button_listeners)
+        self.assertIn(g, self.fire.button_listeners["global"])
         self.assertIn(s, self.fire.button_listeners[self.fire.BUTTON_PLAY])
 
     def test_on_rotary_turn_and_touch(self):
@@ -233,7 +233,7 @@ class TestTuiMockScaffold(unittest.TestCase):
         self.assertIn(cb, self.fire.pad_listeners[0])
         self.assertIn(cb, self.fire.pad_listeners[1])
         self.assertIn(cb, self.fire.pad_listeners[2])
-        self.assertIn(cb, self.fire.global_pad_listeners)
+        self.assertIn(cb, self.fire.pad_listeners["global"])
         self.assertIn(cb, self.fire.button_listeners[self.fire.BUTTON_PLAY])
         self.assertIn(cb, self.fire.rotary_listeners[self.fire.ROTARY_VOLUME])
         self.assertIn(cb, self.fire.rotary_touch_listeners[self.fire.ROTARY_PAN])

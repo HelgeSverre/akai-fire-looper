@@ -119,15 +119,7 @@ class MockAkaiFire(AkaiFireDevice):
 
         self.canvas = Canvas()
 
-        # Listener registries
-        self.pad_listeners: Dict[int, List[Callable]] = defaultdict(list)
-        self.global_pad_listeners: List[Callable] = []
-        self.button_listeners: Dict[int, List[Callable]] = defaultdict(list)
-        self.global_button_listeners: List[Callable] = []
-        self.rotary_listeners: Dict[int, List[Callable]] = defaultdict(list)
-        self.global_rotary_listeners: List[Callable] = []
-        self.rotary_touch_listeners: Dict[int, List[Callable]] = defaultdict(list)
-        self.global_rotary_touch_listeners: List[Callable] = []
+        # Listener registries provided by AkaiFireDevice.__init__.
 
         # --- rendering / input threads -------------------------------
         self._dirty = threading.Event()
@@ -480,57 +472,28 @@ class MockAkaiFire(AkaiFireDevice):
             velocity *= 4
         self._fire_rotary_turn(rotary_ids[self._focus[1]], direction, velocity)
 
-    # -- listener dispatch ("fire" = emit to registered listeners) -----
+    # -- listener dispatch ("fire" = record to OLED footer + delegate
+    #    to the base's _dispatch_* which handles listener invocation
+    #    and modifier-first latching) ---------------------------------
 
     def _fire_pad(self, pad_index: int, velocity: int = 100) -> None:
-        with self._state_lock:
-            specific = list(self.pad_listeners.get(pad_index, []))
-            globals_ = list(self.global_pad_listeners)
-        mods = self._mod_suffix()
-        self._record_event(f"PAD {pad_index:02d} v{velocity}{mods}")
-        for h in specific:
-            self._call_listener(h, velocity)
-        for h in globals_:
-            self._call_listener(h, pad_index, velocity)
+        self._record_event(f"PAD {pad_index:02d} v{velocity}{self._mod_suffix()}")
+        self._dispatch_pad(pad_index, velocity)
 
     def _fire_button(self, button_id: int, event: str) -> None:
-        # Modifier-first latching — must happen before any listener runs.
-        if button_id == self.BUTTON_SHIFT:
-            with self._state_lock:
-                self._shift_pressed = event == "press"
-        elif button_id == self.BUTTON_ALT:
-            with self._state_lock:
-                self._alt_pressed = event == "press"
-
-        with self._state_lock:
-            specific = list(self.button_listeners.get(button_id, []))
-            globals_ = list(self.global_button_listeners)
         self._record_event(f"BTN 0x{button_id:02X} {event}{self._mod_suffix()}")
-        for h in specific:
-            self._call_listener(h, event)
-        for h in globals_:
-            self._call_listener(h, button_id, event)
+        self._dispatch_button(button_id, event)
 
     def _fire_rotary_turn(self, rotary_id: int, direction: str, velocity: int) -> None:
-        with self._state_lock:
-            specific = list(self.rotary_listeners.get(rotary_id, []))
-            globals_ = list(self.global_rotary_listeners)
         arrow = "+" if direction == "clockwise" else "-"
-        self._record_event(f"ROT 0x{rotary_id:02X} {arrow}{velocity}{self._mod_suffix()}")
-        for h in specific:
-            self._call_listener(h, direction, velocity)
-        for h in globals_:
-            self._call_listener(h, rotary_id, direction, velocity)
+        self._record_event(
+            f"ROT 0x{rotary_id:02X} {arrow}{velocity}{self._mod_suffix()}"
+        )
+        self._dispatch_rotary_turn(rotary_id, direction, velocity)
 
     def _fire_rotary_touch(self, rotary_id: int, event: str) -> None:
-        with self._state_lock:
-            specific = list(self.rotary_touch_listeners.get(rotary_id, []))
-            globals_ = list(self.global_rotary_touch_listeners)
         self._record_event(f"TOUCH 0x{rotary_id:02X} {event}{self._mod_suffix()}")
-        for h in specific:
-            self._call_listener(h, event)
-        for h in globals_:
-            self._call_listener(h, rotary_id, event)
+        self._dispatch_rotary_touch(rotary_id, event)
 
     def _press_button_with_release(self, button_id: int, delay: float = 0.12) -> None:
         """Fire press now, schedule release after ``delay`` seconds."""
@@ -699,109 +662,8 @@ class MockAkaiFire(AkaiFireDevice):
         self.canvas.clear()
         self._mark_dirty()
 
-    # ------------------------------------------------------------------
-    # Event decorators
-    # ------------------------------------------------------------------
-
-    def on_pad(self, pad_index: Any = None) -> Callable[[Callable], Callable]:
-        def decorator(func: Callable) -> Callable:
-            with self._state_lock:
-                if pad_index is None:
-                    self.global_pad_listeners.append(func)
-                elif isinstance(pad_index, (list, tuple)):
-                    for idx in pad_index:
-                        if 0 <= idx <= 63:
-                            self.pad_listeners[idx].append(func)
-                else:
-                    if 0 <= pad_index <= 63:
-                        self.pad_listeners[pad_index].append(func)
-            return func
-
-        return decorator
-
-    def on_button(self, button_id: Optional[int] = None) -> Callable[[Callable], Callable]:
-        def decorator(func: Callable) -> Callable:
-            with self._state_lock:
-                if button_id is None:
-                    self.global_button_listeners.append(func)
-                else:
-                    self.button_listeners[button_id].append(func)
-            return func
-
-        return decorator
-
-    def on_rotary_turn(self, rotary_id: Optional[int] = None) -> Callable[[Callable], Callable]:
-        def decorator(func: Callable) -> Callable:
-            with self._state_lock:
-                if rotary_id is None:
-                    self.global_rotary_listeners.append(func)
-                else:
-                    self.rotary_listeners[rotary_id].append(func)
-            return func
-
-        return decorator
-
-    def on_rotary_touch(self, rotary_id: Optional[int] = None) -> Callable[[Callable], Callable]:
-        def decorator(func: Callable) -> Callable:
-            with self._state_lock:
-                if rotary_id is None:
-                    self.global_rotary_touch_listeners.append(func)
-                else:
-                    self.rotary_touch_listeners[rotary_id].append(func)
-            return func
-
-        return decorator
-
-    def on_solo(self, index: Optional[int] = None) -> Callable[[Callable], Callable]:
-        """Solo button decorator. ``index`` is 1-4, or None for all solos."""
-
-        def decorator(func: Callable) -> Callable:
-            with self._state_lock:
-                if index is None:
-
-                    def wrapper(button_id: int, event: str) -> None:
-                        solo_index = self.get_solo_index(button_id)
-                        if solo_index is not None:
-                            func(solo_index, event)
-
-                    self.global_button_listeners.append(wrapper)
-                else:
-                    if 1 <= index <= 4:
-                        button_id = self.SOLO_BUTTONS[index]
-                        self.button_listeners[button_id].append(func)
-            return func
-
-        return decorator
-
-    # ------------------------------------------------------------------
-    # Listener adders (non-decorator forms)
-    # ------------------------------------------------------------------
-
-    def add_listener(self, pad_indices: Any, callback: Callable) -> None:
-        with self._state_lock:
-            if isinstance(pad_indices, (list, tuple)):
-                for idx in pad_indices:
-                    if 0 <= idx <= 63:
-                        self.pad_listeners[idx].append(callback)
-            else:
-                if 0 <= pad_indices <= 63:
-                    self.pad_listeners[pad_indices].append(callback)
-
-    def add_global_listener(self, callback: Callable) -> None:
-        with self._state_lock:
-            self.global_pad_listeners.append(callback)
-
-    def add_button_listener(self, button_id: int, callback: Callable) -> None:
-        with self._state_lock:
-            self.button_listeners[button_id].append(callback)
-
-    def add_rotary_listener(self, rotary_id: int, callback: Callable) -> None:
-        with self._state_lock:
-            self.rotary_listeners[rotary_id].append(callback)
-
-    def add_rotary_touch_listener(self, rotary_id: int, callback: Callable) -> None:
-        with self._state_lock:
-            self.rotary_touch_listeners[rotary_id].append(callback)
+    # Decorators (on_pad/on_button/on_rotary_turn/on_rotary_touch/on_solo)
+    # and listener adders are inherited from AkaiFireDevice.
 
     # ------------------------------------------------------------------
     # Rendering — ported from tui_mockup.py prototype

@@ -583,15 +583,9 @@ class MockAkaiFire(AkaiFireDevice):
         self.button_events: List[ButtonEvent] = []
         self.render_count = 0
 
-        # Event handlers (supporting both decorator and add_* patterns)
-        self._pad_handlers: List[Tuple[Optional[int], Callable]] = []
-        self._global_pad_handlers: List[Callable] = []
-        self._button_handlers: Dict[int, List[Callable]] = {}
-        self._global_button_handlers: List[Callable] = []
-        self._rotary_handlers: Dict[int, List[Callable]] = {}
-        self._global_rotary_handlers: List[Callable] = []
-        self._rotary_touch_handlers: Dict[int, List[Callable]] = {}
-        self._global_rotary_touch_handlers: List[Callable] = []
+        # Listener registries (pad_listeners / button_listeners /
+        # rotary_listeners / rotary_touch_listeners) are provided by
+        # AkaiFireDevice.__init__.
 
         # Connection state simulation
         self._connected = True
@@ -880,427 +874,60 @@ class MockAkaiFire(AkaiFireDevice):
     # Event Decorators
     # =========================================================================
 
-    def on_pad(self, pad_index=None):
-        """
-        Decorator for pad events.
-
-        Args:
-            pad_index: Specific pad(s) to listen to, or None for all pads.
-                       Can be int, list of ints, or None.
-
-        Returns:
-            Decorator function
-
-        Usage:
-            @fire.on_pad(0)  # Single pad
-            def handle_pad(velocity): ...
-
-            @fire.on_pad([0, 1, 2])  # Multiple pads
-            def handle_pads(pad_index, velocity): ...
-
-            @fire.on_pad()  # All pads
-            def handle_any_pad(pad_index, velocity): ...
-        """
-
-        def decorator(func):
-            if pad_index is None:
-                self._global_pad_handlers.append(func)
-            elif isinstance(pad_index, (list, tuple)):
-                for idx in pad_index:
-                    self._pad_handlers.append((idx, func))
-            else:
-                self._pad_handlers.append((pad_index, func))
-            return func
-
-        return decorator
-
-    def on_button(self, button_id=None):
-        """
-        Decorator for button events.
-
-        Args:
-            button_id: Button to listen to, or None for all buttons
-
-        Returns:
-            Decorator function
-
-        Usage:
-            @fire.on_button(fire.BUTTON_PLAY)
-            def handle_play(event): ...
-
-            @fire.on_button()  # Global handler
-            def handle_any_button(button_id, event): ...
-        """
-
-        def decorator(func):
-            if button_id is None:
-                self._global_button_handlers.append(func)
-            else:
-                if button_id not in self._button_handlers:
-                    self._button_handlers[button_id] = []
-                self._button_handlers[button_id].append(func)
-            return func
-
-        return decorator
-
-    # Valid rotary IDs (for validation)
-    VALID_ROTARY_IDS = [
-        0x10,
-        0x11,
-        0x12,
-        0x13,
-        0x76,
-    ]  # VOLUME, PAN, FILTER, RESONANCE, SELECT
-
-    def on_rotary_turn(self, rotary_id=None):
-        """
-        Decorator for rotary turn events.
-
-        Args:
-            rotary_id: Rotary encoder to listen to, or None for all
-
-        Returns:
-            Decorator function
-
-        Usage:
-            @fire.on_rotary_turn(fire.ROTARY_VOLUME)
-            def handle_volume(direction, velocity): ...
-
-            @fire.on_rotary_turn()  # Global handler
-            def handle_any_rotary(rotary_id, direction, velocity): ...
-
-        Raises:
-            ValueError: If rotary_id is not a valid rotary constant
-        """
-
-        def decorator(func):
-            if rotary_id is None:
-                self._global_rotary_handlers.append(func)
-            else:
-                if rotary_id not in self.VALID_ROTARY_IDS:
-                    raise ValueError(f"Invalid rotary ID: {rotary_id}")
-                if rotary_id not in self._rotary_handlers:
-                    self._rotary_handlers[rotary_id] = []
-                self._rotary_handlers[rotary_id].append(func)
-            return func
-
-        return decorator
-
-    def on_rotary_touch(self, rotary_id=None):
-        """
-        Decorator for rotary touch events.
-
-        Args:
-            rotary_id: Rotary encoder to listen to, or None for all
-
-        Returns:
-            Decorator function
-
-        Usage:
-            @fire.on_rotary_touch(fire.ROTARY_VOLUME)
-            def handle_volume_touch(event): ...  # "touch" or "release"
-
-            @fire.on_rotary_touch()  # Global handler
-            def handle_any_touch(rotary_id, event): ...
-
-        Raises:
-            ValueError: If rotary_id is not a valid rotary constant
-        """
-
-        def decorator(func):
-            if rotary_id is None:
-                self._global_rotary_touch_handlers.append(func)
-            else:
-                if rotary_id not in self.VALID_ROTARY_IDS:
-                    raise ValueError(f"Invalid rotary ID: {rotary_id}")
-                if rotary_id not in self._rotary_touch_handlers:
-                    self._rotary_touch_handlers[rotary_id] = []
-                self._rotary_touch_handlers[rotary_id].append(func)
-            return func
-
-        return decorator
-
-    def on_solo(self, index: Optional[int] = None):
-        """
-        Decorator for solo button events.
-
-        Args:
-            index: Solo button index (1-4), or None for all solo buttons
-
-        Returns:
-            Decorator function
-
-        Usage:
-            @fire.on_solo(1)
-            def handle_solo_1(event): ...  # "press" or "release"
-
-            @fire.on_solo()  # Global handler
-            def handle_any_solo(index, event): ...
-        """
-
-        def decorator(func):
-            if index is None:
-                # Global solo handler - wrap to translate button_id to index
-                def global_wrapper(button_id, event):
-                    solo_index = self.get_solo_index(button_id)
-                    if solo_index is not None:
-                        func(solo_index, event)
-
-                self._global_button_handlers.append(global_wrapper)
-            else:
-                # Specific solo button
-                if 1 <= index <= 4:
-                    button_id = self.SOLO_BUTTONS[index]
-                    if button_id not in self._button_handlers:
-                        self._button_handlers[button_id] = []
-                    self._button_handlers[button_id].append(func)
-                else:
-                    raise ValueError("Solo index must be 1-4")
-            return func
-
-        return decorator
+    # Decorators (on_pad / on_button / on_rotary_turn / on_rotary_touch
+    # / on_solo) and listener adders (add_listener / add_global_listener
+    # / add_button_listener / add_rotary_listener /
+    # add_rotary_touch_listener) are inherited from AkaiFireDevice.
 
     # =========================================================================
-    # Listener Methods (add_* pattern for compatibility)
-    # =========================================================================
-
-    def add_listener(self, pad_indices, callback: Callable):
-        """
-        Add listener for specific pad presses.
-
-        Args:
-            pad_indices: Pad index or list of pad indices (0-63)
-            callback: Function to call when pad is pressed
-        """
-        if isinstance(pad_indices, (list, tuple)):
-            for idx in pad_indices:
-                if 0 <= idx <= 63:
-                    self._pad_handlers.append((idx, callback))
-        else:
-            if 0 <= pad_indices <= 63:
-                self._pad_handlers.append((pad_indices, callback))
-
-    def add_global_listener(self, callback: Callable):
-        """
-        Add global listener for all pad presses.
-
-        Args:
-            callback: Function(pad_index, velocity) to call
-        """
-        self._global_pad_handlers.append(callback)
-
-    def add_button_listener(self, button_id: int, callback: Callable):
-        """
-        Add listener for button events.
-
-        Args:
-            button_id: Button ID constant
-            callback: Function(event) to call where event is "press" or "release"
-        """
-        if button_id not in self._button_handlers:
-            self._button_handlers[button_id] = []
-        self._button_handlers[button_id].append(callback)
-
-    def add_rotary_listener(self, rotary_id: int, callback: Callable):
-        """
-        Add listener for rotary turn events.
-
-        Args:
-            rotary_id: Rotary ID constant
-            callback: Function(direction, velocity) to call
-
-        Raises:
-            ValueError: If rotary_id is not valid
-        """
-        if rotary_id not in self.VALID_ROTARY_IDS:
-            raise ValueError(f"Invalid rotary ID: {rotary_id}")
-        if rotary_id not in self._rotary_handlers:
-            self._rotary_handlers[rotary_id] = []
-        self._rotary_handlers[rotary_id].append(callback)
-
-    def add_rotary_touch_listener(self, rotary_id: int, callback: Callable):
-        """
-        Add listener for rotary touch events.
-
-        Args:
-            rotary_id: Rotary ID constant
-            callback: Function(event) to call where event is "touch" or "release"
-
-        Raises:
-            ValueError: If rotary_id is not valid
-        """
-        if rotary_id not in self.VALID_ROTARY_IDS:
-            raise ValueError(f"Invalid rotary ID: {rotary_id}")
-        if rotary_id not in self._rotary_touch_handlers:
-            self._rotary_touch_handlers[rotary_id] = []
-        self._rotary_touch_handlers[rotary_id].append(callback)
-
-    # =========================================================================
-    # Event Simulation (for testing)
+    # Event Simulation (for testing) — thin wrappers over the base's
+    # _dispatch_* helpers. Modifier-first latching lives in
+    # _dispatch_button on the base.
     # =========================================================================
 
     def simulate_pad_press(self, pad_index: int, velocity: int = 100):
-        """
-        Simulate a pad press for testing.
-
-        Args:
-            pad_index: Pad index (0-63)
-            velocity: Press velocity (0-127)
-
-        Note:
-            Matches real AkaiFire behavior:
-            - Specific pad handlers receive (velocity) only
-            - Global pad handlers receive (pad_index, velocity)
-        """
-        # Handle specific pad handlers - they receive ONLY velocity (matches real behavior)
-        for handler_pad, handler in self._pad_handlers:
-            if handler_pad == pad_index:
-                handler(velocity)
-
-        # Handle global pad handlers - they receive (pad_index, velocity)
-        for handler in self._global_pad_handlers:
-            handler(pad_index, velocity)
+        """Simulate a pad press. Global handlers get (pad_index, velocity)."""
+        self._dispatch_pad(pad_index, velocity)
 
     def simulate_pad_release(self, pad_index: int):
-        """
-        Simulate a pad release for testing.
-
-        Args:
-            pad_index: Pad index (0-63)
-
-        Note:
-            Pad release sends velocity 0.
-        """
-        # Specific pad handlers receive ONLY velocity (matches real behavior)
-        for handler_pad, handler in self._pad_handlers:
-            if handler_pad == pad_index:
-                handler(0)
-
-        # Global pad handlers receive (pad_index, velocity)
-        for handler in self._global_pad_handlers:
-            handler(pad_index, 0)
+        """Simulate a pad release (velocity=0)."""
+        self._dispatch_pad(pad_index, 0)
 
     def simulate_button_press(self, button_id: int):
-        """
-        Simulate a button press for testing.
-
-        Args:
-            button_id: Button ID
-        """
-        # Update modifier state
-        if button_id == self.BUTTON_SHIFT:
-            self._shift_pressed = True
-        elif button_id == self.BUTTON_ALT:
-            self._alt_pressed = True
-
-        # Handle specific button handlers
-        if button_id in self._button_handlers:
-            for handler in self._button_handlers[button_id]:
-                handler("press")
-
-        # Handle global button handlers
-        for handler in self._global_button_handlers:
-            handler(button_id, "press")
+        """Simulate a button press. Modifiers are latched automatically."""
+        self._dispatch_button(button_id, "press")
 
     def simulate_button_release(self, button_id: int):
-        """
-        Simulate a button release for testing.
+        """Simulate a button release."""
+        self._dispatch_button(button_id, "release")
 
-        Args:
-            button_id: Button ID
-        """
-        # Update modifier state
-        if button_id == self.BUTTON_SHIFT:
-            self._shift_pressed = False
-        elif button_id == self.BUTTON_ALT:
-            self._alt_pressed = False
-
-        # Handle specific button handlers
-        if button_id in self._button_handlers:
-            for handler in self._button_handlers[button_id]:
-                handler("release")
-
-        # Handle global button handlers
-        for handler in self._global_button_handlers:
-            handler(button_id, "release")
-
-    def simulate_rotary_turn(self, rotary_id: int, direction: str, velocity: int = 1):
-        """
-        Simulate a rotary encoder turn.
-
-        Args:
-            rotary_id: Rotary encoder ID
-            direction: "clockwise" or "counterclockwise" (or "left"/"right" as aliases)
-            velocity: Turn velocity
-        """
-        # Normalize direction names
+    def simulate_rotary_turn(
+        self, rotary_id: int, direction: str, velocity: int = 1
+    ):
+        """Simulate a rotary turn. ``left``/``right`` alias to CCW/CW."""
         if direction == "left":
             direction = "counterclockwise"
         elif direction == "right":
             direction = "clockwise"
-
-        # Handle specific rotary handlers
-        if rotary_id in self._rotary_handlers:
-            for handler in self._rotary_handlers[rotary_id]:
-                handler(direction, velocity)
-
-        # Handle global rotary handlers
-        for handler in self._global_rotary_handlers:
-            handler(rotary_id, direction, velocity)
+        self._dispatch_rotary_turn(rotary_id, direction, velocity)
 
     def simulate_rotary_touch(self, rotary_id: int):
-        """
-        Simulate a rotary encoder touch.
-
-        Args:
-            rotary_id: Rotary encoder ID
-        """
-        # Handle specific touch handlers
-        if rotary_id in self._rotary_touch_handlers:
-            for handler in self._rotary_touch_handlers[rotary_id]:
-                handler("touch")
-
-        # Handle global touch handlers
-        for handler in self._global_rotary_touch_handlers:
-            handler(rotary_id, "touch")
+        """Simulate a rotary touch."""
+        self._dispatch_rotary_touch(rotary_id, "touch")
 
     def simulate_rotary_release(self, rotary_id: int):
-        """
-        Simulate a rotary encoder release.
-
-        Args:
-            rotary_id: Rotary encoder ID
-        """
-        # Handle specific touch handlers
-        if rotary_id in self._rotary_touch_handlers:
-            for handler in self._rotary_touch_handlers[rotary_id]:
-                handler("release")
-
-        # Handle global touch handlers
-        for handler in self._global_rotary_touch_handlers:
-            handler(rotary_id, "release")
+        """Simulate a rotary release."""
+        self._dispatch_rotary_touch(rotary_id, "release")
 
     def simulate_solo_press(self, index: int):
-        """
-        Simulate a solo button press.
-
-        Args:
-            index: Solo index (1-4)
-        """
+        """Simulate a solo button press. ``index`` is 1..4."""
         if 1 <= index <= 4:
-            button_id = self.SOLO_BUTTONS[index]
-            self.simulate_button_press(button_id)
+            self._dispatch_button(self.SOLO_BUTTONS[index], "press")
 
     def simulate_solo_release(self, index: int):
-        """
-        Simulate a solo button release.
-
-        Args:
-            index: Solo index (1-4)
-        """
+        """Simulate a solo button release. ``index`` is 1..4."""
         if 1 <= index <= 4:
-            button_id = self.SOLO_BUTTONS[index]
-            self.simulate_button_release(button_id)
+            self._dispatch_button(self.SOLO_BUTTONS[index], "release")
 
     # =========================================================================
     # Assertion Helpers
