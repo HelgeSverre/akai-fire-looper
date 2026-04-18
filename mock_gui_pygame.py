@@ -855,36 +855,16 @@ class MockAkaiFire(AkaiFireDevice):
         self.clear_control_bank_leds()
         self.canvas.clear()
 
-    def get_canvas(self):
-        """Get canvas."""
-        return self.canvas
+    # get_canvas / render_to_display / render_to_bmp / clear_display
+    # are inherited from AkaiFireDevice.
 
     def new_canvas(self):
         """New canvas."""
         self.canvas = PygameCanvas()
         return self.canvas
 
-    def render_to_display(self, canvas=None):
-        """Push the given canvas to the simulated OLED.
-
-        Matches ``AkaiFire.render_to_display`` so code written against
-        the hardware works unchanged under the mock. If ``canvas`` is
-        supplied, it becomes the mock's current canvas (mirroring the
-        real behaviour where the bitmap you pass is what the display
-        shows next frame); if omitted, the current internal canvas is
-        used.
-        """
-        if canvas is not None:
-            self.canvas = canvas
-
-    def render_to_bmp(self, filename, image_format="BMP"):
-        """Save the current canvas to an image file."""
-        self.canvas.image.save(filename, image_format)
-
-    def clear_display(self):
-        """Clear the OLED display."""
-        self.canvas.clear()
-        self.render_to_display()
+    def _deliver_display(self, canvas) -> None:
+        """No-op: the pygame draw loop reads ``self.canvas`` directly each frame."""
 
     def close(self):
         """Close mock - safe to call multiple times."""

@@ -634,32 +634,17 @@ class MockAkaiFire(AkaiFireDevice):
         self.clear_display()
 
     # ------------------------------------------------------------------
-    # OLED canvas
+    # OLED canvas — get_canvas / render_to_display / render_to_bmp /
+    # clear_display are inherited from AkaiFireDevice.
     # ------------------------------------------------------------------
-
-    def get_canvas(self) -> Canvas:
-        return self.canvas
 
     def new_canvas(self) -> Canvas:
         self.canvas = Canvas()
         self._mark_dirty()
         return self.canvas
 
-    def render_to_display(self, canvas: Optional[Canvas] = None) -> None:
-        """Swap in ``canvas`` (if provided) as the current display buffer.
-
-        Matches ``AkaiFire.render_to_display(canvas=None)`` — the passed
-        canvas becomes the one the render thread draws from next frame.
-        """
-        if canvas is not None:
-            self.canvas = canvas
-        self._mark_dirty()
-
-    def render_to_bmp(self, filename: str, image_format: str = "BMP") -> None:
-        self.canvas.image.save(filename, image_format)
-
-    def clear_display(self) -> None:
-        self.canvas.clear()
+    def _deliver_display(self, canvas) -> None:
+        """Mark the render thread dirty so it picks up the new canvas."""
         self._mark_dirty()
 
     # Decorators (on_pad/on_button/on_rotary_turn/on_rotary_touch/on_solo)

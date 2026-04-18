@@ -570,7 +570,9 @@ class MockAkaiFire(AkaiFireDevice):
         """Initialize mock controller."""
         super().__init__()  # installs self._lock + modifier flags
 
-        self._canvas = MockCanvas()
+        # Canvas is exposed as ``self.canvas`` so it matches the base
+        # class's get_canvas() / render_to_display() contract.
+        self.canvas = MockCanvas()
 
         # State tracking
         self.pad_colors: List[Tuple[int, int, int]] = [(0, 0, 0)] * 64
@@ -598,14 +600,12 @@ class MockAkaiFire(AkaiFireDevice):
     # Canvas Access
     # =========================================================================
 
-    def get_canvas(self) -> MockCanvas:
-        """Get the mock canvas."""
-        return self._canvas
+    # get_canvas is inherited from AkaiFireDevice.
 
     def new_canvas(self) -> MockCanvas:
         """Create a new mock canvas."""
-        self._canvas = MockCanvas()
-        return self._canvas
+        self.canvas = MockCanvas()
+        return self.canvas
 
     # =========================================================================
     # Pad Control
@@ -768,26 +768,16 @@ class MockAkaiFire(AkaiFireDevice):
     # Display Control
     # =========================================================================
 
-    def render_to_display(self, canvas=None):
-        """Record a render call."""
+    # render_to_display / clear_display are inherited from AkaiFireDevice.
+    # render_count is bumped in _deliver_display.
+
+    def _deliver_display(self, canvas) -> None:
+        """Record a render call (for assertion in tests)."""
         self.render_count += 1
 
     def render_to_bmp(self, output_path: str, image_format: str = "BMP") -> str:
-        """
-        Save canvas to BMP file (for testing without hardware).
-
-        Args:
-            output_path: File path to save to
-            image_format: Image format (default BMP)
-
-        Returns:
-            Path where file was saved
-        """
-        return self._canvas.save_screenshot(output_path)
-
-    def clear_display(self):
-        """Clear the display."""
-        self._canvas.clear()
+        """Save canvas to BMP file via MockCanvas's screenshot helper."""
+        return self.canvas.save_screenshot(output_path)
 
     # =========================================================================
     # Modifier State (is_shift_pressed / is_alt_pressed / properties

@@ -398,25 +398,19 @@ class AkaiFire(AkaiFireDevice):
     async dispatcher, and MIDI-polling thread.
     """
 
-    def render_to_display(self, canvas=None):
-        """Render the canvas to the OLED display with optimizations.
+    # render_to_display / render_to_bmp / clear_display / get_canvas
+    # are inherited from AkaiFireDevice — authored once so the
+    # canvas=None signature cannot drift again. Subclasses (this one
+    # included) implement _deliver_display and new_canvas.
 
-        Args:
-            canvas: Canvas object to render, or None to use internal canvas
-
-        Raises:
-            InvalidParameterError: If canvas is not a Canvas object
-            StateError: If MIDI output is not available
-        """
+    def _deliver_display(self, canvas) -> None:
+        """Encode the canvas as an OLED SysEx message and send it."""
         if not self.midi_out:
             raise StateError("MIDI output not initialized")
 
-        buffer = canvas if canvas is not None else self.canvas
-
-        # Validate canvas type
-        if not isinstance(buffer, Canvas):
+        if not isinstance(canvas, Canvas):
             raise InvalidParameterError(
-                f"Expected Canvas object, got: {type(buffer).__name__}"
+                f"Expected Canvas object, got: {type(canvas).__name__}"
             )
 
         # For OLED 128x64, calculated as ceil(128*64/7)
@@ -435,13 +429,13 @@ class AkaiFire(AkaiFireDevice):
         ]
 
         # Convert canvas to bitmap - optimized with direct pixel access
-        pixels = buffer.image.load()  # Direct pixel access is faster
-        for y in range(buffer.HEIGHT):
+        pixels = canvas.image.load()
+        for y in range(canvas.HEIGHT):
             y_div_8 = y // 8
             y_mod_8 = y % 8
-            for x in range(buffer.WIDTH):
+            for x in range(canvas.WIDTH):
                 if pixels[x, y] == 0:  # Black pixel in PIL = ON in OLED
-                    x_mapped = x + buffer.WIDTH * y_div_8
+                    x_mapped = x + canvas.WIDTH * y_div_8
                     rb = bitmap_pixel_mapping[x_mapped % 7][y_mod_8]
                     index = (x_mapped // 7) * 8 + (rb // 7)
                     bitmap[index] |= 1 << (rb % 7)
@@ -464,19 +458,6 @@ class AkaiFire(AkaiFireDevice):
         sysex_data.append(0xF7)
 
         self.midi_out.send_message(sysex_data)
-
-    def render_to_bmp(self, output_path: str, image_format="BMP"):
-        """Factory method to save canvas as BMP file."""
-        self.canvas.image.save(output_path, format=image_format)
-
-    def clear_display(self):
-        """Clear the OLED display."""
-        self.canvas.clear()
-        self.render_to_display()
-
-    def get_canvas(self) -> Canvas:
-        """Get the current canvas for drawing."""
-        return self.canvas
 
     def new_canvas(self) -> Canvas:
         """Create a new blank canvas."""

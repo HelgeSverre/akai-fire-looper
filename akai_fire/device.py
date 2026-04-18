@@ -65,6 +65,53 @@ class AkaiFireDevice(abc.ABC):
         self._dispatcher: Optional[Any] = None
 
     # --------------------------------------------------------------
+    # OLED / canvas — authored once; ``render_to_display(canvas=None)``
+    # signature lives here, so it cannot drift again. Subclasses
+    # implement :meth:`_deliver_display` and :meth:`new_canvas`.
+    # --------------------------------------------------------------
+
+    @abc.abstractmethod
+    def _deliver_display(self, canvas) -> None:
+        """Render the given canvas to the OLED / display surface.
+
+        Real hardware encodes the bitmap as SysEx; mocks mark their
+        render-state dirty or record a draw operation.
+        """
+
+    @abc.abstractmethod
+    def new_canvas(self):
+        """Replace ``self.canvas`` with a fresh instance and return it.
+
+        Each subclass knows what kind of canvas it wants (real
+        :class:`Canvas`, :class:`PygameCanvas`, headless
+        :class:`MockCanvas`).
+        """
+
+    def get_canvas(self):
+        """Return the current canvas (``self.canvas`` by convention)."""
+        return self.canvas
+
+    def render_to_display(self, canvas=None) -> None:
+        """Push ``canvas`` (or the current internal one) to the display.
+
+        Authored once on the base so the ``canvas=None`` signature is
+        structural — subclasses cannot drift from it.
+        """
+        if canvas is not None:
+            self.canvas = canvas
+        self._deliver_display(self.canvas)
+
+    def render_to_bmp(self, filename: str, image_format: str = "BMP") -> None:
+        """Save the current canvas to an image file."""
+        self.canvas.image.save(filename, image_format)
+
+    def clear_display(self) -> None:
+        """Clear the OLED / display canvas."""
+        if getattr(self, "canvas", None) is not None:
+            self.canvas.clear()
+            self._deliver_display(self.canvas)
+
+    # --------------------------------------------------------------
     # Lifecycle — default no-ops (AkaiFire overrides start_listening)
     # --------------------------------------------------------------
 
