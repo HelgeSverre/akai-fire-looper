@@ -199,5 +199,147 @@ class TestCanvas(unittest.TestCase):
         self.assertGreater(white_count, 0)
 
 
+class TestCanvasPrimitives(unittest.TestCase):
+    """Line helpers and the composite rectangle methods."""
+
+    def setUp(self):
+        self.canvas = Canvas()
+
+    def _on(self, x, y):
+        return self.canvas.image.getpixel((x, y)) == 0
+
+    def test_draw_horizontal_line_sets_correct_pixels(self):
+        self.canvas.draw_horizontal_line(10, 20, 30)
+        for x in range(10, 40):
+            self.assertTrue(self._on(x, 20), f"pixel ({x}, 20) should be lit")
+        self.assertFalse(self._on(9, 20))
+        self.assertFalse(self._on(40, 20))
+        self.assertFalse(self._on(25, 19))
+        self.assertFalse(self._on(25, 21))
+
+    def test_draw_horizontal_line_clips_at_width(self):
+        self.canvas.draw_horizontal_line(120, 0, 50)  # would extend to x=169
+        # Rightmost lit pixel is WIDTH-1 = 127
+        self.assertTrue(self._on(127, 0))
+
+    def test_draw_horizontal_line_ignores_out_of_bounds_row(self):
+        self.canvas.draw_horizontal_line(0, -1, 10)   # y off top
+        self.canvas.draw_horizontal_line(0, 64, 10)   # y off bottom
+        # Canvas should still be blank
+        self.assertFalse(any(
+            self._on(x, y) for x in range(128) for y in range(64)
+        ))
+
+    def test_draw_vertical_line_sets_correct_pixels(self):
+        self.canvas.draw_vertical_line(5, 10, 20)
+        for y in range(10, 30):
+            self.assertTrue(self._on(5, y))
+        self.assertFalse(self._on(5, 9))
+        self.assertFalse(self._on(5, 30))
+
+    def test_draw_vertical_line_clips_at_height(self):
+        self.canvas.draw_vertical_line(0, 60, 20)  # would extend to y=79
+        self.assertTrue(self._on(0, 63))
+
+    def test_draw_rectangle_outline_has_border_not_interior(self):
+        self.canvas.draw_rectangle(10, 10, 20, 15)
+        # Top-left corner, top edge, left edge, bottom-right corner all lit
+        self.assertTrue(self._on(10, 10))
+        self.assertTrue(self._on(29, 10))
+        self.assertTrue(self._on(10, 24))
+        self.assertTrue(self._on(29, 24))
+        # Interior unlit
+        self.assertFalse(self._on(20, 17))
+
+    def test_fill_rectangle_fills_interior(self):
+        self.canvas.fill_rectangle(5, 5, 10, 10)
+        for x in range(5, 15):
+            for y in range(5, 15):
+                self.assertTrue(self._on(x, y))
+        # Outside unlit
+        self.assertFalse(self._on(15, 10))
+        self.assertFalse(self._on(10, 15))
+
+
+class TestCanvasHighLevel(unittest.TestCase):
+    """Composite drawing helpers used by the ScreenManager/Framework."""
+
+    def setUp(self):
+        self.canvas = Canvas()
+
+    def _on(self, x, y):
+        return self.canvas.image.getpixel((x, y)) == 0
+
+    def _count_lit(self, x0, y0, x1, y1):
+        return sum(
+            1 for x in range(x0, x1) for y in range(y0, y1) if self._on(x, y)
+        )
+
+    # --- draw_value_page ----------------------------------------------
+    def test_draw_value_page_header_is_inverted(self):
+        self.canvas.draw_value_page("Volume", 64, 0, 127, show_bar=True)
+        # Inverted header => big black region at the top
+        header_lit = self._count_lit(0, 0, 128, Canvas.HEADER_HEIGHT)
+        self.assertGreater(header_lit, 128 * Canvas.HEADER_HEIGHT // 2)
+
+    def test_draw_value_page_bar_width_scales_with_value(self):
+        low = Canvas()
+        low.draw_value_page("Volume", 10, 0, 100, show_bar=True)
+        high = Canvas()
+        high.draw_value_page("Volume", 90, 0, 100, show_bar=True)
+
+        def bar_filled(canvas):
+            # The bar lives at y=40..48; count filled pixels in that row
+            return sum(
+                1 for x in range(128)
+                if canvas.image.getpixel((x, 43)) == 0
+            )
+
+        self.assertGreater(bar_filled(high), bar_filled(low))
+
+    def test_draw_value_page_without_bar(self):
+        # Should not raise when show_bar=False or bounds missing
+        self.canvas.draw_value_page("Volume", "N/A", show_bar=False)
+        self.canvas.draw_value_page("Volume", 50, show_bar=True)  # no min/max
+
+    # --- draw_menu ----------------------------------------------------
+    def test_draw_menu_highlights_selected_item(self):
+        items = ["Alpha", "Beta", "Gamma", "Delta"]
+        self.canvas.draw_menu("Select", items, selected_index=1)
+        # Selected row (index 1) is drawn highlighted (inverted fill_rect)
+        # at y_offset = CONTENT_START, line_height=12. Heuristic: the
+        # selected row has significantly more lit pixels than neighbours.
+        row_y = Canvas.CONTENT_START + 0 * 12     # first visible row
+        selected_y = Canvas.CONTENT_START + 1 * 12  # second visible row (selected)
+        self.assertGreater(
+            self._count_lit(0, selected_y, 128, selected_y + 12),
+            self._count_lit(0, row_y, 128, row_y + 12),
+        )
+
+    def test_draw_menu_with_empty_items(self):
+        # Must not raise.
+        self.canvas.draw_menu("Empty", [], selected_index=0)
+
+    # --- draw_grid_info ----------------------------------------------
+    def test_draw_grid_info_draws_outline_and_cells(self):
+        self.canvas.draw_grid_info(
+            "Grid", rows=2, cols=2, cell_info=[(0, 0, "A"), (1, 1, "B")]
+        )
+        # Outline: at least the top header row and the grid's top border.
+        # The top-most horizontal grid line is at y=16 per draw_grid_info impl.
+        top_line_lit = sum(1 for x in range(128) if self._on(x, 16))
+        self.assertGreater(top_line_lit, 50)
+
+    # --- draw_split_screen -------------------------------------------
+    def test_draw_split_screen_has_middle_divider(self):
+        self.canvas.draw_split_screen(
+            "Split", ["Left 1", "Left 2"], ["Right 1", "Right 2"]
+        )
+        mid_x = Canvas.WIDTH // 2
+        # The vertical divider runs from y=15 to HEIGHT.
+        divider_lit = sum(1 for y in range(15, 64) if self._on(mid_x, y))
+        self.assertGreater(divider_lit, 30)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -193,13 +193,18 @@ class TestPygameMockVisualState(unittest.TestCase):
 class TestPygameMockLifecycle(unittest.TestCase):
     """Init, render, close cycles must not crash."""
 
-    def test_render_to_display_does_not_crash(self):
+    def test_render_to_display_accepts_optional_canvas(self):
+        # API parity with AkaiFire.render_to_display(canvas=None): the
+        # mock must accept both the zero-arg and canvas-arg forms.
         fire = MockAkaiFire()
         try:
             canvas = fire.get_canvas()
             canvas.draw_text("hello", 10, 10)
-            # The pygame mock renders its internal canvas; no arg needed.
-            fire.render_to_display()
+            fire.render_to_display()             # zero-arg
+            other = fire.new_canvas()
+            other.draw_text("world", 10, 10)
+            fire.render_to_display(other)        # explicit canvas
+            self.assertIs(fire.get_canvas(), other)
         finally:
             fire.close()
 
