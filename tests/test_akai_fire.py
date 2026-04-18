@@ -471,5 +471,119 @@ class TestHelperMethods(unittest.TestCase):
         self.assertIsInstance(ports["output"], list)
 
 
+class TestHandlerIsolation(unittest.TestCase):
+    """A throwing handler must not prevent subsequent handlers from running."""
+
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+        self.fire = AkaiFire()
+
+    def tearDown(self):
+        if hasattr(self, "fire"):
+            self.fire.close()
+
+    def test_raising_pad_handler_does_not_block_others(self):
+        calls = []
+
+        @self.fire.on_pad()
+        def bad(pad_index, velocity):
+            calls.append("bad")
+            raise RuntimeError("boom")
+
+        @self.fire.on_pad()
+        def good(pad_index, velocity):
+            calls.append("good")
+
+        with self.assertLogs("akai_fire", level="ERROR"):
+            self.fire._process_message([[0x90, 54, 100], 0])
+
+        self.assertIn("good", calls)
+        self.assertEqual(calls.count("bad"), 1)
+
+    def test_raising_button_handler_does_not_block_global(self):
+        calls = []
+
+        @self.fire.on_button(self.fire.BUTTON_PLAY)
+        def specific(event):
+            calls.append(("specific", event))
+            raise RuntimeError("boom")
+
+        @self.fire.on_button()
+        def global_handler(button_id, event):
+            calls.append(("global", button_id, event))
+
+        with self.assertLogs("akai_fire", level="ERROR"):
+            self.fire._process_message([[0x90, self.fire.BUTTON_PLAY, 127], 0])
+
+        # Global handler ran despite specific throwing
+        self.assertTrue(any(c[0] == "global" for c in calls))
+        self.assertTrue(any(c[0] == "specific" for c in calls))
+
+    def test_raising_rotary_handler_does_not_block_others(self):
+        calls = []
+
+        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
+        def bad(direction, velocity):
+            calls.append("bad")
+            raise RuntimeError("boom")
+
+        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
+        def good(direction, velocity):
+            calls.append("good")
+
+        with self.assertLogs("akai_fire", level="ERROR"):
+            self.fire._process_message([[0xB0, self.fire.ROTARY_VOLUME, 0x01], 0])
+
+        self.assertIn("good", calls)
+        self.assertIn("bad", calls)
+
+
+class TestMessageParsing(unittest.TestCase):
+    """Malformed MIDI messages must be logged, not silently printed to stderr."""
+
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+        self.fire = AkaiFire()
+
+    def tearDown(self):
+        if hasattr(self, "fire"):
+            self.fire.close()
+
+    def test_none_message_is_ignored_silently(self):
+        # No raise, no log noise for well-formed "empty" input
+        self.fire._process_message(None)
+        self.fire._process_message([])
+
+    def test_short_data_is_ignored_silently(self):
+        # Covered by early-return (len(data) < 3) before the narrow try scope
+        self.fire._process_message([[0x90], 0])
+
+    def test_wrong_inner_type_is_ignored(self):
+        # Inner is not a list/tuple — early return, no log
+        self.fire._process_message(["not-a-list", 0])
+
+    def test_unpacking_error_is_logged_and_swallowed(self):
+        # A message shape that passes isinstance checks but fails unpacking
+        # triggers the narrow (ValueError/IndexError/TypeError) branch.
+        class TrickyList(list):
+            def __iter__(self):
+                raise TypeError("synthetic unpack failure")
+
+        msg = TrickyList([[0x90, 54, 100], 0])
+        # isinstance(msg, (list, tuple)) is True; data, _ = msg raises TypeError
+        with self.assertLogs("akai_fire", level="WARNING"):
+            self.fire._process_message(msg)
+
+
 if __name__ == "__main__":
     unittest.main()

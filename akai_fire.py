@@ -1371,10 +1371,26 @@ class AkaiFire:
         """
         return (pad_index // 16) + 1
 
-    def _process_message(self, message):
-        """Process a single MIDI message."""
+    def _invoke(self, handler, *args):
+        """Call a user handler with per-handler exception isolation.
+
+        A raised exception is logged but does not prevent subsequent handlers
+        (registered for the same or different events) from running.
+        """
         try:
-            # Validate message format - must be a tuple/list with data as first element
+            handler(*args)
+        except Exception:
+            logger.exception("Handler %r raised", handler)
+
+    def _process_message(self, message):
+        """Process a single MIDI message and dispatch to listeners.
+
+        Message parsing errors are logged and swallowed so a malformed packet
+        does not kill the listening thread. Handler exceptions are isolated
+        per-handler via :meth:`_invoke`.
+        """
+        # --- message parsing (narrow exception scope) ---------------------
+        try:
             if not message or not isinstance(message, (list, tuple)):
                 return
             if not isinstance(message[0], (list, tuple)):
@@ -1387,109 +1403,102 @@ class AkaiFire:
             status = data[0]
             controller = data[1]
             value = data[2]
+        except (ValueError, IndexError, TypeError):
+            logger.warning("Malformed MIDI message: %r", message, exc_info=True)
+            return
 
-            # Handle rotary touch events first. (Note On/Off for rotary controls)
-            # This needs to come before button handling since they share the same status codes
-            if status in [0x90, 0x80] and controller in [
-                self.ROTARY_VOLUME,
-                self.ROTARY_PAN,
-                self.ROTARY_FILTER,
-                self.ROTARY_RESONANCE,
-            ]:
-                event = "touch" if status == 0x90 else "release"
+        # --- dispatch (per-handler exception isolation via _invoke) -------
 
-                # Call specific rotary touch handlers
+        # Handle rotary touch events first. (Note On/Off for rotary controls)
+        # This needs to come before button handling since they share the same status codes.
+        if status in [0x90, 0x80] and controller in [
+            self.ROTARY_VOLUME,
+            self.ROTARY_PAN,
+            self.ROTARY_FILTER,
+            self.ROTARY_RESONANCE,
+        ]:
+            event = "touch" if status == 0x90 else "release"
+
+            with self._lock:
+                handlers = list(self.rotary_touch_listeners[controller])
+                global_handlers = list(self.rotary_touch_listeners["global"])
+
+            for handler in handlers:
+                self._invoke(handler, event)
+            for handler in global_handlers:
+                self._invoke(handler, controller, event)
+            return
+
+        # Handle button events
+        if status in [0x90, 0x80] and controller in [
+            self.BUTTON_SELECT,
+            self.BUTTON_STEP,
+            self.BUTTON_NOTE,
+            self.BUTTON_DRUM,
+            self.BUTTON_PERFORM,
+            self.BUTTON_SHIFT,
+            self.BUTTON_ALT,
+            self.BUTTON_PATTERN,
+            self.BUTTON_PLAY,
+            self.BUTTON_STOP,
+            self.BUTTON_REC,
+            self.BUTTON_BANK,
+            self.BUTTON_BROWSER,
+            self.BUTTON_SOLO_1,
+            self.BUTTON_SOLO_2,
+            self.BUTTON_SOLO_3,
+            self.BUTTON_SOLO_4,
+            self.BUTTON_PAT_UP,
+            self.BUTTON_PAT_DOWN,
+            self.BUTTON_GRID_LEFT,
+            self.BUTTON_GRID_RIGHT,
+        ]:
+            event = "press" if status == 0x90 else "release"
+
+            with self._lock:
+                handlers = list(self.button_listeners[controller])
+                global_handlers = list(self.button_listeners["global"])
+
+            for handler in handlers:
+                self._invoke(handler, event)
+            for handler in global_handlers:
+                self._invoke(handler, controller, event)
+            return
+
+        # Handle pad events (0x90 = Note On, value > 0 = velocity)
+        if status == 0x90 and value > 0:
+            pad_index = controller - 54
+            if 0 <= pad_index <= 63:
                 with self._lock:
-                    handlers = list(self.rotary_touch_listeners[controller])
-                    global_handlers = list(self.rotary_touch_listeners["global"])
+                    handlers = list(self.pad_listeners[pad_index])
+                    global_handlers = list(self.pad_listeners["global"])
 
                 for handler in handlers:
-                    handler(event)
-                # Call global rotary touch handlers
+                    self._invoke(handler, value)
                 for handler in global_handlers:
-                    handler(controller, event)
-                return
+                    self._invoke(handler, pad_index, value)
+            return
 
-            # Handle button events
-            if status in [0x90, 0x80] and controller in [
-                self.BUTTON_SELECT,
-                self.BUTTON_STEP,
-                self.BUTTON_NOTE,
-                self.BUTTON_DRUM,
-                self.BUTTON_PERFORM,
-                self.BUTTON_SHIFT,
-                self.BUTTON_ALT,
-                self.BUTTON_PATTERN,
-                self.BUTTON_PLAY,
-                self.BUTTON_STOP,
-                self.BUTTON_REC,
-                self.BUTTON_BANK,
-                self.BUTTON_BROWSER,
-                self.BUTTON_SOLO_1,
-                self.BUTTON_SOLO_2,
-                self.BUTTON_SOLO_3,
-                self.BUTTON_SOLO_4,
-                self.BUTTON_PAT_UP,
-                self.BUTTON_PAT_DOWN,
-                self.BUTTON_GRID_LEFT,
-                self.BUTTON_GRID_RIGHT,
-            ]:
-                event = "press" if status == 0x90 else "release"
+        # Handle rotary turn events (Control Change)
+        if status == 0xB0 and controller in [
+            self.ROTARY_VOLUME,
+            self.ROTARY_PAN,
+            self.ROTARY_FILTER,
+            self.ROTARY_RESONANCE,
+            self.ROTARY_SELECT,
+        ]:
+            direction = "clockwise" if value < 0x40 else "counterclockwise"
+            velocity = value if value < 0x40 else (0x80 - value)
 
-                # Call specific button handlers
-                with self._lock:
-                    handlers = list(self.button_listeners[controller])
-                    global_handlers = list(self.button_listeners["global"])
+            with self._lock:
+                handlers = list(self.rotary_listeners[controller])
+                global_handlers = list(self.rotary_listeners["global"])
 
-                for handler in handlers:
-                    handler(event)
-                # Call global button handlers
-                for handler in global_handlers:
-                    handler(controller, event)
-                return
-
-            # Handle pad events (0x90 = Note On, value > 0 = velocity)
-            if status == 0x90 and value > 0:
-                pad_index = controller - 54
-                if 0 <= pad_index <= 63:
-                    # Call specific pad handlers
-                    with self._lock:
-                        handlers = list(self.pad_listeners[pad_index])
-                        global_handlers = list(self.pad_listeners["global"])
-
-                    for handler in handlers:
-                        handler(value)
-                    # Call global pad handlers
-                    for handler in global_handlers:
-                        handler(pad_index, value)
-                return
-
-            # Handle rotary turn events (Control Change)
-            if status == 0xB0 and controller in [
-                self.ROTARY_VOLUME,
-                self.ROTARY_PAN,
-                self.ROTARY_FILTER,
-                self.ROTARY_RESONANCE,
-                self.ROTARY_SELECT,
-            ]:
-                direction = "clockwise" if value < 0x40 else "counterclockwise"
-                velocity = value if value < 0x40 else (0x80 - value)
-                # Call specific rotary handlers
-                with self._lock:
-                    handlers = list(self.rotary_listeners[controller])
-                    global_handlers = list(self.rotary_listeners["global"])
-
-                for handler in handlers:
-                    handler(direction, velocity)
-                # Call global rotary handlers
-                for handler in global_handlers:
-                    handler(controller, direction, velocity)
-                return
-
-        except Exception as e:
-            import traceback
-
-            traceback.print_exc()
+            for handler in handlers:
+                self._invoke(handler, direction, velocity)
+            for handler in global_handlers:
+                self._invoke(handler, controller, direction, velocity)
+            return
 
     def _listen(self):
         """Internal method to listen for MIDI messages."""
