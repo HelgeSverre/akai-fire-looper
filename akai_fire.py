@@ -552,9 +552,10 @@ class AkaiFire:
         except Exception as e:
             raise MIDIConnectionError(f"Failed to initialize MIDI: {e}")
 
-        # Set up modifier key tracking
-        self.add_button_listener(self.BUTTON_SHIFT, self._handle_shift)
-        self.add_button_listener(self.BUTTON_ALT, self._handle_alt)
+        # Modifier-key state (_shift_pressed / _alt_pressed) is latched
+        # inline in _process_message before any user handler runs, so code
+        # reading is_shift_pressed() / is_alt_pressed() from a pad handler
+        # always sees a coherent value — even under async dispatch.
 
         # Initialize performance caches
         self._init_performance_caches()
@@ -742,14 +743,6 @@ class AkaiFire:
             if bid == button_id:
                 return index
         return None
-
-    def _handle_shift(self, event):
-        """Internal handler for shift key state"""
-        self._shift_pressed = event == "press"
-
-    def _handle_alt(self, event):
-        """Internal handler for alt key state"""
-        self._alt_pressed = event == "press"
 
     def is_shift_pressed(self) -> bool:
         """Returns whether the shift key is currently held down"""
@@ -1428,6 +1421,18 @@ class AkaiFire:
             for handler in global_handlers:
                 self._invoke(handler, controller, event)
             return
+
+        # Latch modifier-key state inline, before any user handler runs.
+        # This preserves the invariant that a pad/button handler reading
+        # fire.is_shift_pressed() / is_alt_pressed() observes coherent
+        # state, even when handlers are later dispatched asynchronously.
+        if status in (0x90, 0x80) and controller in (self.BUTTON_SHIFT, self.BUTTON_ALT):
+            pressed = status == 0x90
+            if controller == self.BUTTON_SHIFT:
+                self._shift_pressed = pressed
+            else:
+                self._alt_pressed = pressed
+            # fall through into the normal button-dispatch block below
 
         # Handle button events
         if status in [0x90, 0x80] and controller in [

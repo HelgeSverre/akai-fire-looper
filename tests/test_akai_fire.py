@@ -543,6 +543,71 @@ class TestHandlerIsolation(unittest.TestCase):
         self.assertIn("bad", calls)
 
 
+class TestModifierOrdering(unittest.TestCase):
+    """Modifier state must be coherent before handlers observe it.
+
+    After a SHIFT press, a pad handler reading is_shift_pressed() must
+    see True. This invariant is what future async handler dispatch
+    relies on — modifier-key state is now updated inline in
+    _process_message before any handler fires.
+    """
+
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+        self.fire = AkaiFire()
+
+    def tearDown(self):
+        if hasattr(self, "fire"):
+            self.fire.close()
+
+    def test_pad_handler_sees_shift_pressed(self):
+        observed = []
+
+        @self.fire.on_pad()
+        def pad_handler(pad_index, velocity):
+            observed.append(self.fire.is_shift_pressed())
+
+        self.fire._process_message([[0x90, self.fire.BUTTON_SHIFT, 127], 0])
+        self.fire._process_message([[0x90, 54, 100], 0])
+        self.fire._process_message([[0x80, self.fire.BUTTON_SHIFT, 0], 0])
+        self.fire._process_message([[0x90, 54, 100], 0])
+
+        self.assertEqual(observed, [True, False])
+
+    def test_pad_handler_sees_alt_pressed(self):
+        observed = []
+
+        @self.fire.on_pad()
+        def pad_handler(pad_index, velocity):
+            observed.append(self.fire.is_alt_pressed())
+
+        self.fire._process_message([[0x90, self.fire.BUTTON_ALT, 127], 0])
+        self.fire._process_message([[0x90, 54, 100], 0])
+        self.fire._process_message([[0x80, self.fire.BUTTON_ALT, 0], 0])
+        self.fire._process_message([[0x90, 54, 100], 0])
+
+        self.assertEqual(observed, [True, False])
+
+    def test_shift_button_listener_sees_latched_state(self):
+        # A handler registered for the SHIFT button itself should see
+        # the already-latched state when called on "press".
+        observed = []
+
+        @self.fire.on_button(self.fire.BUTTON_SHIFT)
+        def shift_handler(event):
+            observed.append((event, self.fire.is_shift_pressed()))
+
+        self.fire._process_message([[0x90, self.fire.BUTTON_SHIFT, 127], 0])
+        self.fire._process_message([[0x80, self.fire.BUTTON_SHIFT, 0], 0])
+
+        self.assertEqual(observed, [("press", True), ("release", False)])
+
+
 class TestMessageParsing(unittest.TestCase):
     """Malformed MIDI messages must be logged, not silently printed to stderr."""
 
