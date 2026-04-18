@@ -10,15 +10,17 @@ that async dispatch keeps the MIDI thread hot while a callback is busy.
 
 Controls on the device:
 
-    Any pad       → log + cycle the pad's color
-    Any button    → log + flash the button LED while held
-    Any rotary    → log direction / velocity; the matching solo LED blinks
+    Any pad          → log + cycle the pad's color
+    Any button       → log + flash the button LED while held
+    Any rotary turn  → log direction / velocity; matching track LED blinks
     Any rotary touch → log; the rotary's track LED lights
-    Any solo      → log
-    SHIFT / ALT   → indicator shown in OLED header; also modifies pad color
-    BROWSER       → clear OLED event log + clear all pads
-    PAT UP        → "slow handler" demo: sleeps 1s; other events keep working
-    STOP          → quit
+    Any solo         → log
+    SHIFT / ALT      → indicator in OLED header; also modifies pad color
+    SELECT rotary    → scroll back (CCW) / forward (CW) through the log
+    GRID RIGHT       → jump the log viewport back to the latest entry
+    BROWSER          → clear OLED event log + clear all pads + reset scroll
+    PAT UP           → "slow handler" demo: sleeps 1s; other events keep working
+    STOP             → quit
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ from akai_fire import get_akai_fire
 
 
 LOG_LINES_ON_OLED = 3      # how many recent events to show
-LOG_BUFFER_SIZE = 32       # keep more for stdout dump on exit
+LOG_BUFFER_SIZE = 64       # scroll-back depth for the SELECT rotary
 OLED_REFRESH_MIN_INTERVAL = 0.016  # ~60 fps cap — handlers may fire faster
 
 # Small palette used to give each pad press a different color so repeated
@@ -91,6 +93,13 @@ class EventMonitor:
         self.pad_press_count = [0] * 64
         self.stopping = threading.Event()
 
+        # Scrollable viewport into the event log. scroll_offset is the index
+        # of the *topmost visible* line in the deque (0 = newest). While at 0
+        # the view follows new events (auto-scroll); any nonzero offset pins
+        # the view and incoming events shift it so the user's content stays
+        # on-screen until they explicitly return to the latest.
+        self.scroll_offset = 0
+
         # Serializes state mutations + OLED renders. Handlers run on the
         # dispatcher pool, so without this they'd race on the canvas.
         self._draw_lock = threading.Lock()
@@ -106,8 +115,28 @@ class EventMonitor:
         with self._draw_lock:
             self.stats.log.appendleft(line)
             self.stats.last_event = line
+            # If the user has scrolled back into history, keep their view
+            # pinned on the same entries by shifting the offset to match
+            # the new deque indices. While at offset 0 we "follow" newest.
+            if self.scroll_offset > 0:
+                self.scroll_offset = min(
+                    self.scroll_offset + 1,
+                    max(0, len(self.stats.log) - LOG_LINES_ON_OLED),
+                )
         print(line, flush=True)
         self._maybe_redraw()
+
+    def _scroll(self, delta: int) -> None:
+        """Move the viewport. +delta = older entries; -delta = newer."""
+        with self._draw_lock:
+            max_offset = max(0, len(self.stats.log) - LOG_LINES_ON_OLED)
+            self.scroll_offset = max(0, min(max_offset, self.scroll_offset + delta))
+        self._redraw()
+
+    def _scroll_to_latest(self) -> None:
+        with self._draw_lock:
+            self.scroll_offset = 0
+        self._redraw()
 
     def _maybe_redraw(self) -> None:
         """Rate-limit OLED redraws so a burst of events doesn't queue forever."""
@@ -146,11 +175,28 @@ class EventMonitor:
             # Last event (persistent, most visible)
             c.draw_text(self.stats.last_event[:24], 2, 24)
 
-            # Rolling log (most recent at top)
-            for i, entry in enumerate(list(self.stats.log)[:LOG_LINES_ON_OLED]):
+            # Scrolling log viewport. deque is newest-first (appendleft),
+            # so log[offset:offset+N] is "N entries, newest on top, starting
+            # from `offset` from the newest". At offset=0 we show the 3
+            # newest; increasing offset reveals older events.
+            log = list(self.stats.log)
+            offset = self.scroll_offset
+            visible = log[offset : offset + LOG_LINES_ON_OLED]
+
+            # Up-arrow if there are *newer* events above the viewport,
+            # down-arrow if there are *older* events below.
+            has_newer_above = offset > 0
+            has_older_below = offset + LOG_LINES_ON_OLED < len(log)
+
+            for i, entry in enumerate(visible):
                 y = 36 + i * 9
                 c.draw_text(">", 0, y)
-                c.draw_text(entry[:24], 8, y)
+                c.draw_text(entry[:23], 8, y)
+
+            if has_newer_above:
+                c.draw_text("^", c.WIDTH - 7, 36)
+            if has_older_below:
+                c.draw_text("v", c.WIDTH - 7, 36 + (LOG_LINES_ON_OLED - 1) * 9)
 
             self.fire.render_to_display()
 
@@ -207,10 +253,16 @@ class EventMonitor:
                 with self._draw_lock:
                     self.stats.log.clear()
                     self.stats.last_event = "(log cleared)"
+                    self.scroll_offset = 0
                 fire.clear_all_pads()
                 for i in range(64):
                     self.pad_press_count[i] = 0
                 self._redraw()
+
+        @fire.on_button(fire.BUTTON_GRID_RIGHT)
+        def jump_to_latest(event: str) -> None:
+            if event == "press":
+                self._scroll_to_latest()
 
         @fire.on_button(fire.BUTTON_STOP)
         def quit_button(event: str) -> None:
@@ -255,10 +307,11 @@ class EventMonitor:
                 fire.set_track_led(track, led)
 
         @fire.on_rotary_turn(fire.ROTARY_SELECT)
-        def select_rotary(direction: str, velocity: int) -> None:
-            # Specific handler for SELECT alongside the global one above.
-            arrow = "CW" if direction == "clockwise" else "CCW"
-            print(f"[specific] SELECT rotary {arrow} x{velocity}", flush=True)
+        def select_scrolls_log(direction: str, velocity: int) -> None:
+            # CW scrolls toward newer (offset -= velocity),
+            # CCW scrolls toward older (offset += velocity).
+            step = max(1, min(velocity, LOG_LINES_ON_OLED))
+            self._scroll(-step if direction == "clockwise" else +step)
 
         # --- rotaries (touch) --------------------------------------------
         @fire.on_rotary_touch()
