@@ -837,6 +837,49 @@ class TestMockParity(unittest.TestCase):
         finally:
             fire.close()
 
+    # -- TUI mock parity ----------------------------------------------
+    # Skipped when rich is unavailable; its toggle semantics match the
+    # pygame mock's press/release cycle, just driven by keyboard input.
+
+    def _tui_available(self):
+        try:
+            import rich  # noqa: F401
+            import mock_gui_tui  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+
+    def test_tui_mock_latches_shift_via_inject(self):
+        if not self._tui_available():
+            self.skipTest("rich / mock_gui_tui not available")
+        from mock_gui_tui import MockAkaiFire as TuiMock
+
+        fire = TuiMock(headless=True)
+        try:
+            self.assertFalse(fire.is_shift_pressed())
+            fire.inject_key("s")
+            self.assertTrue(fire.is_shift_pressed())
+            fire.inject_key("s")
+            self.assertFalse(fire.is_shift_pressed())
+        finally:
+            fire.close()
+
+    def test_tui_mock_latches_alt_via_inject(self):
+        if not self._tui_available():
+            self.skipTest("rich / mock_gui_tui not available")
+        from mock_gui_tui import MockAkaiFire as TuiMock
+
+        fire = TuiMock(headless=True)
+        try:
+            self.assertFalse(fire.is_alt_pressed())
+            fire.inject_key("a")
+            self.assertTrue(fire.is_alt_pressed())
+            fire.inject_key("a")
+            self.assertFalse(fire.is_alt_pressed())
+        finally:
+            fire.close()
+
 
 if __name__ == "__main__":
     unittest.main()

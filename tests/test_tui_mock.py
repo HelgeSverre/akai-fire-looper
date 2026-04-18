@@ -446,6 +446,59 @@ class TestTuiMockInput(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_RICH, "rich is required for the TUI mock")
+class TestTuiMockRendering(unittest.TestCase):
+    """Glyph conversion + live-thread lifecycle."""
+
+    def test_braille_oled_all_blank_is_spaces(self):
+        from PIL import Image
+
+        from mock_gui_tui import _braille_from_oled
+
+        # mode "1" with fill=1 = off (white background in PIL)
+        img = Image.new("1", (128, 64), 1)
+        text = _braille_from_oled(img)
+        # Every non-newline cell should be a space (no lit dots)
+        body = str(text).replace("\n", "")
+        self.assertEqual(len(body), 64 * 16)
+        self.assertTrue(all(c == " " for c in body))
+
+    def test_braille_oled_all_lit_is_full_dot_cells(self):
+        from PIL import Image
+
+        from mock_gui_tui import _braille_from_oled
+
+        img = Image.new("1", (128, 64), 0)  # 0 = black = all lit
+        text = _braille_from_oled(img)
+        body = str(text).replace("\n", "")
+        # 0x2800 | 0xFF = 0x28FF "⣿" (all eight dots lit)
+        self.assertTrue(all(c == "\u28ff" for c in body))
+
+    def test_build_view_returns_renderable(self):
+        import io
+
+        from mock_gui_tui import MockAkaiFire
+
+        fire = MockAkaiFire(headless=True)
+        try:
+            view = fire._build_view()
+            from rich.console import Console
+
+            # Send output to an in-memory buffer so it doesn't pollute the
+            # test runner's stdout.
+            buf = io.StringIO()
+            console = Console(file=buf, record=True, width=160, force_terminal=True)
+            console.print(view)
+            self.assertGreater(len(buf.getvalue()), 0)
+        finally:
+            fire.close()
+
+    # Live-render-thread lifecycle is manually verified via
+    # examples/run_tui_mock.py — we can't capture rich.live's console
+    # cleanly in a test, and the thread-start/join plumbing is already
+    # exercised by the scaffold's close() idempotency test.
+
+
+@unittest.skipUnless(HAS_RICH, "rich is required for the TUI mock")
 class TestGetAkaiFireWithTuiString(unittest.TestCase):
     """The new ``use_mock='tui'`` branch on ``get_akai_fire``."""
 
