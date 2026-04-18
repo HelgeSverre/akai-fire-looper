@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union, List, Tuple, Dict, Any
 
 import rtmidi
@@ -327,6 +328,63 @@ class Canvas:
             self.draw_text(line, mid_x + 2, y_offset + (i * line_height))
 
 
+class _HandlerDispatcher:
+    """Dispatches user handlers on a worker thread pool so slow or
+    throwing handlers cannot stall the MIDI polling thread.
+
+    Backpressure strategy is **caller-runs**: when the bounded submit
+    queue is saturated, the MIDI polling thread runs the handler inline
+    (logging a warning). No event is ever dropped; under sustained
+    overload the MIDI thread briefly stalls instead.
+
+    Every submission is wrapped with a per-handler try/except that
+    routes exceptions through ``logger.exception`` so one misbehaving
+    listener cannot kill the worker or silence siblings.
+    """
+
+    def __init__(self, max_workers: int = 4, queue_size: int = 64):
+        self._executor = ThreadPoolExecutor(
+            max_workers=max_workers,
+            thread_name_prefix="akai-fire-handler",
+        )
+        self._sem = threading.BoundedSemaphore(queue_size)
+
+    def submit(self, fn, *args) -> None:
+        if not self._sem.acquire(blocking=False):
+            logger.warning(
+                "Handler queue full; running %r inline on MIDI thread", fn
+            )
+            try:
+                fn(*args)
+            except Exception:
+                logger.exception("Handler %r raised (inline)", fn)
+            return
+
+        def _run():
+            try:
+                fn(*args)
+            except Exception:
+                logger.exception("Handler %r raised", fn)
+            finally:
+                self._sem.release()
+
+        try:
+            self._executor.submit(_run)
+        except RuntimeError:
+            # Executor already shut down — run inline so we don't lose the event.
+            self._sem.release()
+            try:
+                fn(*args)
+            except Exception:
+                logger.exception("Handler %r raised (post-shutdown)", fn)
+
+    def shutdown(self) -> None:
+        try:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+        except Exception:
+            logger.exception("Error shutting down handler dispatcher")
+
+
 # noinspection GrazieInspection
 class AkaiFire:
     # MIDI Constants
@@ -506,12 +564,53 @@ class AkaiFire:
         self.clear_display()
         self.close()
 
-    def __init__(self, port_name=None):
-        """Initialize AKAI Fire controller with improved error handling."""
+    def __init__(
+        self,
+        port_name=None,
+        *,
+        async_handlers: bool = True,
+        max_workers: int = 4,
+        handler_queue_size: int = 64,
+        send_retry_delay: float = 0.01,
+        send_max_retries: int = 2,
+    ):
+        """Initialize AKAI Fire controller.
+
+        Args:
+            port_name: MIDI port name to look for. Defaults to "FL STUDIO FIRE".
+            async_handlers: If True (default), user callbacks registered via
+                ``@on_pad`` / ``@on_button`` / ``@on_rotary_*`` / ``add_*_listener``
+                run on a background thread pool so a slow callback cannot stall
+                the MIDI polling thread. Set False for strict serial dispatch on
+                the polling thread.
+            max_workers: Number of worker threads in the handler dispatch pool.
+                ``1`` preserves strict FIFO ordering across all events; the
+                default ``4`` allows parallel handling of independent events.
+            handler_queue_size: Bounded-queue size for handler submission. When
+                the queue is full, the MIDI thread runs the handler inline
+                (caller-runs backpressure); no event is dropped.
+            send_retry_delay: Seconds to wait between MIDI send retries.
+            send_max_retries: Max MIDI send retry attempts.
+        """
         # Thread safety
         self._lock = threading.RLock()
-        self.listening = False
+        # _stop_event replaces the old ``self.listening`` bool; Event
+        # acquires no lock on is_set(), so the polling loop doesn't spin
+        # an RLock every iteration.
+        self._stop_event = threading.Event()
+        self._stop_event.set()  # "stopped" until start_listening clears it
         self.listening_thread = None
+
+        # Handler dispatch: thread pool with per-handler exception isolation.
+        self._dispatcher: Optional[_HandlerDispatcher] = (
+            _HandlerDispatcher(max_workers=max_workers, queue_size=handler_queue_size)
+            if async_handlers
+            else None
+        )
+
+        # MIDI send retry tuning.
+        self._send_retry_delay = send_retry_delay
+        self._send_max_retries = send_max_retries
 
         self.canvas = Canvas()
         self.look_for_port = port_name or "FL STUDIO FIRE"
@@ -563,6 +662,16 @@ class AkaiFire:
     def on_button(self, button_id=None):
         """
         Decorator for button events.
+
+        By default handlers run on a background thread pool (see
+        ``async_handlers``/``max_workers`` on ``__init__``). Keep them
+        short; offload heavy work to your own thread. Exceptions are
+        logged per-handler and never block siblings. Modifier-key state
+        (``is_shift_pressed()`` / ``is_alt_pressed()``) is latched before
+        any handler runs, so it is always coherent.
+
+        It is safe to register or remove listeners from inside a handler;
+        the change takes effect on the next event.
 
         Usage:
             @fire.on_button(BUTTON_PLAY)  # Specific button
@@ -781,11 +890,16 @@ class AkaiFire:
         """Check if alt is currently pressed."""
         return self._alt_pressed
 
+    @property
+    def listening(self) -> bool:
+        """True while the MIDI listening thread is running."""
+        return not self._stop_event.is_set()
+
     def start_listening(self):
-        """Start the event listening thread with proper thread safety."""
+        """Start the event listening thread (idempotent)."""
         with self._lock:
-            if not self.listening:
-                self.listening = True
+            if self._stop_event.is_set():
+                self._stop_event.clear()
                 self.listening_thread = threading.Thread(
                     target=self._listen, daemon=True
                 )
@@ -793,21 +907,31 @@ class AkaiFire:
                 logger.debug("Started listening thread")
 
     def _send_midi_safe(
-        self, message: List[int], max_retries: int = 3, retry_delay: float = 0.1
+        self,
+        message: List[int],
+        max_retries: Optional[int] = None,
+        retry_delay: Optional[float] = None,
     ) -> bool:
         """Send MIDI message with error handling and retry logic.
 
         Args:
-            message: MIDI message to send
-            max_retries: Maximum number of retry attempts
-            retry_delay: Delay between retries in seconds
+            message: MIDI message to send.
+            max_retries: Max retry attempts. Defaults to the instance's
+                ``send_max_retries`` (2).
+            retry_delay: Seconds between retries. Defaults to the instance's
+                ``send_retry_delay`` (0.01s).
 
         Returns:
-            True if message sent successfully, False otherwise
+            True if message sent successfully, False otherwise.
         """
         if not self.midi_out:
             logger.error("MIDI output port not initialized")
             return False
+
+        if max_retries is None:
+            max_retries = self._send_max_retries
+        if retry_delay is None:
+            retry_delay = self._send_retry_delay
 
         for attempt in range(max_retries):
             try:
@@ -876,10 +1000,13 @@ class AkaiFire:
 
     def close(self):
         """Closes the MIDI input and output ports safely."""
-        with self._lock:
-            self.listening = False
+        self._stop_event.set()
         if self.listening_thread and self.listening_thread.is_alive():
             self.listening_thread.join(timeout=2.0)  # Don't wait forever
+
+        if self._dispatcher is not None:
+            self._dispatcher.shutdown()
+            self._dispatcher = None
 
         try:
             if hasattr(self, "midi_in") and self.midi_in:
@@ -1365,11 +1492,16 @@ class AkaiFire:
         return (pad_index // 16) + 1
 
     def _invoke(self, handler, *args):
-        """Call a user handler with per-handler exception isolation.
+        """Dispatch a user handler with per-handler exception isolation.
 
-        A raised exception is logged but does not prevent subsequent handlers
-        (registered for the same or different events) from running.
+        If ``async_handlers=True`` (the default), submits to the thread-pool
+        dispatcher. Otherwise runs inline on the polling thread. In either
+        mode a raised exception is logged but never prevents sibling
+        handlers from running.
         """
+        if self._dispatcher is not None:
+            self._dispatcher.submit(handler, *args)
+            return
         try:
             handler(*args)
         except Exception:
@@ -1506,15 +1638,18 @@ class AkaiFire:
             return
 
     def _listen(self):
-        """Internal method to listen for MIDI messages."""
-        while True:
-            with self._lock:
-                if not self.listening:
-                    break
+        """Poll the MIDI input port for messages and dispatch them.
+
+        Uses ``self._stop_event`` for termination; ``is_set()`` is lockless,
+        so the loop doesn't acquire an RLock every iteration. The 1 ms
+        idle sleep keeps CPU usage low while MIDI is quiet.
+        """
+        while not self._stop_event.is_set():
             message = self.midi_in.get_message()
             if message:
                 self._process_message(message)
-            time.sleep(0.001)  # 1ms loop interval
+            else:
+                time.sleep(0.001)
 
 
 # Convenience functions for device discovery and auto-selection

@@ -51,7 +51,7 @@ class TestAkaiFire(unittest.TestCase):
         mock_midi_in.return_value = self.mock_midi_in
         mock_midi_out.return_value = self.mock_midi_out
 
-        self.fire = AkaiFire()
+        self.fire = AkaiFire(async_handlers=False)
 
     def tearDown(self):
         """Clean up after each test"""
@@ -162,7 +162,7 @@ class TestEventSystem(unittest.TestCase):
         mock_midi_in.return_value = self.mock_midi_in
         mock_midi_out.return_value = self.mock_midi_out
 
-        self.fire = AkaiFire()
+        self.fire = AkaiFire(async_handlers=False)
         self.events_received = []
 
     def tearDown(self):
@@ -277,7 +277,7 @@ class TestThreadSafety(unittest.TestCase):
         mock_midi_in.return_value = self.mock_midi_in
         mock_midi_out.return_value = self.mock_midi_out
 
-        self.fire = AkaiFire()
+        self.fire = AkaiFire(async_handlers=False)
 
     def tearDown(self):
         """Clean up after each test"""
@@ -432,7 +432,7 @@ class TestHelperMethods(unittest.TestCase):
         mock_midi_in.return_value = self.mock_midi_in
         mock_midi_out.return_value = self.mock_midi_out
 
-        self.fire = AkaiFire()
+        self.fire = AkaiFire(async_handlers=False)
 
     def test_is_shift_pressed(self):
         """Test shift state detection"""
@@ -481,7 +481,7 @@ class TestHandlerIsolation(unittest.TestCase):
         self.mock_midi_out = MockMidiPort()
         mock_midi_in.return_value = self.mock_midi_in
         mock_midi_out.return_value = self.mock_midi_out
-        self.fire = AkaiFire()
+        self.fire = AkaiFire(async_handlers=False)
 
     def tearDown(self):
         if hasattr(self, "fire"):
@@ -559,7 +559,7 @@ class TestModifierOrdering(unittest.TestCase):
         self.mock_midi_out = MockMidiPort()
         mock_midi_in.return_value = self.mock_midi_in
         mock_midi_out.return_value = self.mock_midi_out
-        self.fire = AkaiFire()
+        self.fire = AkaiFire(async_handlers=False)
 
     def tearDown(self):
         if hasattr(self, "fire"):
@@ -618,7 +618,7 @@ class TestMessageParsing(unittest.TestCase):
         self.mock_midi_out = MockMidiPort()
         mock_midi_in.return_value = self.mock_midi_in
         mock_midi_out.return_value = self.mock_midi_out
-        self.fire = AkaiFire()
+        self.fire = AkaiFire(async_handlers=False)
 
     def tearDown(self):
         if hasattr(self, "fire"):
@@ -648,6 +648,232 @@ class TestMessageParsing(unittest.TestCase):
         # isinstance(msg, (list, tuple)) is True; data, _ = msg raises TypeError
         with self.assertLogs("akai_fire", level="WARNING"):
             self.fire._process_message(msg)
+
+
+class TestAsyncDispatch(unittest.TestCase):
+    """Async handler dispatch must isolate slow handlers and absorb overload."""
+
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+
+    def _wait_until(self, predicate, timeout=2.0, interval=0.005):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if predicate():
+                return True
+            time.sleep(interval)
+        return False
+
+    def test_slow_handler_does_not_block_polling(self):
+        """A slow handler must not stall dispatch of subsequent events."""
+        fire = AkaiFire(async_handlers=True, max_workers=4)
+        try:
+            slow_finished = threading.Event()
+            fast_count = [0]
+
+            @fire.on_pad(0)
+            def slow(velocity):
+                time.sleep(0.15)
+                slow_finished.set()
+
+            @fire.on_pad(1)
+            def fast(velocity):
+                fast_count[0] += 1
+
+            start = time.time()
+            # Queue a slow event, then a fast event
+            fire._process_message([[0x90, 54, 100], 0])   # pad 0 -> slow
+            fire._process_message([[0x90, 55, 100], 0])   # pad 1 -> fast
+            dispatch_time = time.time() - start
+
+            # Dispatch submission must return quickly (<50ms), not wait on slow
+            self.assertLess(dispatch_time, 0.05)
+
+            # Fast handler should complete well before slow finishes
+            self.assertTrue(self._wait_until(lambda: fast_count[0] == 1, timeout=0.1))
+
+            # Slow handler eventually completes
+            self.assertTrue(slow_finished.wait(timeout=1.0))
+        finally:
+            fire.close()
+
+    def test_caller_runs_when_queue_saturated(self):
+        """Caller-runs backpressure: oversubscribed events still execute."""
+        fire = AkaiFire(async_handlers=True, max_workers=1, handler_queue_size=2)
+        try:
+            counts = [0]
+            block = threading.Event()
+
+            @fire.on_pad()
+            def handler(pad_index, velocity):
+                # First few events will block workers
+                if pad_index < 3:
+                    block.wait(timeout=2.0)
+                counts[0] += 1
+
+            # Saturate the queue. Sized 2 + 1 worker = 3 in-flight, then
+            # caller-runs kicks in for subsequent events.
+            with self.assertLogs("akai_fire", level="WARNING"):
+                for i in range(6):
+                    fire._process_message([[0x90, 54 + i, 100], 0])
+
+            block.set()
+            # All 6 events must eventually be counted (nothing dropped).
+            self.assertTrue(self._wait_until(lambda: counts[0] == 6, timeout=3.0))
+        finally:
+            fire.close()
+
+    def test_async_handlers_false_stays_serial(self):
+        """With async_handlers=False, handlers run inline on the caller's thread."""
+        fire = AkaiFire(async_handlers=False)
+        try:
+            caller_thread_id = threading.get_ident()
+            observed = []
+
+            @fire.on_pad()
+            def handler(pad_index, velocity):
+                observed.append(threading.get_ident())
+
+            fire._process_message([[0x90, 54, 100], 0])
+            self.assertEqual(observed, [caller_thread_id])
+        finally:
+            fire.close()
+
+    def test_raising_handler_in_async_mode_logs(self):
+        fire = AkaiFire(async_handlers=True, max_workers=1)
+        try:
+            done = threading.Event()
+
+            @fire.on_pad()
+            def bad(pad_index, velocity):
+                done.set()
+                raise RuntimeError("boom")
+
+            with self.assertLogs("akai_fire", level="ERROR"):
+                fire._process_message([[0x90, 54, 100], 0])
+                done.wait(timeout=1.0)
+                # Give the pool a moment to log the exception
+                time.sleep(0.05)
+        finally:
+            fire.close()
+
+
+class TestListenLoop(unittest.TestCase):
+    """Polling thread must stop promptly regardless of _lock contention."""
+
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+        self.fire = AkaiFire(async_handlers=False)
+
+    def tearDown(self):
+        if hasattr(self, "fire"):
+            self.fire.close()
+
+    def test_stop_without_rlock_contention(self):
+        self.fire.start_listening()
+
+        hog_released = threading.Event()
+
+        def lock_hog():
+            with self.fire._lock:
+                hog_released.wait(timeout=1.0)
+
+        hog = threading.Thread(target=lock_hog, daemon=True)
+        hog.start()
+        time.sleep(0.01)  # let the hog grab the lock
+
+        start = time.time()
+        self.fire._stop_event.set()
+        self.fire.listening_thread.join(timeout=1.0)
+        elapsed = time.time() - start
+
+        hog_released.set()
+        hog.join(timeout=1.0)
+
+        self.assertFalse(self.fire.listening_thread.is_alive())
+        # Without the RLock dance in _listen, stop should be fast even while the lock is held.
+        self.assertLess(elapsed, 0.2)
+
+
+class TestMidiSendRetry(unittest.TestCase):
+    """Retry delay defaults must not block the caller for hundreds of ms."""
+
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+        self.fire = AkaiFire(async_handlers=False)
+
+    def tearDown(self):
+        if hasattr(self, "fire"):
+            self.fire.close()
+
+    def test_retry_delay_is_short_by_default(self):
+        attempts = [0]
+
+        def flaky_send(message):
+            attempts[0] += 1
+            if attempts[0] == 1:
+                raise RuntimeError("transient")
+
+        self.mock_midi_out.send_message = flaky_send
+
+        start = time.time()
+        ok = self.fire._send_midi_safe([0xB0, 0x33, 0x02])
+        elapsed = time.time() - start
+
+        self.assertTrue(ok)
+        self.assertEqual(attempts[0], 2)
+        # One retry at ~10ms — well under the old 300ms worst case.
+        self.assertLess(elapsed, 0.05)
+
+
+class TestHandlerMutation(unittest.TestCase):
+    """Contract: a handler may unregister itself during dispatch."""
+
+    @patch("rtmidi.MidiIn")
+    @patch("rtmidi.MidiOut")
+    def setUp(self, mock_midi_out, mock_midi_in):
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+        self.fire = AkaiFire(async_handlers=False)
+
+    def tearDown(self):
+        if hasattr(self, "fire"):
+            self.fire.close()
+
+    def test_handler_can_remove_itself(self):
+        calls = []
+
+        def once(event):
+            calls.append(event)
+            # Remove self from the listener list. Safe to mutate during
+            # dispatch because _process_message snapshots the list under
+            # self._lock before iterating.
+            with self.fire._lock:
+                self.fire.button_listeners[self.fire.BUTTON_PLAY].remove(once)
+
+        self.fire.add_button_listener(self.fire.BUTTON_PLAY, once)
+
+        self.fire._process_message([[0x90, self.fire.BUTTON_PLAY, 127], 0])
+        self.fire._process_message([[0x90, self.fire.BUTTON_PLAY, 127], 0])
+
+        self.assertEqual(calls, ["press"])
 
 
 if __name__ == "__main__":

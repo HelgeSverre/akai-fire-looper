@@ -94,6 +94,36 @@ just clean  # Clean up generated files
    - Decorator-based: `@fire.on_pad()`, `@fire.on_button()`, `@fire.on_rotary_turn()`
    - Listener-based: `add_listener()`, `add_button_listener()`, `add_rotary_listener()`
 
+### Event Dispatch Threading
+
+The MIDI polling loop runs on a dedicated daemon thread, reading messages
+roughly every 1 ms via `rtmidi.MidiIn.get_message()`. Every decoded event
+passes through `_process_message`, which:
+
+1. **Latches modifier state inline.** `_shift_pressed` / `_alt_pressed`
+   are updated *before* any user handler runs, so `is_shift_pressed()`
+   inside a pad handler always returns a coherent value.
+2. **Dispatches user handlers via a thread pool** (`async_handlers=True`
+   by default, `max_workers=4`). A slow handler can no longer stall MIDI
+   input or starve other handlers.
+3. **Isolates exceptions per handler.** A raised exception is logged via
+   `logger.exception` and never prevents sibling handlers from running.
+4. **Applies caller-runs backpressure.** When the bounded submit queue is
+   full (`handler_queue_size=64` by default), the MIDI thread runs the
+   handler inline and logs a warning. No event is ever dropped.
+
+Opt out of async dispatch with `AkaiFire(async_handlers=False)` if you
+need strict serial ordering on the polling thread. Use `max_workers=1`
+if you want async offload but preserve FIFO ordering.
+
+**Handler contract:**
+
+- Keep handlers short (target <5 ms). Offload heavy work (file I/O,
+  long OLED redraws, network calls) to your own thread.
+- Registering or removing listeners from inside a handler is safe; the
+  change takes effect on the next event.
+- Exceptions are logged, not swallowed silently; check your logger.
+
 ### Key Design Patterns
 
 - **Hardware Abstraction**: All hardware communication goes through MIDI messages
