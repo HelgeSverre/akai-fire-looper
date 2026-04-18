@@ -202,9 +202,10 @@ class MockAkaiFire:
         self.rotary_touch_listeners: Dict[int, List[Callable]] = defaultdict(list)
         self.global_rotary_touch_listeners: List[Callable] = []
 
-        # --- rendering / input threads (filled in later commits) -----
+        # --- rendering / input threads -------------------------------
         self._dirty = threading.Event()
         self._dirty.set()
+        self._stop_flag = threading.Event()
         self._render_thread: Optional[threading.Thread] = None
         self._input_thread: Optional[threading.Thread] = None
 
@@ -212,6 +213,12 @@ class MockAkaiFire:
         # "btn_mode", "btn_transport", "btn_bank", "btn_bottom", "mutesolo",
         # "pattern". Default puts the user on pad 0.
         self._focus: Tuple[str, int] = ("pad", 0)
+
+        # Last event string shown in the footer; updated by dispatch helpers.
+        self._last_event_text: str = ""
+
+        # Background release timers (kept to stop them on close()).
+        self._release_timers: List[threading.Timer] = []
 
         if not self._headless:
             self._start_threads()
@@ -250,19 +257,27 @@ class MockAkaiFire:
 
         The render thread owns a ``rich.live.Live`` that redraws on
         ``self._dirty`` edges (fallback cadence = 1 / RENDER_FPS).
-        The input thread is wired up in commit 3.
+        The input thread reads keys from stdin in cbreak mode.
         """
-        self._stop_flag = threading.Event()
         self._render_thread = threading.Thread(
             target=self._render_loop, name="akai-fire-tui-render", daemon=True
         )
         self._render_thread.start()
 
+        import sys
+        if sys.stdin.isatty():
+            self._input_thread = threading.Thread(
+                target=self._input_loop, name="akai-fire-tui-input", daemon=True
+            )
+            self._input_thread.start()
+
     def _stop_threads(self) -> None:
         """Stop render + input threads. Idempotent."""
-        if hasattr(self, "_stop_flag"):
-            self._stop_flag.set()
+        self._stop_flag.set()
         self._dirty.set()  # wake a waiting render thread
+        for timer in self._release_timers:
+            timer.cancel()
+        self._release_timers.clear()
         for t in (self._render_thread, self._input_thread):
             if t and t.is_alive():
                 t.join(timeout=0.5)
@@ -292,6 +307,344 @@ class MockAkaiFire:
                     live.update(self._build_view(), refresh=True)
         except Exception:  # pragma: no cover - render-thread guard
             logger.exception("TUI render thread crashed")
+
+    # ------------------------------------------------------------------
+    # Input — keyboard reader + key dispatch
+    # ------------------------------------------------------------------
+
+    def _input_loop(self) -> None:  # pragma: no cover - needs a real TTY
+        """Read keys from stdin in cbreak mode and dispatch them."""
+        import select
+        import sys
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        old_attrs = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            while not self._stop_flag.is_set():
+                ready, _, _ = select.select([sys.stdin], [], [], 0.1)
+                if not ready:
+                    continue
+                ch = sys.stdin.read(1)
+                if not ch:
+                    continue
+                key = self._translate_key(ch)
+                if key:
+                    self._dispatch_key(key)
+        except Exception:
+            logger.exception("TUI input thread crashed")
+        finally:
+            try:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_attrs)
+            except Exception:
+                pass
+
+    def _translate_key(self, ch: str) -> Optional[str]:
+        """Translate raw char(s) from stdin into a logical key name.
+
+        Returns None for unhandled input. Consumes escape sequences for
+        arrow keys by reading additional bytes.
+        """
+        import sys
+
+        if ch == "\x1b":
+            # CSI escape sequence — arrow keys etc.
+            seq = sys.stdin.read(2)
+            return {"[A": "up", "[B": "down", "[C": "right", "[D": "left"}.get(seq)
+        if ch == "\t":
+            return "tab"
+        if ch in ("\r", "\n"):
+            return "enter"
+        if ch == " ":
+            return "space"
+        if ch == "\x11":  # Ctrl+Q
+            return "ctrl_q"
+        if ch == "\x03":  # Ctrl+C
+            return "ctrl_q"
+        return ch  # literal char: "s", "a", "+", "-", "." etc.
+
+    def _dispatch_key(self, key: str) -> None:
+        """Route a logical key press to the right action."""
+        # Global shortcuts first — available in any region.
+        if key == "ctrl_q":
+            self._stop_flag.set()
+            return
+        if key == "s":
+            self._toggle_shift()
+            return
+        if key == "a":
+            self._toggle_alt()
+            return
+        if key == "space":
+            self._press_button_with_release(self.BUTTON_PLAY)
+            return
+        if key == ".":
+            self._press_button_with_release(self.BUTTON_STOP)
+            return
+        if key == "tab":
+            self._cycle_region(+1)
+            return
+        if key == "?":
+            self._last_event_text = (
+                "Tab region ←→↑↓ nav Enter press s/a mods Ctrl+Q quit"
+            )
+            self._mark_dirty()
+            return
+        if key in ("up", "down", "left", "right"):
+            self._move_focus_within_region(key)
+            return
+        if key == "enter":
+            self._activate_focus()
+            return
+        if key in ("+", "="):
+            self._turn_focused_rotary(direction="clockwise", velocity=1)
+            return
+        if key == "-":
+            self._turn_focused_rotary(direction="counterclockwise", velocity=1)
+            return
+
+    # -- public-ish back-doors for tests & scripted input --------------
+
+    def inject_key(self, key: str) -> None:
+        """Inject a logical key without needing a real TTY.
+
+        Mainly for tests; key names match :meth:`_translate_key` output
+        (``"up"``, ``"down"``, ``"left"``, ``"right"``, ``"enter"``,
+        ``"space"``, ``"tab"``, ``"ctrl_q"``, ``"s"``, ``"a"``, ``"?"``,
+        ``"+"``, ``"-"``, ``"."``, and any single printable char).
+        """
+        self._dispatch_key(key)
+
+    def set_focus(self, region: str, index: int = 0) -> None:
+        """Programmatically move the focus cursor."""
+        if region not in REGIONS:
+            raise ValueError(f"unknown region: {region!r}")
+        with self._state_lock:
+            self._focus = (region, index)
+        self._mark_dirty()
+
+    # -- focus navigation ---------------------------------------------
+
+    def _cycle_region(self, delta: int) -> None:
+        try:
+            idx = REGIONS.index(self._focus[0])
+        except ValueError:
+            idx = 0
+        new_region = REGIONS[(idx + delta) % len(REGIONS)]
+        with self._state_lock:
+            self._focus = (new_region, 0)
+        self._mark_dirty()
+
+    def _move_focus_within_region(self, key: str) -> None:
+        region, index = self._focus
+        new_index = index
+        if region == "pad":
+            col = index % 16
+            row = index // 16
+            if key == "up":
+                row = max(0, row - 1)
+            elif key == "down":
+                row = min(3, row + 1)
+            elif key == "left":
+                col = max(0, col - 1)
+            elif key == "right":
+                col = min(15, col + 1)
+            new_index = row * 16 + col
+        elif region in ("btn_bank", "btn_mode", "btn_transport", "btn_bottom"):
+            max_idx = {
+                "btn_bank": 1,
+                "btn_mode": 3,
+                "btn_transport": 3,
+                "btn_bottom": 0,
+            }[region]
+            if key == "left":
+                new_index = max(0, index - 1)
+            elif key == "right":
+                new_index = min(max_idx, index + 1)
+        elif region == "rotary":
+            if key == "left":
+                new_index = max(0, index - 1)
+            elif key == "right":
+                new_index = min(4, index + 1)
+        elif region == "mutesolo":
+            # 8 cells: 0=M1 1=S1 2=M2 3=S2 ... 6=M4 7=S4
+            if key == "up":
+                new_index = max(0, index - 2)
+            elif key == "down":
+                new_index = min(7, index + 2)
+            elif key == "left" and index % 2 == 1:
+                new_index = index - 1
+            elif key == "right" and index % 2 == 0:
+                new_index = min(7, index + 1)
+        elif region == "pattern":
+            # 0=< 1=> 2=▲ 3=▼
+            if key == "left" and index in (1, 3):
+                new_index = index - 1
+            elif key == "right" and index in (0, 2):
+                new_index = index + 1
+            elif key == "up" and index in (2, 3):
+                new_index = index - 2
+            elif key == "down" and index in (0, 1):
+                new_index = index + 2
+
+        if new_index != index:
+            with self._state_lock:
+                self._focus = (region, new_index)
+            self._mark_dirty()
+
+    # -- activation ---------------------------------------------------
+
+    def _activate_focus(self) -> None:
+        region, index = self._focus
+        if region == "pad":
+            self._fire_pad(index, velocity=100)
+        elif region == "btn_bank":
+            self._press_button_with_release(_BANK_ROW[index][1])
+        elif region == "btn_mode":
+            self._press_button_with_release(_MODE_ROW[index][1])
+        elif region == "btn_transport":
+            self._press_button_with_release(_TRANSPORT_ROW[index][1])
+        elif region == "btn_bottom":
+            self._press_button_with_release(_BROWSER_BUTTON[1])
+        elif region == "rotary":
+            rotary_ids = (
+                self.ROTARY_VOLUME,
+                self.ROTARY_PAN,
+                self.ROTARY_FILTER,
+                self.ROTARY_RESONANCE,
+                self.ROTARY_SELECT,
+            )
+            self._fire_rotary_touch(rotary_ids[index], "touch")
+            # Auto-release after 1s (matches plan; pygame mock has no touch
+            # release either)
+            self._schedule(
+                1.0,
+                lambda rid=rotary_ids[index]: self._fire_rotary_touch(rid, "release"),
+            )
+        elif region == "mutesolo":
+            solo_index = index // 2 + 1  # 1-4
+            is_solo = index % 2 == 1
+            if is_solo:
+                self._press_button_with_release(self.SOLO_BUTTONS[solo_index])
+            # Mute buttons don't have MIDI IDs on the real Fire, so no dispatch.
+        elif region == "pattern":
+            bid = (
+                self.BUTTON_GRID_LEFT,
+                self.BUTTON_GRID_RIGHT,
+                self.BUTTON_PAT_UP,
+                self.BUTTON_PAT_DOWN,
+            )[index]
+            self._press_button_with_release(bid)
+
+    def _turn_focused_rotary(self, direction: str, velocity: int) -> None:
+        if self._focus[0] != "rotary":
+            return
+        rotary_ids = (
+            self.ROTARY_VOLUME,
+            self.ROTARY_PAN,
+            self.ROTARY_FILTER,
+            self.ROTARY_RESONANCE,
+            self.ROTARY_SELECT,
+        )
+        # Double the velocity when SHIFT is latched (matches the plan).
+        if self._shift_pressed:
+            velocity *= 4
+        self._fire_rotary_turn(rotary_ids[self._focus[1]], direction, velocity)
+
+    # -- listener dispatch ("fire" = emit to registered listeners) -----
+
+    def _fire_pad(self, pad_index: int, velocity: int = 100) -> None:
+        with self._state_lock:
+            specific = list(self.pad_listeners.get(pad_index, []))
+            globals_ = list(self.global_pad_listeners)
+        mods = self._mod_suffix()
+        self._record_event(f"PAD {pad_index:02d} v{velocity}{mods}")
+        for h in specific:
+            self._call_listener(h, velocity)
+        for h in globals_:
+            self._call_listener(h, pad_index, velocity)
+
+    def _fire_button(self, button_id: int, event: str) -> None:
+        # Modifier-first latching — must happen before any listener runs.
+        if button_id == self.BUTTON_SHIFT:
+            with self._state_lock:
+                self._shift_pressed = event == "press"
+        elif button_id == self.BUTTON_ALT:
+            with self._state_lock:
+                self._alt_pressed = event == "press"
+
+        with self._state_lock:
+            specific = list(self.button_listeners.get(button_id, []))
+            globals_ = list(self.global_button_listeners)
+        self._record_event(f"BTN 0x{button_id:02X} {event}{self._mod_suffix()}")
+        for h in specific:
+            self._call_listener(h, event)
+        for h in globals_:
+            self._call_listener(h, button_id, event)
+
+    def _fire_rotary_turn(self, rotary_id: int, direction: str, velocity: int) -> None:
+        with self._state_lock:
+            specific = list(self.rotary_listeners.get(rotary_id, []))
+            globals_ = list(self.global_rotary_listeners)
+        arrow = "+" if direction == "clockwise" else "-"
+        self._record_event(f"ROT 0x{rotary_id:02X} {arrow}{velocity}{self._mod_suffix()}")
+        for h in specific:
+            self._call_listener(h, direction, velocity)
+        for h in globals_:
+            self._call_listener(h, rotary_id, direction, velocity)
+
+    def _fire_rotary_touch(self, rotary_id: int, event: str) -> None:
+        with self._state_lock:
+            specific = list(self.rotary_touch_listeners.get(rotary_id, []))
+            globals_ = list(self.global_rotary_touch_listeners)
+        self._record_event(f"TOUCH 0x{rotary_id:02X} {event}{self._mod_suffix()}")
+        for h in specific:
+            self._call_listener(h, event)
+        for h in globals_:
+            self._call_listener(h, rotary_id, event)
+
+    def _press_button_with_release(self, button_id: int, delay: float = 0.12) -> None:
+        """Fire press now, schedule release after ``delay`` seconds."""
+        self._fire_button(button_id, "press")
+        self._schedule(delay, lambda: self._fire_button(button_id, "release"))
+
+    def _toggle_shift(self) -> None:
+        event = "release" if self._shift_pressed else "press"
+        self._fire_button(self.BUTTON_SHIFT, event)
+
+    def _toggle_alt(self) -> None:
+        event = "release" if self._alt_pressed else "press"
+        self._fire_button(self.BUTTON_ALT, event)
+
+    # -- helpers ------------------------------------------------------
+
+    def _mod_suffix(self) -> str:
+        suffix = ""
+        if self._shift_pressed:
+            suffix += "S"
+        if self._alt_pressed:
+            suffix += "A"
+        return ("+" + suffix) if suffix else ""
+
+    def _record_event(self, text: str) -> None:
+        with self._state_lock:
+            self._last_event_text = text
+        self._mark_dirty()
+
+    def _call_listener(self, handler: Callable, *args: Any) -> None:
+        try:
+            handler(*args)
+        except Exception:
+            logger.exception("TUI handler %r raised", handler)
+
+    def _schedule(self, delay: float, fn: Callable[[], None]) -> None:
+        """Run fn after delay on a daemon timer thread (tracked for cleanup)."""
+        timer = threading.Timer(delay, fn)
+        timer.daemon = True
+        timer.start()
+        self._release_timers.append(timer)
 
     # ------------------------------------------------------------------
     # Pad / LED setters

@@ -272,6 +272,180 @@ class TestTuiMockScaffold(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_RICH, "rich is required for the TUI mock")
+class TestTuiMockInput(unittest.TestCase):
+    """Key dispatch via inject_key + set_focus — no TTY required."""
+
+    def setUp(self) -> None:
+        from mock_gui_tui import MockAkaiFire
+
+        self.fire = MockAkaiFire(headless=True)
+
+    def tearDown(self) -> None:
+        self.fire.close()
+
+    # -- focus navigation ---------------------------------------------
+
+    def test_tab_cycles_regions(self):
+        self.fire.set_focus("rotary", 0)
+        self.fire.inject_key("tab")
+        self.assertEqual(self.fire._focus[0], "btn_bank")
+        self.fire.inject_key("tab")
+        self.assertEqual(self.fire._focus[0], "btn_mode")
+
+    def test_arrow_keys_move_within_pad_grid(self):
+        self.fire.set_focus("pad", 0)
+        self.fire.inject_key("right")
+        self.assertEqual(self.fire._focus, ("pad", 1))
+        self.fire.inject_key("down")
+        self.assertEqual(self.fire._focus, ("pad", 17))
+        self.fire.inject_key("left")
+        self.assertEqual(self.fire._focus, ("pad", 16))
+        self.fire.inject_key("up")
+        self.assertEqual(self.fire._focus, ("pad", 0))
+
+    def test_arrow_keys_clamp_at_pad_edges(self):
+        self.fire.set_focus("pad", 0)
+        self.fire.inject_key("left")
+        self.fire.inject_key("up")
+        self.assertEqual(self.fire._focus, ("pad", 0))
+        self.fire.set_focus("pad", 63)
+        self.fire.inject_key("right")
+        self.fire.inject_key("down")
+        self.assertEqual(self.fire._focus, ("pad", 63))
+
+    def test_set_focus_rejects_unknown_region(self):
+        with self.assertRaises(ValueError):
+            self.fire.set_focus("not_a_region")
+
+    # -- activation dispatches listeners ------------------------------
+
+    def test_enter_on_pad_fires_handler(self):
+        calls = []
+
+        @self.fire.on_pad()
+        def h(idx, vel):
+            calls.append((idx, vel))
+
+        self.fire.set_focus("pad", 37)
+        self.fire.inject_key("enter")
+        self.assertEqual(calls, [(37, 100)])
+
+    def test_enter_on_transport_button_fires_press_then_release(self):
+        events = []
+
+        @self.fire.on_button(self.fire.BUTTON_PLAY)
+        def h(event):
+            events.append(event)
+
+        self.fire.set_focus("btn_transport", 1)  # PLAY is index 1
+        self.fire.inject_key("enter")
+        # press fires synchronously; release is scheduled. Wait briefly.
+        import time
+
+        time.sleep(0.2)
+        self.assertEqual(events, ["press", "release"])
+
+    def test_space_fires_play_button(self):
+        events = []
+
+        @self.fire.on_button(self.fire.BUTTON_PLAY)
+        def h(event):
+            events.append(event)
+
+        self.fire.inject_key("space")
+        self.assertIn("press", events)
+
+    def test_period_fires_stop_button(self):
+        events = []
+
+        @self.fire.on_button(self.fire.BUTTON_STOP)
+        def h(event):
+            events.append(event)
+
+        self.fire.inject_key(".")
+        self.assertIn("press", events)
+
+    # -- modifier toggles ---------------------------------------------
+
+    def test_s_toggles_shift_state_and_fires_button(self):
+        events = []
+
+        @self.fire.on_button(self.fire.BUTTON_SHIFT)
+        def h(event):
+            events.append(event)
+
+        self.fire.inject_key("s")
+        self.assertTrue(self.fire.is_shift_pressed())
+        self.fire.inject_key("s")
+        self.assertFalse(self.fire.is_shift_pressed())
+        self.assertEqual(events, ["press", "release"])
+
+    def test_a_toggles_alt_state(self):
+        self.fire.inject_key("a")
+        self.assertTrue(self.fire.is_alt_pressed())
+        self.fire.inject_key("a")
+        self.assertFalse(self.fire.is_alt_pressed())
+
+    def test_shift_modifier_observable_in_pad_handler(self):
+        """Modifier-first invariant: pad handler sees latched shift."""
+        observations = []
+
+        @self.fire.on_pad()
+        def h(idx, vel):
+            observations.append(self.fire.is_shift_pressed())
+
+        self.fire.set_focus("pad", 0)
+        self.fire.inject_key("enter")  # no shift
+        self.fire.inject_key("s")
+        self.fire.inject_key("enter")  # shift latched
+        self.assertEqual(observations, [False, True])
+
+    # -- rotary dispatch ----------------------------------------------
+
+    def test_plus_minus_turn_focused_rotary(self):
+        turns = []
+
+        @self.fire.on_rotary_turn(self.fire.ROTARY_VOLUME)
+        def h(direction, velocity):
+            turns.append((direction, velocity))
+
+        self.fire.set_focus("rotary", 0)  # VOLUME
+        self.fire.inject_key("+")
+        self.fire.inject_key("-")
+        self.assertEqual(
+            turns, [("clockwise", 1), ("counterclockwise", 1)]
+        )
+
+    def test_rotary_turn_no_focus_does_nothing(self):
+        turns = []
+
+        @self.fire.on_rotary_turn()
+        def h(rid, direction, velocity):
+            turns.append((rid, direction, velocity))
+
+        self.fire.set_focus("pad", 0)
+        self.fire.inject_key("+")
+        self.assertEqual(turns, [])
+
+    def test_enter_on_rotary_fires_touch(self):
+        touches = []
+
+        @self.fire.on_rotary_touch(self.fire.ROTARY_PAN)
+        def h(event):
+            touches.append(event)
+
+        self.fire.set_focus("rotary", 1)  # PAN
+        self.fire.inject_key("enter")
+        self.assertEqual(touches, ["touch"])
+
+    # -- quit ---------------------------------------------------------
+
+    def test_ctrl_q_sets_stop_flag(self):
+        self.fire.inject_key("ctrl_q")
+        self.assertTrue(self.fire._stop_flag.is_set())
+
+
+@unittest.skipUnless(HAS_RICH, "rich is required for the TUI mock")
 class TestGetAkaiFireWithTuiString(unittest.TestCase):
     """The new ``use_mock='tui'`` branch on ``get_akai_fire``."""
 
