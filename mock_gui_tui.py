@@ -70,21 +70,15 @@ _TRANSPORT_ROW = [("PAT", 0x32), ("PLAY", 0x33), ("STOP", 0x34), ("REC", 0x35)]
 _BROWSER_BUTTON = ("BROWSER", 0x21)
 
 
-from akai_fire.constants import install as _install_constants
+from akai_fire.device import AkaiFireDevice
 
 
-@_install_constants
-class MockAkaiFire:
+class MockAkaiFire(AkaiFireDevice):
     """Terminal-UI mock of the AKAI Fire controller.
 
-    API parity with :class:`mock_gui_pygame.MockAkaiFire`; see that class
-    for semantic contracts. The TUI-specific rendering and input threads
-    are filled in by later commits — this scaffold already supports
-    every setter, decorator, and state query.
-
-    MIDI constants (``BUTTON_*``, ``ROTARY_*``, ``LED_*``, etc.) are
-    installed from ``akai_fire.constants`` at class-definition time — do
-    NOT redefine them here.
+    Inherits MIDI constants, modifier state, pad-geometry utilities, and
+    solo-button lookup from :class:`AkaiFireDevice`. Adds a rich.Live
+    renderer and keyboard-driven input.
     """
 
     # ------------------------------------------------------------------
@@ -109,7 +103,13 @@ class MockAkaiFire:
         self._headless = headless
         self._closed = False
 
+        # Base class installs self._lock, _shift_pressed, _alt_pressed.
+        super().__init__()
+
         # --- state (mirrors mock_gui_pygame field-for-field) ----------
+        # _state_lock is a separate lock that guards render-thread
+        # reads of state; self._lock (from base) guards listener
+        # registries.
         self._state_lock = threading.RLock()
 
         self.pad_colors: List[List[int]] = [[0, 0, 0] for _ in range(64)]
@@ -118,10 +118,6 @@ class MockAkaiFire:
         self.control_bank_state: int = 0
 
         self.canvas = Canvas()
-
-        # Modifier state — latched on SHIFT/ALT key (toggle behaviour).
-        self._shift_pressed: bool = False
-        self._alt_pressed: bool = False
 
         # Listener registries
         self.pad_listeners: Dict[int, List[Callable]] = defaultdict(list)
@@ -806,58 +802,6 @@ class MockAkaiFire:
     def add_rotary_touch_listener(self, rotary_id: int, callback: Callable) -> None:
         with self._state_lock:
             self.rotary_touch_listeners[rotary_id].append(callback)
-
-    # ------------------------------------------------------------------
-    # Modifier state
-    # ------------------------------------------------------------------
-
-    def is_shift_pressed(self) -> bool:
-        return self._shift_pressed
-
-    def is_alt_pressed(self) -> bool:
-        return self._alt_pressed
-
-    @property
-    def shift_pressed(self) -> bool:
-        return self._shift_pressed
-
-    @property
-    def alt_pressed(self) -> bool:
-        return self._alt_pressed
-
-    # ------------------------------------------------------------------
-    # Utility
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def pad_position(pad_index: int) -> Tuple[int, int]:
-        """Return ``(column, row)`` 0-indexed for a pad index 0-63."""
-        if not (0 <= pad_index <= 63):
-            raise ValueError("Pad index must be between 0 and 63")
-        return pad_index % 16, pad_index // 16
-
-    @staticmethod
-    def get_pad_column(pad_index: int) -> int:
-        if not (0 <= pad_index <= 63):
-            raise ValueError("Pad index must be between 0 and 63")
-        return pad_index % 16
-
-    @staticmethod
-    def get_pad_row(pad_index: int) -> int:
-        if not (0 <= pad_index <= 63):
-            raise ValueError("Pad index must be between 0 and 63")
-        return pad_index // 16
-
-    @classmethod
-    def get_solo_index(cls, button_id: int) -> Optional[int]:
-        for index, bid in cls.SOLO_BUTTONS.items():
-            if bid == button_id:
-                return index
-        return None
-
-    @staticmethod
-    def list_midi_ports() -> Dict[str, List[str]]:
-        return {"input": [], "output": []}
 
     # ------------------------------------------------------------------
     # Rendering — ported from tui_mockup.py prototype

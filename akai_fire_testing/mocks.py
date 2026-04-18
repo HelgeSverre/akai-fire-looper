@@ -538,11 +538,10 @@ class MockCanvas:
 # =============================================================================
 
 
-from akai_fire.constants import install as _install_constants
+from akai_fire.device import AkaiFireDevice
 
 
-@_install_constants
-class MockAkaiFire:
+class MockAkaiFire(AkaiFireDevice):
     """Lightweight headless mock of AkaiFire for testing.
 
     Unlike the pygame MockAkaiFire, this doesn't create any windows
@@ -555,9 +554,8 @@ class MockAkaiFire:
         - ``assert_*`` helpers for verifying visual state
         - Connection simulation for testing connect/disconnect scenarios
 
-    MIDI constants (``BUTTON_*``, ``ROTARY_*``, ``LED_*``, etc.) are
-    installed from ``akai_fire.constants`` at class-definition time —
-    do NOT redefine them here.
+    Inherits MIDI constants, modifier state, pad-geometry utilities, and
+    solo-button lookup from :class:`AkaiFireDevice`.
 
     Example:
         >>> fire = MockAkaiFire()
@@ -570,6 +568,8 @@ class MockAkaiFire:
 
     def __init__(self):
         """Initialize mock controller."""
+        super().__init__()  # installs self._lock + modifier flags
+
         self._canvas = MockCanvas()
 
         # State tracking
@@ -592,10 +592,6 @@ class MockAkaiFire:
         self._global_rotary_handlers: List[Callable] = []
         self._rotary_touch_handlers: Dict[int, List[Callable]] = {}
         self._global_rotary_touch_handlers: List[Callable] = []
-
-        # Modifier state
-        self._shift_pressed = False
-        self._alt_pressed = False
 
         # Connection state simulation
         self._connected = True
@@ -800,26 +796,9 @@ class MockAkaiFire:
         self._canvas.clear()
 
     # =========================================================================
-    # Modifier State
+    # Modifier State (is_shift_pressed / is_alt_pressed / properties
+    # are inherited from AkaiFireDevice)
     # =========================================================================
-
-    def is_shift_pressed(self) -> bool:
-        """Returns whether the shift key is currently held down."""
-        return self._shift_pressed
-
-    def is_alt_pressed(self) -> bool:
-        """Returns whether the alt key is currently held down."""
-        return self._alt_pressed
-
-    @property
-    def shift_pressed(self) -> bool:
-        """Check if shift is currently pressed."""
-        return self._shift_pressed
-
-    @property
-    def alt_pressed(self) -> bool:
-        """Check if alt is currently pressed."""
-        return self._alt_pressed
 
     def _set_shift_pressed(self, pressed: bool):
         """Internal method to set shift state (for testing)."""
@@ -893,83 +872,9 @@ class MockAkaiFire:
         return False
 
     # =========================================================================
-    # Utility Methods
+    # Utility Methods (pad_position, get_pad_column, get_pad_row,
+    # get_solo_index, list_midi_ports are inherited from AkaiFireDevice)
     # =========================================================================
-
-    @staticmethod
-    def pad_position(pad_index: int) -> Tuple[int, int]:
-        """
-        Get the column and row for a given pad index.
-
-        Args:
-            pad_index: Pad index (0-63)
-
-        Returns:
-            Tuple of (column, row) where column is 0-15 and row is 0-3
-
-        Raises:
-            ValueError: If pad index is out of range
-        """
-        if not (0 <= pad_index <= 63):
-            raise ValueError("Pad index must be between 0 and 63")
-        column = pad_index % 16
-        row = pad_index // 16
-        return column, row
-
-    @staticmethod
-    def get_pad_column(pad_index: int) -> int:
-        """
-        Get the column number for a given pad index.
-
-        Args:
-            pad_index: Pad index (0-63)
-
-        Returns:
-            Column number (1-16)
-        """
-        if not (0 <= pad_index <= 63):
-            raise ValueError("Pad index must be between 0 and 63")
-        return (pad_index % 16) + 1
-
-    @staticmethod
-    def get_pad_row(pad_index: int) -> int:
-        """
-        Get the row number for a given pad index.
-
-        Args:
-            pad_index: Pad index (0-63)
-
-        Returns:
-            Row number (1-4)
-        """
-        if not (0 <= pad_index <= 63):
-            raise ValueError("Pad index must be between 0 and 63")
-        return (pad_index // 16) + 1
-
-    def get_solo_index(self, button_id: int) -> Optional[int]:
-        """
-        Convert a BUTTON_SOLO_* constant to its index (1-4).
-
-        Args:
-            button_id: Button ID constant
-
-        Returns:
-            Solo index (1-4) or None if not a solo button
-        """
-        for index, bid in self.SOLO_BUTTONS.items():
-            if bid == button_id:
-                return index
-        return None
-
-    @staticmethod
-    def list_midi_ports() -> Dict[str, List[str]]:
-        """
-        List available MIDI ports (mock version returns empty lists).
-
-        Returns:
-            Dictionary with 'input' and 'output' lists
-        """
-        return {"input": [], "output": []}
 
     # =========================================================================
     # Event Decorators

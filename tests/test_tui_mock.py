@@ -247,8 +247,9 @@ class TestTuiMockScaffold(unittest.TestCase):
         self.assertEqual(self.fire.pad_position(63), (15, 3))
 
     def test_get_pad_column_and_row(self):
-        self.assertEqual(self.fire.get_pad_column(17), 1)
-        self.assertEqual(self.fire.get_pad_row(17), 1)
+        # 1-indexed, matching real hardware (column 1..16, row 1..4).
+        self.assertEqual(self.fire.get_pad_column(17), 2)
+        self.assertEqual(self.fire.get_pad_row(17), 2)
 
     def test_pad_position_rejects_out_of_range(self):
         with self.assertRaises(ValueError):

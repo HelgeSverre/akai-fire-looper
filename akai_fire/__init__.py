@@ -385,16 +385,17 @@ class _HandlerDispatcher:
             logger.exception("Error shutting down handler dispatcher")
 
 
-from akai_fire.constants import install as _install_constants
+from akai_fire.device import AkaiFireDevice
 
 
 # noinspection GrazieInspection
-@_install_constants
-class AkaiFire:
+class AkaiFire(AkaiFireDevice):
     """Real AKAI Fire MIDI controller.
 
-    MIDI constants (``BUTTON_*``, ``ROTARY_*``, ``LED_*``, etc.) are
-    installed from :mod:`akai_fire.constants` at class-definition time.
+    MIDI constants, modifier state, pad-geometry utilities, and the
+    solo-button index lookup are inherited from :class:`AkaiFireDevice`.
+    This class adds the hardware-specific rtmidi I/O, SysEx encoding,
+    async dispatcher, and MIDI-polling thread.
     """
 
     def render_to_display(self, canvas=None):
@@ -519,8 +520,9 @@ class AkaiFire:
             send_retry_delay: Seconds to wait between MIDI send retries.
             send_max_retries: Max MIDI send retry attempts.
         """
-        # Thread safety
-        self._lock = threading.RLock()
+        # Base class installs self._lock + modifier flags.
+        super().__init__()
+
         # _stop_event replaces the old ``self.listening`` bool; Event
         # acquires no lock on is_set(), so the polling loop doesn't spin
         # an RLock every iteration.
@@ -541,10 +543,6 @@ class AkaiFire:
 
         self.canvas = Canvas()
         self.look_for_port = port_name or "FL STUDIO FIRE"
-
-        # Modifier state
-        self._shift_pressed = False
-        self._alt_pressed = False
 
         # Initialize listener collections (thread-safe)
         self.button_listeners = defaultdict(list)
@@ -773,21 +771,6 @@ class AkaiFire:
 
         return decorator
 
-    def get_solo_index(self, button_id: int) -> Optional[int]:
-        """Convert a BUTTON_SOLO_* constant to its index (1-4)"""
-        for index, bid in self.SOLO_BUTTONS.items():
-            if bid == button_id:
-                return index
-        return None
-
-    def is_shift_pressed(self) -> bool:
-        """Returns whether the shift key is currently held down"""
-        return self._shift_pressed
-
-    def is_alt_pressed(self) -> bool:
-        """Returns whether the alt key is currently held down"""
-        return self._alt_pressed
-
     def _init_performance_caches(self):
         """Initialize performance optimization caches."""
         # Pre-compute common sysex messages
@@ -806,16 +789,6 @@ class AkaiFire:
         self._cached_messages["all_blue"] = self._create_sysex_message(
             [(i, 0, 0, 127) for i in range(64)]
         )
-
-    @property
-    def shift_pressed(self) -> bool:
-        """Check if shift is currently pressed."""
-        return self._shift_pressed
-
-    @property
-    def alt_pressed(self) -> bool:
-        """Check if alt is currently pressed."""
-        return self._alt_pressed
 
     @property
     def listening(self) -> bool:
@@ -1387,36 +1360,6 @@ class AkaiFire:
                 self.pad_listeners[index].append(callback)
 
         self.start_listening()
-
-    @staticmethod
-    def pad_position(pad_index) -> tuple:
-        """
-        Determines the column and row of a pad based on its index.
-        :param pad_index: Pad index (0-63).
-        :return:  (column, row)
-        """
-        col = pad_index % 16
-        row = pad_index // 16
-
-        return col, row
-
-    @staticmethod
-    def get_pad_column(pad_index):
-        """
-        Determines which column a pad belongs to (1-16).
-        :param pad_index: Pad index (0-63).
-        :return: Column number (1-16).
-        """
-        return (pad_index % 16) + 1
-
-    @staticmethod
-    def get_pad_row(pad_index):
-        """
-        Determines which row a pad belongs to (1-4).
-        :param pad_index: Pad index (0-63).
-        :return: Row number (1-4).
-        """
-        return (pad_index // 16) + 1
 
     def _invoke(self, handler, *args):
         """Dispatch a user handler with per-handler exception isolation.
