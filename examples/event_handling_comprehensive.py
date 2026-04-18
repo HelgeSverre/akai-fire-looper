@@ -38,16 +38,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from akai_fire import get_akai_fire
 
 
-LOG_LINES_ON_OLED = 3
+LOG_LINES_ON_OLED = 4
 LOG_BUFFER_SIZE = 32
 OLED_REFRESH_MIN_INTERVAL = 0.016  # ~60 fps cap
 
-# Font tuned so three lines fit vertically with a bit of padding between.
+# Font tuned so four lines fit vertically at 16 px per row.
 # Falls back to PIL's default bitmap font on systems without Menlo.
 FONT_PATH = "/System/Library/Fonts/Menlo.ttc"
-FONT_SIZE = 14
-LINE_HEIGHT = 21   # 128x64 / 3 rows ≈ 21 px per row
-LINE_Y = (0, 21, 42)
+FONT_SIZE = 11
+LINE_HEIGHT = 16   # 128x64 / 4 rows = 16 px per row
+LINE_Y = (0, 16, 32, 48)
 
 # Small palette used to give each pad press a different color so repeated
 # presses visibly cycle.
