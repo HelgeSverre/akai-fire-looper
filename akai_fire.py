@@ -1669,18 +1669,32 @@ def discover_akai_fire() -> Optional[str]:
     return None
 
 
-def get_akai_fire(use_mock: Optional[bool] = None, **kwargs) -> Union[AkaiFire, Any]:
-    """
-    Get AKAI Fire instance (hardware or mock).
+def get_akai_fire(
+    use_mock: Optional[Union[bool, str]] = None, **kwargs
+) -> Union[AkaiFire, Any]:
+    """Get an AKAI Fire instance (hardware or mock).
 
     Args:
-        use_mock: True to force mock, False to force hardware, None to auto-detect
-        **kwargs: Additional arguments passed to constructor
+        use_mock:
+            - ``True`` — force the interactive pygame mock.
+            - ``False`` — force hardware (raises if unavailable).
+            - ``"tui"`` — force the terminal-UI mock (``mock_gui_tui``).
+            - ``"pygame"`` — explicit alias for the pygame mock.
+            - ``None`` — auto-detect: try hardware, fall back to the pygame mock.
+        **kwargs: Additional arguments passed to the selected constructor.
 
     Returns:
-        AkaiFire instance or mock instance
+        AkaiFire instance or mock instance.
     """
-    if use_mock is True:
+    if use_mock == "tui":
+        try:
+            from mock_gui_tui import MockAkaiFire
+
+            return MockAkaiFire(**kwargs)
+        except ImportError:
+            logger.error("TUI mock not available (install 'rich')")
+            raise
+    if use_mock is True or use_mock == "pygame":
         try:
             from mock_gui_pygame import MockAkaiFire
 
@@ -1688,18 +1702,18 @@ def get_akai_fire(use_mock: Optional[bool] = None, **kwargs) -> Union[AkaiFire, 
         except ImportError:
             logger.error("Mock GUI not available")
             raise
-    elif use_mock is False:
+    if use_mock is False:
         return AkaiFire(**kwargs)
-    else:
-        # Auto-detect
-        try:
-            return AkaiFire(**kwargs)
-        except (MIDIConnectionError, Exception) as e:
-            logger.info(f"Hardware not available ({e}), trying mock...")
-            try:
-                from mock_gui_pygame import MockAkaiFire
 
-                return MockAkaiFire(**kwargs)
-            except ImportError:
-                logger.error("Neither hardware nor mock available")
-                raise
+    # Auto-detect
+    try:
+        return AkaiFire(**kwargs)
+    except (MIDIConnectionError, Exception) as e:
+        logger.info(f"Hardware not available ({e}), trying mock...")
+        try:
+            from mock_gui_pygame import MockAkaiFire
+
+            return MockAkaiFire(**kwargs)
+        except ImportError:
+            logger.error("Neither hardware nor mock available")
+            raise
