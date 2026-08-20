@@ -1,4 +1,4 @@
-"""Terminal-UI mock of the AKAI Fire controller (scaffold — commit 1 of 4).
+"""Terminal-UI mock of the AKAI Fire controller.
 
 A third mock class alongside :mod:`mock_gui_pygame` (interactive GUI) and
 :mod:`akai_fire_testing.mocks` (headless test fixture). This one renders the
@@ -6,11 +6,6 @@ device in a terminal using :mod:`rich`, with keyboard navigation instead of
 mouse clicks.
 
 Exposed through ``get_akai_fire(use_mock="tui")``.
-
-This commit scaffolds the API surface — state, constants, setters, and
-decorators — so :class:`MockAkaiFire` is a drop-in replacement for the
-pygame mock in non-rendering paths. Rendering (the rich Layout) and
-keyboard input are added in subsequent commits.
 
 Use ``headless=True`` to skip the render thread and stdin reader; tests
 (and tests-of-tests) rely on this.
@@ -20,8 +15,22 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from akai_fire.constants import (
+    BUTTON_BANK,
+    BUTTON_BROWSER,
+    BUTTON_DRUM,
+    BUTTON_NOTE,
+    BUTTON_PATTERN,
+    BUTTON_PERFORM,
+    BUTTON_PLAY,
+    BUTTON_SELECT,
+    BUTTON_STEP,
+    BUTTON_STOP,
+    BUTTON_REC,
+)
+from akai_fire.errors import InvalidParameterError
 
 try:
     from rich.align import Align
@@ -62,12 +71,22 @@ REGIONS = (
 )
 
 # Button-row layouts: (region_name, [(label, button_id), ...]).
-# Duplicated from MockAkaiFire's button constants so the renderer doesn't
-# need to reach back into the class (avoids a self-import cycle).
-_BANK_ROW = [("BANK", 0x1A), ("SEL", 0x19)]
-_MODE_ROW = [("STEP", 0x2C), ("NOTE", 0x2D), ("DRUM", 0x2E), ("PERF", 0x2F)]
-_TRANSPORT_ROW = [("PAT", 0x32), ("PLAY", 0x33), ("STOP", 0x34), ("REC", 0x35)]
-_BROWSER_BUTTON = ("BROWSER", 0x21)
+# Values come from akai_fire.constants (also installed as class
+# attributes on AkaiFireDevice) — never hard-code MIDI IDs here.
+_BANK_ROW = [("BANK", BUTTON_BANK), ("SEL", BUTTON_SELECT)]
+_MODE_ROW = [
+    ("STEP", BUTTON_STEP),
+    ("NOTE", BUTTON_NOTE),
+    ("DRUM", BUTTON_DRUM),
+    ("PERF", BUTTON_PERFORM),
+]
+_TRANSPORT_ROW = [
+    ("PAT", BUTTON_PATTERN),
+    ("PLAY", BUTTON_PLAY),
+    ("STOP", BUTTON_STOP),
+    ("REC", BUTTON_REC),
+]
+_BROWSER_BUTTON = ("BROWSER", BUTTON_BROWSER)
 
 
 from akai_fire.device import AkaiFireDevice
@@ -467,7 +486,7 @@ class MockAkaiFire(AkaiFireDevice):
             self.ROTARY_RESONANCE,
             self.ROTARY_SELECT,
         )
-        # Double the velocity when SHIFT is latched (matches the plan).
+        # Quadruple the velocity when SHIFT is latched (matches the plan).
         if self._shift_pressed:
             velocity *= 4
         self._fire_rotary_turn(rotary_ids[self._focus[1]], direction, velocity)
@@ -541,8 +560,8 @@ class MockAkaiFire(AkaiFireDevice):
     # ------------------------------------------------------------------
 
     def set_pad_color(self, index: int, red: int, green: int, blue: int) -> bool:
-        if not (0 <= index < 64):
-            return False
+        if not isinstance(index, int) or not (0 <= index <= 63):
+            raise InvalidParameterError(f"Pad index must be integer 0-63, got: {index}")
         with self._state_lock:
             self.pad_colors[index] = [
                 max(0, min(127, red)),
@@ -589,22 +608,32 @@ class MockAkaiFire(AkaiFireDevice):
     def clear_pad(self, index: int) -> bool:
         return self.set_pad_color(index, 0, 0, 0)
 
-    def clear_all_pads(self) -> None:
+    def clear_all_pads(self) -> bool:
         self.set_all_pads((0, 0, 0))
+        return True
 
-    def set_button_led(self, button_id: int, value: int) -> None:
+    def set_button_led(self, button_id: int, value: int) -> bool:
+        if button_id not in self.BUTTON_LED_IDS:
+            raise InvalidParameterError(
+                f"Invalid button ID: {button_id}. "
+                f"Valid buttons: {sorted(self.BUTTON_LED_IDS)}"
+            )
+        value = max(0, min(2, value))
         with self._state_lock:
             self.button_leds[button_id] = value
         self._mark_dirty()
+        return True
 
-    def clear_all_button_leds(self) -> None:
+    def clear_all_button_leds(self) -> bool:
         with self._state_lock:
             self.button_leds.clear()
         self._mark_dirty()
+        return True
 
     def set_track_led(self, track_number: int, value: int) -> bool:
         if not (1 <= track_number <= 4):
             return False
+        value = max(0, min(4, value))
         with self._state_lock:
             self.track_leds[track_number - 1] = value
         self._mark_dirty()
@@ -613,15 +642,17 @@ class MockAkaiFire(AkaiFireDevice):
     def clear_track_led(self, track_number: int) -> bool:
         return self.set_track_led(track_number, 0)
 
-    def clear_all_track_leds(self) -> None:
+    def clear_all_track_leds(self) -> bool:
         with self._state_lock:
             self.track_leds = [0, 0, 0, 0]
         self._mark_dirty()
+        return True
 
-    def set_control_bank_leds(self, state: int) -> None:
+    def set_control_bank_leds(self, state: int) -> bool:
         with self._state_lock:
             self.control_bank_state = state
         self._mark_dirty()
+        return True
 
     def clear_control_bank_leds(self) -> None:
         self.set_control_bank_leds(0)

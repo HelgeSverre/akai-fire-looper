@@ -24,6 +24,7 @@ import time
 
 from akai_fire import Canvas
 from akai_fire.device import AkaiFireDevice
+from akai_fire.errors import InvalidParameterError
 
 
 class MockAkaiFire(AkaiFireDevice):
@@ -51,10 +52,14 @@ class MockAkaiFire(AkaiFireDevice):
         # Track if we've been cleaned up
         self._closed = False
 
+        # Remember whether pygame was already initialized before us so
+        # close() only tears down what we own (another mock instance or
+        # an embedding app may share the process-global pygame state).
+        self._we_initialized_pygame = not pygame.get_init()
+
         # Register cleanup handlers
         atexit.register(self._cleanup_atexit)
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
+        self._install_signal_handlers()
 
         # Fonts
         self.tiny_font = pygame.font.Font(None, 9)
@@ -213,6 +218,35 @@ class MockAkaiFire(AkaiFireDevice):
             base_x + 726, bottom_y, 42, 22
         )
         self.button_rects[self.BUTTON_REC] = pygame.Rect(base_x + 772, bottom_y, 42, 22)
+
+    def _install_signal_handlers(self):
+        """Route SIGINT/SIGTERM into a clean shutdown.
+
+        The previous handlers are remembered so :meth:`close` can
+        restore them — a mock must not permanently swallow Ctrl-C for
+        the whole process. Installation is skipped when not on the main
+        thread (``signal.signal`` raises ``ValueError`` there).
+        """
+        try:
+            self._previous_signal_handlers = {
+                sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)
+            }
+            signal.signal(signal.SIGINT, self._signal_handler)
+            signal.signal(signal.SIGTERM, self._signal_handler)
+        except ValueError:
+            # Not on the main thread — leave process signal handling alone.
+            self._previous_signal_handlers = None
+
+    def _restore_signal_handlers(self):
+        previous = getattr(self, "_previous_signal_handlers", None)
+        if not previous:
+            return
+        for sig, handler in previous.items():
+            try:
+                signal.signal(sig, handler)
+            except (ValueError, OSError):
+                pass
+        self._previous_signal_handlers = None
 
     def _signal_handler(self, signum, frame):
         """Handle SIGINT/SIGTERM for clean shutdown."""
@@ -528,15 +562,22 @@ class MockAkaiFire(AkaiFireDevice):
         self.screen.blit(scaled, (x, y))
 
     # Public API
-    def set_pad_color(self, index: int, red: int, green: int, blue: int):
-        """Set pad color."""
-        if 0 <= index < 64:
+    def set_pad_color(self, index: int, red: int, green: int, blue: int) -> bool:
+        """Set pad color.
 
-            def update():
-                self.pad_colors[index] = [red, green, blue]
+        Raises:
+            InvalidParameterError: If pad index is out of range
+                (matching real hardware).
+        """
+        if not isinstance(index, int) or not (0 <= index <= 63):
+            raise InvalidParameterError(f"Pad index must be integer 0-63, got: {index}")
 
-            with self.queue_lock:
-                self.event_queue.append(update)
+        def update():
+            self.pad_colors[index] = [red, green, blue]
+
+        with self.queue_lock:
+            self.event_queue.append(update)
+        return True
 
     def set_multiple_pad_colors(self, pad_colors: list):
         """
@@ -586,26 +627,63 @@ class MockAkaiFire(AkaiFireDevice):
             self.event_queue.append(update)
         return True
 
-    def set_button_led(self, button_id: int, value: int):
-        """Set button LED."""
+    def set_button_led(self, button_id: int, value: int) -> bool:
+        """Set button LED.
+
+        Raises:
+            InvalidParameterError: If button_id is not an addressable
+                LED button (matching real hardware).
+        """
+        if button_id not in self.BUTTON_LED_IDS:
+            raise InvalidParameterError(
+                f"Invalid button ID: {button_id}. "
+                f"Valid buttons: {sorted(self.BUTTON_LED_IDS)}"
+            )
+        value = max(0, min(2, value))
 
         def update():
             self.button_leds[button_id] = value
 
         with self.queue_lock:
             self.event_queue.append(update)
+        return True
 
-    def set_track_led(self, track_number: int, value: int):
-        """Set track LED."""
-        if 1 <= track_number <= 4:
+    def set_track_led(self, track_number: int, value: int) -> bool:
+        """Set track LED (1-4). ``value`` is a RECTANGLE_LED_* constant (0-4)."""
+        if not (1 <= track_number <= 4):
+            return False
+        value = max(0, min(4, value))
 
-            def update():
-                self.track_leds[track_number - 1] = value
+        def update():
+            self.track_leds[track_number - 1] = value
 
-            with self.queue_lock:
-                self.event_queue.append(update)
+        with self.queue_lock:
+            self.event_queue.append(update)
+        return True
 
-    def set_control_bank_leds(self, state: int):
+    def clear_all_pads(self) -> bool:
+        """Clear all pads."""
+        for i in range(64):
+            self.set_pad_color(i, 0, 0, 0)
+        return True
+
+    def clear_all_button_leds(self) -> bool:
+        """Clear all button LEDs."""
+        for button_id in self.button_rects:
+            self.set_button_led(button_id, 0)
+        return True
+
+    def clear_all_track_leds(self) -> bool:
+        """Clear track LEDs."""
+        for i in range(1, 5):
+            self.set_track_led(i, 0)
+        return True
+
+    def clear_control_bank_leds(self) -> bool:
+        """Clear control bank LEDs."""
+        return self.set_control_bank_leds(0)
+
+    def set_control_bank_leds(self, state: int) -> bool:
         """Set control bank state."""
 
         def update():
@@ -613,25 +691,7 @@ class MockAkaiFire(AkaiFireDevice):
 
         with self.queue_lock:
             self.event_queue.append(update)
-
-    def clear_all_pads(self):
-        """Clear all pads."""
-        for i in range(64):
-            self.set_pad_color(i, 0, 0, 0)
-
-    def clear_all_button_leds(self):
-        """Clear all button LEDs."""
-        for button_id in self.button_rects:
-            self.set_button_led(button_id, 0)
-
-    def clear_all_track_leds(self):
-        """Clear track LEDs."""
-        for i in range(1, 5):
-            self.set_track_led(i, 0)
-
-    def clear_control_bank_leds(self):
-        """Clear control bank LEDs."""
-        self.set_control_bank_leds(0)
+        return True
 
     def clear_all(self):
         """Clear everything."""
@@ -666,10 +726,15 @@ class MockAkaiFire(AkaiFireDevice):
         except Exception:
             pass
 
+        self._restore_signal_handlers()
+
         try:
+            # Only tear down the display; never pygame.quit() the whole
+            # module — other consumers (a second mock instance, or an
+            # embedding app) may share the process-global pygame state.
             if pygame.display.get_init():
                 pygame.display.quit()
-            if pygame.get_init():
+            if self._we_initialized_pygame and pygame.get_init():
                 pygame.quit()
         except Exception:
             pass

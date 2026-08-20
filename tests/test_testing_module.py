@@ -86,12 +86,12 @@ class TestMockCanvas(unittest.TestCase):
         self.assertEqual(canvas.get_pixel(50, 30), 1)
 
     def test_pixel_out_of_bounds_ignored(self):
-        """Out of bounds pixels are silently ignored."""
+        """Out of bounds writes are ignored; reads return None like real Canvas."""
         canvas = MockCanvas()
-        canvas.set_pixel(-1, 0, 1)  # Should not raise
-        canvas.set_pixel(200, 0, 1)  # Should not raise
-        self.assertEqual(canvas.get_pixel(-1, 0), 0)
-        self.assertEqual(canvas.get_pixel(200, 0), 0)
+        canvas.set_pixel(-1, 0, 0)  # Should not raise
+        canvas.set_pixel(200, 0, 0)  # Should not raise
+        self.assertIsNone(canvas.get_pixel(-1, 0))
+        self.assertIsNone(canvas.get_pixel(200, 0))
 
     def test_draw_text_records_operation(self):
         """Drawing text records the operation."""

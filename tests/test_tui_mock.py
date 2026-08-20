@@ -8,6 +8,8 @@ import os
 import sys
 import unittest
 
+from akai_fire.errors import InvalidParameterError
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
@@ -62,8 +64,10 @@ class TestTuiMockScaffold(unittest.TestCase):
         self.assertEqual(self.fire.pad_colors[0], [127, 0, 127])
 
     def test_set_pad_color_rejects_out_of_range_index(self):
-        self.assertFalse(self.fire.set_pad_color(64, 127, 0, 0))
-        self.assertFalse(self.fire.set_pad_color(-1, 127, 0, 0))
+        with self.assertRaises(InvalidParameterError):
+            self.fire.set_pad_color(64, 127, 0, 0)
+        with self.assertRaises(InvalidParameterError):
+            self.fire.set_pad_color(-1, 127, 0, 0)
 
     def test_set_multiple_pad_colors(self):
         self.fire.set_multiple_pad_colors([(0, 1, 2, 3), (1, 4, 5, 6), (2, 7, 8, 9)])

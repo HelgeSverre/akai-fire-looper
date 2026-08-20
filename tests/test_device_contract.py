@@ -18,6 +18,7 @@ These tests would have caught every drift incident in recent git
 history (commits 37e853d, fefc85e, the CONTROL_BANK_USER2 bug).
 """
 
+import inspect
 import os
 import sys
 import unittest
@@ -215,6 +216,137 @@ class TestDeviceContract(unittest.TestCase):
 
                 with self.subTest(impl=name):
                     self.assertEqual(observed, [True])
+            finally:
+                fire.close()
+
+    def test_led_setters_return_bool(self):
+        """LED setters report success as a real bool on every implementation."""
+        for name, _cls, factory in _IMPLS:
+            fire = factory()
+            try:
+                with self.subTest(impl=name):
+                    self.assertIs(fire.set_pad_color(0, 1, 2, 3), True)
+                    self.assertIs(fire.set_button_led(fire.BUTTON_PLAY, 1), True)
+                    self.assertIs(fire.set_track_led(1, 0), True)
+                    self.assertIs(fire.set_control_bank_leds(0x11), True)
+                    self.assertIs(fire.clear_all_pads(), True)
+                    self.assertIs(fire.clear_all_button_leds(), True)
+                    self.assertIs(fire.clear_all_track_leds(), True)
+            finally:
+                fire.close()
+
+    def test_invalid_indices_raise_like_hardware(self):
+        """Bad pad/button arguments raise InvalidParameterError everywhere."""
+        import inspect
+
+        from akai_fire.errors import InvalidParameterError
+
+        for name, _cls, factory in _IMPLS:
+            fire = factory()
+            try:
+                with self.subTest(impl=name):
+                    for bad_index in (-1, 64):
+                        with self.assertRaises(InvalidParameterError):
+                            fire.set_pad_color(bad_index, 0, 0, 0)
+                    with self.assertRaises(InvalidParameterError):
+                        fire.set_button_led(0x77, 1)  # not an LED button
+            finally:
+                fire.close()
+
+    def test_track_led_accepts_full_rectangle_range(self):
+        """Track LEDs take RECTANGLE_LED_* values 0-4 (not the button 0-2 range).
+
+        Regression: hardware clamped to 2, silently degrading
+        RECTANGLE_LED_HIGH_GREEN (4) to dull green on the device.
+        """
+        for name, _cls, factory in _IMPLS:
+            fire = factory()
+            try:
+                with self.subTest(impl=name):
+                    self.assertTrue(fire.set_track_led(1, C.RECTANGLE_LED_HIGH_GREEN))
+                    # The pygame mock applies setters on process_events().
+                    if hasattr(fire, "process_events"):
+                        fire.process_events()
+                    if hasattr(fire, "track_leds"):
+                        # Storage shape differs (list on pygame/TUI,
+                        # dict keyed 1-4 on the testing mock).
+                        if isinstance(fire.track_leds, list):
+                            state = fire.track_leds[0]
+                        else:
+                            state = fire.track_leds.get(1)
+                        expected = C.RECTANGLE_LED_HIGH_GREEN
+                        self.assertEqual(
+                            state,
+                            expected,
+                            f"{name}: HIGH_GREEN degraded to {state}",
+                        )
+            finally:
+                fire.close()
+
+    def test_pad_position_uses_row_col_convention(self):
+        """pad_position returns (row, col) — same as GridMixin and the apps."""
+        from akai_fire_framework.grid import GridMixin
+
+        for name, cls, _factory in _IMPLS:
+            with self.subTest(impl=name):
+                self.assertEqual(cls.pad_position(15), (0, 15))  # row 0, col 15
+                self.assertEqual(cls.pad_position(16), (1, 0))  # row 1, col 0
+                self.assertEqual(cls.pad_position(63), (3, 15))
+        # The framework mixin must agree with the device base.
+        self.assertEqual(
+            GridMixin.pad_position(GridMixin, 16), AkaiFireDevice.pad_position(16)
+        )
+
+    def test_mock_canvas_matches_real_canvas_signatures(self):
+        """MockCanvas high-level methods accept the real Canvas's arguments."""
+        from akai_fire.canvas import Canvas
+        from akai_fire_testing.mocks import MockCanvas
+
+        shared_methods = (
+            "clear",
+            "set_pixel",
+            "get_pixel",
+            "draw_text",
+            "draw_rect",
+            "fill_rect",
+            "draw_page",
+            "draw_value_page",
+            "draw_menu",
+            "draw_grid_info",
+            "draw_split_screen",
+        )
+        for method_name in shared_methods:
+            real_params = list(
+                inspect.signature(getattr(Canvas, method_name)).parameters
+            )
+            mock_params = list(
+                inspect.signature(getattr(MockCanvas, method_name)).parameters
+            )
+            # MockCanvas uses width/height instance attrs but the
+            # argument lists must still line up.
+            self.assertEqual(
+                real_params,
+                mock_params,
+                f"MockCanvas.{method_name} signature drifts from Canvas",
+            )
+
+    def test_remove_listener_stops_dispatch(self):
+        """Removed listeners no longer fire; removal inside a handler is safe."""
+        for name, _cls, factory in _IMPLS:
+            fire = factory()
+            try:
+                calls = []
+
+                def handler(velocity):
+                    calls.append("specific")
+                    fire.remove_listener(0, handler)  # remove from inside
+
+                fire.add_listener(0, handler)
+                fire._dispatch_pad(0, 100)
+                fire._dispatch_pad(0, 100)  # already removed
+
+                with self.subTest(impl=name):
+                    self.assertEqual(calls, ["specific"])
             finally:
                 fire.close()
 

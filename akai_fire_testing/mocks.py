@@ -15,6 +15,8 @@ import time
 import struct
 import os
 
+from akai_fire.errors import InvalidParameterError
+
 
 # =============================================================================
 # Data Classes for Event Recording
@@ -47,6 +49,12 @@ class ButtonEvent:
 class MockCanvas:
     """
     Mock Canvas for testing without PIL dependency.
+
+    Mirrors the real :class:`akai_fire.canvas.Canvas` API *and* its
+    pixel-value convention: the buffer starts all-``1`` (unlit) and
+    drawing with the default ``color=0`` lights pixels — on hardware a
+    black (0) PIL pixel is an ON OLED pixel. Screenshots render
+    pixel==0 as lit so visual-regression baselines match device output.
 
     Provides all the same methods as the real Canvas class but records
     operations for later verification. Also supports saving screenshots
@@ -86,7 +94,8 @@ class MockCanvas:
         """
         self.width = width
         self.height = height
-        self.pixels: List[List[int]] = [[0] * width for _ in range(height)]
+        # Start unlit (1), matching real Canvas's Image.new("1", ..., 1).
+        self.pixels: List[List[int]] = [[1] * width for _ in range(height)]
 
         # Operation recording for assertions
         self.text_drawn: List[Tuple[str, int, int]] = []
@@ -135,9 +144,10 @@ class MockCanvas:
         cloned.lines_drawn = list(self.lines_drawn)
         return cloned
 
-    def set_pixel(self, x: int, y: int, color: int = 1):
+    def set_pixel(self, x: int, y: int, color: int = 0):
         """
-        Set a pixel value (0=off, 1=on for monochrome).
+        Set a pixel value (0=lit/ON, 1=unlit — matching real Canvas,
+        where a black PIL pixel is an ON OLED pixel).
 
         Args:
             x: X coordinate
@@ -147,7 +157,7 @@ class MockCanvas:
         if 0 <= x < self.width and 0 <= y < self.height:
             self.pixels[y][x] = color
 
-    def get_pixel(self, x: int, y: int) -> int:
+    def get_pixel(self, x: int, y: int) -> Optional[int]:
         """
         Get a pixel value.
 
@@ -156,17 +166,18 @@ class MockCanvas:
             y: Y coordinate
 
         Returns:
-            Pixel value (0 or 1), 0 if out of bounds
+            Pixel value (0 or 1), or None if out of bounds
+            (matching real Canvas).
         """
         if 0 <= x < self.width and 0 <= y < self.height:
             return self.pixels[y][x]
-        return 0
+        return None
 
     # =========================================================================
     # Text Drawing
     # =========================================================================
 
-    def draw_text(self, text: str, x: int, y: int, font=None, color: int = 1):
+    def draw_text(self, text: str, x: int, y: int, font=None, color: int = 0):
         """
         Draw text and record the operation.
 
@@ -175,12 +186,12 @@ class MockCanvas:
             x: X coordinate
             y: Y coordinate
             font: Font (ignored in mock, for API compatibility)
-            color: Text color (0 or 1)
+            color: Text color (0=lit, 1=unlit; default 0 like real Canvas)
         """
         self.text_drawn.append((text, x, y))
         self._render_simple_text(text, x, y, color)
 
-    def _render_simple_text(self, text: str, x: int, y: int, color: int = 1):
+    def _render_simple_text(self, text: str, x: int, y: int, color: int = 0):
         """Render text using a simple bitmap representation for screenshots."""
         char_width = 5
         char_height = 7
@@ -195,35 +206,35 @@ class MockCanvas:
     # Rectangle Drawing
     # =========================================================================
 
-    def draw_rect(self, x: int, y: int, w: int, h: int, color: int = 1):
+    def draw_rect(self, x: int, y: int, width: int, height: int, color: int = 0):
         """
         Draw rectangle outline and record.
 
         Args:
             x, y: Top-left corner
-            w, h: Width and height
-            color: Line color (0 or 1)
+            width, height: Size
+            color: Line color (0=lit, default 0 like real Canvas)
         """
-        self.rects_drawn.append((x, y, w, h, False))
-        for dx in range(w):
+        self.rects_drawn.append((x, y, width, height, False))
+        for dx in range(width):
             self.set_pixel(x + dx, y, color)
-            self.set_pixel(x + dx, y + h - 1, color)
-        for dy in range(h):
+            self.set_pixel(x + dx, y + height - 1, color)
+        for dy in range(height):
             self.set_pixel(x, y + dy, color)
-            self.set_pixel(x + w - 1, y + dy, color)
+            self.set_pixel(x + width - 1, y + dy, color)
 
-    def fill_rect(self, x: int, y: int, w: int, h: int, color: int = 1):
+    def fill_rect(self, x: int, y: int, width: int, height: int, color: int = 0):
         """
         Draw filled rectangle and record.
 
         Args:
             x, y: Top-left corner
-            w, h: Width and height
-            color: Fill color (0 or 1)
+            width, height: Size
+            color: Fill color (0=lit, default 0 like real Canvas)
         """
-        self.rects_drawn.append((x, y, w, h, True))
-        for dy in range(h):
-            for dx in range(w):
+        self.rects_drawn.append((x, y, width, height, True))
+        for dy in range(height):
+            for dx in range(width):
                 self.set_pixel(x + dx, y + dy, color)
 
     def draw_rectangle(self, x: int, y: int, w: int, h: int, color: int = 1):
@@ -234,7 +245,7 @@ class MockCanvas:
         """Alias for fill_rect."""
         self.fill_rect(x, y, w, h, color)
 
-    def draw_border(self, thickness: int = 1, color: int = 1):
+    def draw_border(self, thickness: int = 1, color: int = 0):
         """
         Draw border around canvas.
 
@@ -249,19 +260,19 @@ class MockCanvas:
     # Line Drawing
     # =========================================================================
 
-    def draw_horizontal_line(self, x: int, y: int, length: int, color: int = 1):
+    def draw_horizontal_line(self, x: int, y: int, length: int, color: int = 0):
         """Draw horizontal line."""
         self.lines_drawn.append((x, y, x + length, y))
         for dx in range(length):
             self.set_pixel(x + dx, y, color)
 
-    def draw_vertical_line(self, x: int, y: int, length: int, color: int = 1):
+    def draw_vertical_line(self, x: int, y: int, length: int, color: int = 0):
         """Draw vertical line."""
         self.lines_drawn.append((x, y, x, y + length))
         for dy in range(length):
             self.set_pixel(x, y + dy, color)
 
-    def draw_line(self, x0: int, y0: int, x1: int, y1: int, color: int = 1):
+    def draw_line(self, x0: int, y0: int, x1: int, y1: int, color: int = 0):
         """
         Draw line between two points using Bresenham's algorithm.
 
@@ -293,7 +304,7 @@ class MockCanvas:
     # Circle Drawing
     # =========================================================================
 
-    def draw_circle(self, cx: int, cy: int, radius: int, color: int = 1):
+    def draw_circle(self, cx: int, cy: int, radius: int, color: int = 0):
         """
         Draw circle outline using midpoint algorithm.
 
@@ -322,7 +333,7 @@ class MockCanvas:
                 x -= 1
                 err += 1 - 2 * x
 
-    def fill_circle(self, cx: int, cy: int, radius: int, color: int = 1):
+    def fill_circle(self, cx: int, cy: int, radius: int, color: int = 0):
         """
         Draw filled circle.
 
@@ -342,50 +353,103 @@ class MockCanvas:
     # =========================================================================
 
     def draw_page(self, title: str, lines: list, header_inverted: bool = True):
-        """Draw a page layout with title and content lines."""
+        """Draw a page layout (mirrors real Canvas geometry and colors)."""
         if header_inverted:
-            self.fill_rect(0, 0, self.width, 10, 1)
-        self.draw_text(title, 2, 1)
+            self.fill_rect(0, 0, self.width, self.HEADER_HEIGHT, color=0)
+            self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
+        else:
+            self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=0)
+            self.draw_horizontal_line(0, self.HEADER_HEIGHT, self.width, color=0)
+        y_offset = self.CONTENT_START
+        line_height = 12
         for i, line in enumerate(lines):
-            self.draw_text(line, 2, 14 + i * 10)
+            if y_offset + line_height > self.height:
+                break
+            self.draw_text(line, 2, y_offset + (i * line_height))
 
     def draw_value_page(
         self,
         title: str,
         value: Any,
-        unit: str = "",
-        min_value: float = 0,
-        max_value: float = 100,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        show_bar: bool = True,
     ):
-        """Draw a value display page."""
-        self.draw_text(title, 2, 2)
-        self.draw_text(f"{value}{unit}", 40, 30)
+        """Draw a value display page (mirrors real Canvas signature)."""
+        self.fill_rect(0, 0, self.width, self.HEADER_HEIGHT, color=0)
+        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
+        self.draw_text(str(value), 2, 20, color=0)
+        if show_bar and min_val is not None and max_val is not None:
+            bar_y = 40
+            bar_height = 8
+            if max_val == min_val:
+                normalized = 1.0 if float(value) >= float(max_val) else 0.0
+            else:
+                normalized = (float(value) - min_val) / (max_val - min_val)
+            normalized = max(0.0, min(1.0, normalized))
+            bar_width = int(normalized * (self.width - 4))
+            self.draw_rect(2, bar_y, self.width - 4, bar_height)
+            self.fill_rect(2, bar_y, bar_width, bar_height)
 
     def draw_menu(self, title: str, items: list, selected_index: int):
-        """Draw a menu with selectable items."""
-        self.draw_text(title, 2, 2)
-        for i, item in enumerate(items):
-            prefix = ">" if i == selected_index else " "
-            self.draw_text(f"{prefix}{item}", 4, 14 + i * 10)
+        """Draw a menu with a highlighted selection (mirrors real Canvas)."""
+        self.fill_rect(0, 0, self.width, self.HEADER_HEIGHT, color=0)
+        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
+        y_offset = self.CONTENT_START
+        line_height = 12
+        visible_items = min(4, len(items))
+        start_idx = max(0, min(selected_index - 1, len(items) - visible_items))
+        for i in range(visible_items):
+            idx = start_idx + i
+            if idx >= len(items):
+                break
+            if idx == selected_index:
+                self.fill_rect(
+                    0, y_offset + (i * line_height), self.width, line_height, color=0
+                )
+                self.draw_text(items[idx], 4, y_offset + (i * line_height), color=1)
+            else:
+                self.draw_text(items[idx], 4, y_offset + (i * line_height))
 
     def draw_grid_info(
         self,
         title: str,
         rows: int,
         cols: int,
-        cell_values: list = None,
-        selected_cell: tuple = None,
+        cell_info: Optional[list] = None,
     ):
-        """Draw a grid information display."""
-        self.draw_text(title, 2, 2)
+        """Draw a grid outline plus ``(row, col, text)`` cells
+        (mirrors real Canvas signature)."""
+        cell_info = cell_info or []
+        self.fill_rect(0, 0, self.width, 12, color=0)
+        self.draw_text(title, 2, 2, color=1)
+        cell_width = (self.width - 4) // cols
+        cell_height = (self.height - 20) // rows
+        for row in range(rows + 1):
+            self.draw_horizontal_line(2, 16 + (row * cell_height), self.width - 4)
+        for col in range(cols + 1):
+            self.draw_vertical_line(2 + (col * cell_width), 16, rows * cell_height)
+        for row, col, text in cell_info:
+            self.draw_text(text, 2 + (col * cell_width) + 2, 16 + (row * cell_height) + 2)
 
     def draw_split_screen(
-        self, left_title: str, left_content: list, right_title: str, right_content: list
+        self, title: str, left_content: list, right_content: list
     ):
-        """Draw a split-screen layout."""
-        self.draw_vertical_line(64, 0, self.height)
-        self.draw_text(left_title, 2, 2)
-        self.draw_text(right_title, 66, 2)
+        """Draw a split-screen layout (mirrors real Canvas signature)."""
+        self.fill_rect(0, 0, self.width, 12, color=0)
+        self.draw_text(title, 2, 2, color=1)
+        mid_x = self.width // 2
+        self.draw_vertical_line(mid_x, 15, self.height - 15)
+        y_offset = 15
+        line_height = 12
+        for i, line in enumerate(left_content):
+            if y_offset + (i * line_height) + line_height > self.height:
+                break
+            self.draw_text(line, 2, y_offset + (i * line_height))
+        for i, line in enumerate(right_content):
+            if y_offset + (i * line_height) + line_height > self.height:
+                break
+            self.draw_text(line, mid_x + 2, y_offset + (i * line_height))
 
     # =========================================================================
     # Screenshot / BMP Export
@@ -422,14 +486,16 @@ class MockCanvas:
         """Save using PIL for better quality screenshots."""
         from PIL import Image
 
-        # Create scaled monochrome image (white on black)
+        # Create scaled monochrome image (lit pixels bright on black).
+        # pixel==0 is ON on the OLED (black PIL pixel = lit LED), so it
+        # renders white here — matching real device output.
         img = Image.new("RGB", (self.width * scale, self.height * scale), (0, 0, 0))
         pixels_out = img.load()
 
         for y in range(self.height):
             for x in range(self.width):
-                if self.pixels[y][x]:
-                    # White pixel (monochrome like AKAI Fire OLED)
+                if not self.pixels[y][x]:
+                    # Lit pixel (monochrome like AKAI Fire OLED)
                     for sy in range(scale):
                         for sx in range(scale):
                             pixels_out[x * scale + sx, y * scale + sy] = (255, 255, 255)
@@ -467,16 +533,17 @@ class MockCanvas:
             f.write(struct.pack("<ii", 2835, 2835))  # Pixels per meter
             f.write(struct.pack("<II", 0, 0))  # Colors
 
-            # Pixel data (bottom-up) - monochrome white on black
+            # Pixel data (bottom-up) - lit pixels bright on black
+            # (pixel==0 is ON on the OLED, matching real device output)
             for y in range(scaled_height - 1, -1, -1):
                 for x in range(scaled_width):
                     src_x = x // scale
                     src_y = y // scale
-                    if self.pixels[src_y][src_x]:
-                        # White pixel (BGR format)
+                    if not self.pixels[src_y][src_x]:
+                        # Lit pixel (BGR format)
                         f.write(bytes([255, 255, 255]))
                     else:
-                        # Black pixel
+                        # Unlit pixel
                         f.write(bytes([0, 0, 0]))
                 # Row padding
                 f.write(bytes(padding))
@@ -621,19 +688,25 @@ class MockAkaiFire(AkaiFireDevice):
 
         Returns:
             True if successful
+
+        Raises:
+            InvalidParameterError: If pad index is out of range
+                (matching real hardware).
         """
+        if not isinstance(pad_index, int) or not (0 <= pad_index <= 63):
+            raise InvalidParameterError(
+                f"Pad index must be integer 0-63, got: {pad_index}"
+            )
         if not self._connected:
             return False
-        if 0 <= pad_index < 64:
-            # Clamp values
-            r = max(0, min(127, r))
-            g = max(0, min(127, g))
-            b = max(0, min(127, b))
-            color = (r, g, b)
-            self.pad_colors[pad_index] = color
-            self.pad_events.append(PadEvent(pad_index, color))
-            return True
-        return False
+        # Clamp values
+        r = max(0, min(127, r))
+        g = max(0, min(127, g))
+        b = max(0, min(127, b))
+        color = (r, g, b)
+        self.pad_colors[pad_index] = color
+        self.pad_events.append(PadEvent(pad_index, color))
+        return True
 
     def set_pad_color_fast(self, pad_index: int, r: int, g: int, b: int) -> bool:
         """
@@ -710,9 +783,20 @@ class MockAkaiFire(AkaiFireDevice):
     # =========================================================================
 
     def set_button_led(self, button_id: int, value: int) -> bool:
-        """Set button LED and record the event."""
+        """Set button LED and record the event.
+
+        Raises:
+            InvalidParameterError: If button_id is not an addressable
+                LED button (matching real hardware).
+        """
         if not self._connected:
             return False
+        if button_id not in self.BUTTON_LED_IDS:
+            raise InvalidParameterError(
+                f"Invalid button ID: {button_id}. "
+                f"Valid buttons: {sorted(self.BUTTON_LED_IDS)}"
+            )
+        value = max(0, min(2, value))
         self.button_leds[button_id] = value
         self.button_events.append(ButtonEvent(button_id, value))
         return True
@@ -725,13 +809,14 @@ class MockAkaiFire(AkaiFireDevice):
         return True
 
     def set_track_led(self, track: int, value: int) -> bool:
-        """Set track LED (1-4)."""
+        """Set track LED (1-4). ``value`` is a RECTANGLE_LED_* constant (0-4)."""
         if not self._connected:
             return False
-        if 1 <= track <= 4:
-            self.track_leds[track] = value
-            return True
-        return False
+        if not (1 <= track <= 4):
+            return False
+        value = max(0, min(4, value))
+        self.track_leds[track] = value
+        return True
 
     def clear_track_led(self, track: int) -> bool:
         """Clear a single track LED."""

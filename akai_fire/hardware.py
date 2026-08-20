@@ -735,13 +735,17 @@ class AkaiFire(AkaiFireDevice):
         return self.set_track_led(track_number, 0)
 
     def set_track_led(self, track_number: int, value: int) -> bool:
-        """Set track LED (1-4) with validation."""
+        """Set track LED (1-4) with validation.
+
+        ``value`` is a RECTANGLE_LED_* constant (0-4) — note the wider
+        range than button LEDs (0-2).
+        """
         if not (1 <= track_number <= 4):
             logger.warning(f"Invalid track number: {track_number}")
             return False
 
         cc_map = {1: 0x65, 2: 0x66, 3: 0x67, 4: 0x68}
-        value = max(0, min(2, value))
+        value = max(0, min(4, value))
         message = [self.CC, cc_map[track_number], value]
         return self._send_midi_safe(message)
 
