@@ -349,6 +349,66 @@ class AkaiFireDevice(abc.ABC):
         self.start_listening()
 
     # --------------------------------------------------------------
+    # Listener removal — safe to call from inside a handler; the
+    # change takes effect on the next event (dispatch works on a
+    # snapshot taken under the lock).
+    # --------------------------------------------------------------
+
+    def remove_listener(self, pad_indices: Any, callback: Callable) -> None:
+        """Remove a previously added pad listener (single index or list)."""
+        indices = pad_indices if isinstance(pad_indices, (list, tuple)) else [pad_indices]
+        with self._lock:
+            for idx in indices:
+                listeners = self.pad_listeners.get(idx)
+                if listeners:
+                    try:
+                        listeners.remove(callback)
+                    except ValueError:
+                        pass
+
+    def remove_global_listener(self, callback: Callable) -> None:
+        """Remove a previously added global pad listener."""
+        with self._lock:
+            listeners = self.pad_listeners.get("global")
+            if listeners:
+                try:
+                    listeners.remove(callback)
+                except ValueError:
+                    pass
+
+    def remove_button_listener(self, button_id: int, callback: Callable) -> None:
+        """Remove a previously added button listener."""
+        with self._lock:
+            listeners = self.button_listeners.get(button_id)
+            if listeners:
+                try:
+                    listeners.remove(callback)
+                except ValueError:
+                    pass
+
+    def remove_rotary_listener(self, rotary_id: int, callback: Callable) -> None:
+        """Remove a previously added rotary-turn listener."""
+        with self._lock:
+            listeners = self.rotary_listeners.get(rotary_id)
+            if listeners:
+                try:
+                    listeners.remove(callback)
+                except ValueError:
+                    pass
+
+    def remove_rotary_touch_listener(
+        self, rotary_id: int, callback: Callable
+    ) -> None:
+        """Remove a previously added rotary-touch listener."""
+        with self._lock:
+            listeners = self.rotary_touch_listeners.get(rotary_id)
+            if listeners:
+                try:
+                    listeners.remove(callback)
+                except ValueError:
+                    pass
+
+    # --------------------------------------------------------------
     # Modifier-key state
     # --------------------------------------------------------------
 
@@ -374,13 +434,15 @@ class AkaiFireDevice(abc.ABC):
 
     @staticmethod
     def pad_position(pad_index: int) -> Tuple[int, int]:
-        """Return ``(column, row)`` 0-indexed for a pad index 0-63.
+        """Return ``(row, column)`` 0-indexed for a pad index 0-63.
 
-        Column is 0..15, row is 0..3.
+        Row is 0..3, column is 0..15. This matches the ``(row, col)``
+        convention used by :class:`akai_fire_framework.grid.GridMixin`
+        and the example apps.
         """
         if not (0 <= pad_index <= 63):
             raise ValueError("Pad index must be between 0 and 63")
-        return pad_index % 16, pad_index // 16
+        return pad_index // 16, pad_index % 16
 
     @staticmethod
     def get_pad_column(pad_index: int) -> int:

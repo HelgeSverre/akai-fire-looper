@@ -63,6 +63,33 @@ SOLO_BUTTONS: Dict[int, int] = {
     4: BUTTON_SOLO_4,
 }
 
+# --- Buttons with an addressable LED (accepted by set_button_led) ---
+BUTTON_LED_IDS = frozenset(
+    {
+        BUTTON_SELECT,
+        BUTTON_STEP,
+        BUTTON_NOTE,
+        BUTTON_DRUM,
+        BUTTON_PERFORM,
+        BUTTON_SHIFT,
+        BUTTON_ALT,
+        BUTTON_PATTERN,
+        BUTTON_PLAY,
+        BUTTON_STOP,
+        BUTTON_REC,
+        BUTTON_BANK,
+        BUTTON_BROWSER,
+        BUTTON_SOLO_1,
+        BUTTON_SOLO_2,
+        BUTTON_SOLO_3,
+        BUTTON_SOLO_4,
+        BUTTON_PAT_UP,
+        BUTTON_PAT_DOWN,
+        BUTTON_GRID_LEFT,
+        BUTTON_GRID_RIGHT,
+    }
+)
+
 # --- Button LED values ---
 LED_OFF = 0x00
 LED_DULL_RED = 0x01
@@ -111,9 +138,9 @@ def install(cls):
 
     Used by mock implementations to get the authoritative constants as
     class attributes (so ``mock.BUTTON_PLAY`` still works) without
-    redefining their values locally. The real ``AkaiFire`` class keeps
-    its explicit constant block for IDE autocomplete — commit 2 of the
-    refactor consolidates that onto the shared base class.
+    redefining their values locally. Every implementation — the real
+    :class:`AkaiFire` included — gets its constants through this
+    decorator via :class:`akai_fire.device.AkaiFireDevice`.
     """
     import sys
 

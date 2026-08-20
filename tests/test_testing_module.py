@@ -654,7 +654,7 @@ class TestMockAkaiFireNewFeatures(unittest.TestCase):
     def test_utility_methods(self):
         """Utility methods work correctly."""
         # pad_position
-        col, row = MockAkaiFire.pad_position(17)  # Second row, second column
+        row, col = MockAkaiFire.pad_position(17)  # Second row, second column
         self.assertEqual(col, 1)
         self.assertEqual(row, 1)
 

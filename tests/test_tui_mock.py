@@ -242,9 +242,9 @@ class TestTuiMockScaffold(unittest.TestCase):
 
     def test_pad_position(self):
         self.assertEqual(self.fire.pad_position(0), (0, 0))
-        self.assertEqual(self.fire.pad_position(15), (15, 0))
-        self.assertEqual(self.fire.pad_position(16), (0, 1))
-        self.assertEqual(self.fire.pad_position(63), (15, 3))
+        self.assertEqual(self.fire.pad_position(15), (0, 15))
+        self.assertEqual(self.fire.pad_position(16), (1, 0))
+        self.assertEqual(self.fire.pad_position(63), (3, 15))
 
     def test_get_pad_column_and_row(self):
         # 1-indexed, matching real hardware (column 1..16, row 1..4).
