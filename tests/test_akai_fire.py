@@ -150,6 +150,51 @@ class TestAkaiFire(unittest.TestCase):
         sysex = self.mock_midi_out.messages[-1]
         self.assertEqual(sysex[0], 0xF0)  # Should be SysEx
 
+    def test_set_pad_color_sends_after_cycle(self):
+        # Regression: historical set-like cache used to return True for the
+        # third call because "0:127:0:0" was still present, leaving the pad
+        # green on hardware.
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.fire.set_pad_color(0, 0, 127, 0)
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.assertEqual(len(self.mock_midi_out.messages), 3)
+
+    def test_set_pad_color_same_color_short_circuits(self):
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.assertEqual(len(self.mock_midi_out.messages), 1)
+
+    def test_clear_all_pads_invalidates_cache(self):
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.fire.clear_all_pads()
+        self.fire.set_pad_color(0, 127, 0, 0)
+        # color + clear + color must all hit the wire
+        self.assertEqual(len(self.mock_midi_out.messages), 3)
+
+    def test_set_all_pads_invalidates_cache(self):
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.fire.set_all_pads((0, 127, 0))  # cached-message path
+        # After all pads are green, setting pad 0 red must send.
+        self.fire.set_pad_color(0, 127, 0, 0)
+        # Setting pad 0 green again should short-circuit.
+        self.fire.set_pad_color(0, 0, 127, 0)
+        self.fire.set_pad_color(0, 0, 127, 0)
+        # initial red + set_all_pads + pad0 red + pad0 green = 4
+        self.assertEqual(len(self.mock_midi_out.messages), 4)
+
+    def test_multi_pad_and_single_pad_cache_coherent(self):
+        self.fire.set_multiple_pad_colors([(0, 127, 0, 0), (1, 0, 127, 0)])
+        # Same color should short-circuit via single-pad path.
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.fire.set_pad_color(1, 0, 127, 0)
+        self.assertEqual(len(self.mock_midi_out.messages), 1)
+
+    def test_fast_path_updates_cache(self):
+        self.fire.set_pad_color_fast(0, 127, 0, 0)
+        # Slow path after fast path must short-circuit for the same color.
+        self.fire.set_pad_color(0, 127, 0, 0)
+        self.assertEqual(len(self.mock_midi_out.messages), 1)
+
 
 class TestEventSystem(unittest.TestCase):
     @patch("rtmidi.MidiIn")
@@ -653,13 +698,22 @@ class TestMessageParsing(unittest.TestCase):
 class TestAsyncDispatch(unittest.TestCase):
     """Async handler dispatch must isolate slow handlers and absorb overload."""
 
-    @patch("rtmidi.MidiIn")
-    @patch("rtmidi.MidiOut")
-    def setUp(self, mock_midi_out, mock_midi_in):
+    def setUp(self):
+        # @patch on setUp only covers setUp itself; these tests construct
+        # AkaiFire inside the test methods, so the patches must live for
+        # the whole method via start()/stop().
+        self._in_patcher = patch("rtmidi.MidiIn")
+        self._out_patcher = patch("rtmidi.MidiOut")
+        mock_midi_in = self._in_patcher.start()
+        mock_midi_out = self._out_patcher.start()
         self.mock_midi_in = MockMidiPort()
         self.mock_midi_out = MockMidiPort()
         mock_midi_in.return_value = self.mock_midi_in
         mock_midi_out.return_value = self.mock_midi_out
+
+    def tearDown(self):
+        self._in_patcher.stop()
+        self._out_patcher.stop()
 
     def _wait_until(self, predicate, timeout=2.0, interval=0.005):
         deadline = time.time() + timeout
@@ -687,8 +741,8 @@ class TestAsyncDispatch(unittest.TestCase):
 
             start = time.time()
             # Queue a slow event, then a fast event
-            fire._process_message([[0x90, 54, 100], 0])   # pad 0 -> slow
-            fire._process_message([[0x90, 55, 100], 0])   # pad 1 -> fast
+            fire._process_message([[0x90, 54, 100], 0])  # pad 0 -> slow
+            fire._process_message([[0x90, 55, 100], 0])  # pad 1 -> fast
             dispatch_time = time.time() - start
 
             # Dispatch submission must return quickly (<50ms), not wait on slow
@@ -803,6 +857,55 @@ class TestListenLoop(unittest.TestCase):
         self.assertFalse(self.fire.listening_thread.is_alive())
         # Without the RLock dance in _listen, stop should be fast even while the lock is held.
         self.assertLess(elapsed, 0.2)
+
+
+class TestReconnect(unittest.TestCase):
+    """reconnect() must restart the listener if it was active pre-close."""
+
+    def setUp(self):
+        self._in_patcher = patch("rtmidi.MidiIn")
+        self._out_patcher = patch("rtmidi.MidiOut")
+        mock_midi_in = self._in_patcher.start()
+        mock_midi_out = self._out_patcher.start()
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+
+    def tearDown(self):
+        self._in_patcher.stop()
+        self._out_patcher.stop()
+
+    def test_reconnect_restarts_listener_when_previously_listening(self):
+        fire = AkaiFire(async_handlers=False)
+        try:
+            fire.start_listening()
+            self.assertTrue(fire.listening)
+            self.assertTrue(fire.reconnect())
+            self.assertTrue(fire.listening)
+        finally:
+            fire.close()
+
+    def test_reconnect_does_not_start_listener_when_not_listening(self):
+        fire = AkaiFire(async_handlers=False)
+        try:
+            self.assertFalse(fire.listening)
+            self.assertTrue(fire.reconnect())
+            self.assertFalse(fire.listening)
+        finally:
+            fire.close()
+
+    def test_reconnect_rebuilds_async_dispatcher(self):
+        fire = AkaiFire(async_handlers=True, max_workers=2)
+        try:
+            fire.start_listening()
+            self.assertIsNotNone(fire._dispatcher)
+            self.assertTrue(fire.reconnect())
+            self.assertTrue(fire.listening)
+            # close() set the dispatcher to None; reconnect must rebuild it.
+            self.assertIsNotNone(fire._dispatcher)
+        finally:
+            fire.close()
 
 
 class TestMidiSendRetry(unittest.TestCase):
