@@ -9,6 +9,7 @@ Usage:
     uv run python examples/circuit/demo_e2e.py --speed 2.0   # Faster
     uv run python examples/circuit/demo_e2e.py --demo intro  # Specific demo only
 """
+
 import argparse
 import os
 import sys

@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import Canvas, get_akai_fire
 
-
 # Each tuple: (x, y, w, h) in source SVG units. Extracted from the final frame
 # (fill-opacity=1) of the Lottie animation SVG.
 BODY_RECTS = [

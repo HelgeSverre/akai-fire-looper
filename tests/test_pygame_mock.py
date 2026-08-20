@@ -14,7 +14,28 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from mock_gui_pygame import MockAkaiFire  # noqa: E402
+
+def _pygame_font_available() -> bool:
+    """True when pygame's font module actually works.
+
+    pygame 2.6.1 predates Python 3.14; there ``pygame.font.Font``
+    raises NotImplementedError, which took whole test files down with
+    environmental errors masking real regressions. Skip instead.
+    """
+    try:
+        import pygame
+
+        pygame.font.init()
+        pygame.font.Font(None, 10)
+        return True
+    except Exception:
+        return False
+
+
+HAS_PYGAME = _pygame_font_available()
+
+if HAS_PYGAME:
+    from mock_gui_pygame import MockAkaiFire  # noqa: E402
 
 
 def _evt(**kwargs) -> SimpleNamespace:
@@ -22,6 +43,10 @@ def _evt(**kwargs) -> SimpleNamespace:
     return SimpleNamespace(**kwargs)
 
 
+@unittest.skipUnless(
+    HAS_PYGAME,
+    "pygame.font not available (pygame 2.6.1 is incompatible with Python >= 3.14)",
+)
 class TestPygameMockInputDispatch(unittest.TestCase):
     """Clicks on pads/buttons/rotaries must fire the same handlers the real device does."""
 
@@ -119,15 +144,9 @@ class TestPygameMockInputDispatch(unittest.TestCase):
         # a position inside a 25px radius of the rotary, and event.rel.
         pos = self.fire.rotary_data[self.fire.ROTARY_VOLUME]["pos"]
         # delta = -event.rel[1]; rel=(0, -5) -> delta=+5 -> clockwise
-        self.fire._handle_mouse_motion(
-            _evt(pos=pos, rel=(0, -5), buttons=(1, 0, 0))
-        )
-        self.fire._handle_mouse_motion(
-            _evt(pos=pos, rel=(0, 3), buttons=(1, 0, 0))
-        )
-        self.assertEqual(
-            turns, [("clockwise", 5), ("counterclockwise", 3)]
-        )
+        self.fire._handle_mouse_motion(_evt(pos=pos, rel=(0, -5), buttons=(1, 0, 0)))
+        self.fire._handle_mouse_motion(_evt(pos=pos, rel=(0, 3), buttons=(1, 0, 0)))
+        self.assertEqual(turns, [("clockwise", 5), ("counterclockwise", 3)])
 
     def test_rotary_drag_ignored_without_left_button(self):
         turns = []
@@ -137,12 +156,14 @@ class TestPygameMockInputDispatch(unittest.TestCase):
             turns.append((rotary_id, direction, velocity))
 
         pos = self.fire.rotary_data[self.fire.ROTARY_PAN]["pos"]
-        self.fire._handle_mouse_motion(
-            _evt(pos=pos, rel=(0, -5), buttons=(0, 0, 0))
-        )
+        self.fire._handle_mouse_motion(_evt(pos=pos, rel=(0, -5), buttons=(0, 0, 0)))
         self.assertEqual(turns, [])
 
 
+@unittest.skipUnless(
+    HAS_PYGAME,
+    "pygame.font not available (pygame 2.6.1 is incompatible with Python >= 3.14)",
+)
 class TestPygameMockVisualState(unittest.TestCase):
     """Pad/LED setters queue updates that apply on process_events()."""
 
@@ -190,6 +211,10 @@ class TestPygameMockVisualState(unittest.TestCase):
         self.assertEqual(self.fire.track_leds[0], self.fire.RECTANGLE_LED_HIGH_GREEN)
 
 
+@unittest.skipUnless(
+    HAS_PYGAME,
+    "pygame.font not available (pygame 2.6.1 is incompatible with Python >= 3.14)",
+)
 class TestPygameMockLifecycle(unittest.TestCase):
     """Init, render, close cycles must not crash."""
 
@@ -200,10 +225,10 @@ class TestPygameMockLifecycle(unittest.TestCase):
         try:
             canvas = fire.get_canvas()
             canvas.draw_text("hello", 10, 10)
-            fire.render_to_display()             # zero-arg
+            fire.render_to_display()  # zero-arg
             other = fire.new_canvas()
             other.draw_text("world", 10, 10)
-            fire.render_to_display(other)        # explicit canvas
+            fire.render_to_display(other)  # explicit canvas
             self.assertIs(fire.get_canvas(), other)
         finally:
             fire.close()

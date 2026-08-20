@@ -10,6 +10,22 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import AkaiFire, get_akai_fire, discover_akai_fire, InvalidParameterError
+from akai_fire.errors import MIDIConnectionError
+
+
+def _pygame_font_available() -> bool:
+    """True when pygame's font module actually works (see test_pygame_mock)."""
+    try:
+        import pygame
+
+        pygame.font.init()
+        pygame.font.Font(None, 10)
+        return True
+    except Exception:
+        return False
+
+
+HAS_PYGAME = _pygame_font_available()
 
 
 class MockMidiPort:
@@ -456,14 +472,19 @@ class TestUtilityFunctions(unittest.TestCase):
             device = get_akai_fire()
             self.assertIsInstance(device, AkaiFire)
 
-    @patch("akai_fire.discover_akai_fire")
-    def test_get_akai_fire_fallback_to_mock(self, mock_discover):
-        """Test get_akai_fire falls back to mock"""
-        # Test when hardware is not found
-        mock_discover.return_value = None
+    @unittest.skipUnless(
+        HAS_PYGAME,
+        "pygame.font not available (pygame 2.6.1 is incompatible with Python >= 3.14)",
+    )
+    @patch(
+        "akai_fire.hardware.AkaiFire",
+        side_effect=MIDIConnectionError("no hardware in test"),
+    )
+    def test_get_akai_fire_fallback_to_mock(self, _mock_akai_fire):
+        """get_akai_fire() falls back to the pygame mock when hardware fails."""
         device = get_akai_fire()
-        # Should return mock (if available) or raise exception
         self.assertIsNotNone(device)
+        device.close()
 
 
 class TestHelperMethods(unittest.TestCase):

@@ -33,10 +33,28 @@ from akai_fire import AkaiFire
 from akai_fire import constants as C
 from akai_fire.device import AkaiFireDevice
 from akai_fire_testing import MockAkaiFire as TestingMock
-from mock_gui_pygame import MockAkaiFire as PygameMock
+
+
+def _pygame_font_available() -> bool:
+    """True when pygame's font module actually works (see test_pygame_mock)."""
+    try:
+        import pygame
+
+        pygame.font.init()
+        pygame.font.Font(None, 10)
+        return True
+    except Exception:
+        return False
+
+
+HAS_PYGAME = _pygame_font_available()
+
+if HAS_PYGAME:
+    from mock_gui_pygame import MockAkaiFire as PygameMock
 
 try:
     from mock_gui_tui import MockAkaiFire as TuiMock
+
     _HAS_TUI = True
 except ImportError:
     _HAS_TUI = False
@@ -73,8 +91,9 @@ class _StubMidiPort:
 
 def _make_akai_fire():
     """Build a real :class:`AkaiFire` with MIDI ports mocked out."""
-    with patch("rtmidi.MidiIn", return_value=_StubMidiPort()), patch(
-        "rtmidi.MidiOut", return_value=_StubMidiPort()
+    with (
+        patch("rtmidi.MidiIn", return_value=_StubMidiPort()),
+        patch("rtmidi.MidiOut", return_value=_StubMidiPort()),
     ):
         return AkaiFire(async_handlers=False)
 
@@ -94,9 +113,10 @@ def _make_testing_mock():
 # Table of (name, factory) used to parameterize every test below.
 _IMPLS = [
     ("AkaiFire", AkaiFire, _make_akai_fire),
-    ("PygameMock", PygameMock, _make_pygame_mock),
     ("TestingMock", TestingMock, _make_testing_mock),
 ]
+if HAS_PYGAME:
+    _IMPLS.insert(1, ("PygameMock", PygameMock, _make_pygame_mock))
 if _HAS_TUI:
     _IMPLS.append(("TuiMock", TuiMock, _make_tui_mock))
 
@@ -116,8 +136,8 @@ class TestDeviceContract(unittest.TestCase):
         """No class may shadow a constant away from the authoritative value."""
         # Sample a handful — any one of these drifting would fail the suite.
         for const_name in (
-            "CONTROL_BANK_USER2",       # historical drift: 0x18 vs 0x03
-            "CONTROL_BANK_ALL_OFF",     # historical drift: 0x00 vs 0x10
+            "CONTROL_BANK_USER2",  # historical drift: 0x18 vs 0x03
+            "CONTROL_BANK_ALL_OFF",  # historical drift: 0x00 vs 0x10
             "BUTTON_PLAY",
             "BUTTON_SHIFT",
             "BUTTON_ALT",

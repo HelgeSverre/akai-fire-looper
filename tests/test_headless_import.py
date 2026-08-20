@@ -21,8 +21,7 @@ class TestHeadlessImport(unittest.TestCase):
     ) -> subprocess.CompletedProcess:
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         blocked_repr = repr(list(blocked))
-        script = textwrap.dedent(
-            f"""
+        script = textwrap.dedent(f"""
             import sys
 
             class _Block:
@@ -37,8 +36,7 @@ class TestHeadlessImport(unittest.TestCase):
             sys.meta_path.insert(0, _Block({blocked_repr}))
 
             {textwrap.indent(code, '            ').lstrip()}
-            """
-        )
+            """)
         env = {**os.environ, "PYTHONPATH": project_root}
         return subprocess.run(
             [sys.executable, "-c", script],

@@ -50,7 +50,6 @@ from PIL import Image
 # Reuse the real Canvas from akai_fire so the OLED API is identical.
 from akai_fire import Canvas
 
-
 logger = logging.getLogger(__name__)
 
 RENDER_FPS = 20
@@ -203,6 +202,7 @@ class MockAkaiFire(AkaiFireDevice):
         self._render_thread.start()
 
         import sys
+
         if sys.stdin.isatty():
             self._input_thread = threading.Thread(
                 target=self._input_loop, name="akai-fire-tui-input", daemon=True
@@ -575,7 +575,9 @@ class MockAkaiFire(AkaiFireDevice):
         """Alias of :meth:`set_pad_color` on the mock (no perf path to skip)."""
         return self.set_pad_color(index, red, green, blue)
 
-    def set_multiple_pad_colors(self, pad_colors: List[Tuple[int, int, int, int]]) -> bool:
+    def set_multiple_pad_colors(
+        self, pad_colors: List[Tuple[int, int, int, int]]
+    ) -> bool:
         with self._state_lock:
             for entry in pad_colors:
                 if len(entry) != 4:
@@ -726,8 +728,14 @@ def _braille_from_oled(img: Image.Image) -> Text:
     #   (0,2)->2  (1,2)->5
     #   (0,3)->6  (1,3)->7
     DOT_BITS = (
-        (0, 0, 0), (0, 1, 1), (0, 2, 2), (0, 3, 6),
-        (1, 0, 3), (1, 1, 4), (1, 2, 5), (1, 3, 7),
+        (0, 0, 0),
+        (0, 1, 1),
+        (0, 2, 2),
+        (0, 3, 6),
+        (1, 0, 3),
+        (1, 1, 4),
+        (1, 2, 5),
+        (1, 3, 7),
     )
     lit = f"{OLED_FG} on {OLED_BG}"
     dim = f"on {OLED_BG}"
@@ -762,7 +770,9 @@ def _pad_cell(color: Tuple[int, int, int], focused: bool) -> Text:
     return Text("   ", style=f"on {bg}")
 
 
-def _render_pad_grid(pads: List[Tuple[int, int, int]], focus_idx: Optional[int]) -> Text:
+def _render_pad_grid(
+    pads: List[Tuple[int, int, int]], focus_idx: Optional[int]
+) -> Text:
     out = Text(no_wrap=True)
     for row in range(4):
         for col in range(16):
@@ -796,7 +806,10 @@ def _render_knobs_row(focus: Tuple[str, int]) -> Table:
     for _ in names:
         t.add_column(justify="center")
     t.add_row(
-        *(_render_knob(n, v, focused == i) for i, (n, v) in enumerate(zip(names, values)))
+        *(
+            _render_knob(n, v, focused == i)
+            for i, (n, v) in enumerate(zip(names, values))
+        )
     )
     return t
 
@@ -828,15 +841,15 @@ def _render_button_row(
 ) -> Text:
     out = Text(no_wrap=True)
     for i, (label, bid) in enumerate(labels):
-        out.append_text(_render_button(label, _btn_lit(button_leds, bid), focus_idx == i, width))
+        out.append_text(
+            _render_button(label, _btn_lit(button_leds, bid), focus_idx == i, width)
+        )
         if i < len(labels) - 1:
             out.append(" ")
     return out
 
 
-def _render_mute_solo_column(
-    track_leds: List[int], focus: Tuple[str, int]
-) -> Text:
+def _render_mute_solo_column(track_leds: List[int], focus: Tuple[str, int]) -> Text:
     focused_idx = focus[1] if focus[0] == "mutesolo" else -1
     out = Text(no_wrap=True)
     for i in range(4):

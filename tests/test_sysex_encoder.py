@@ -52,8 +52,9 @@ class MockMidiPort:
 
 
 def _make_fire():
-    with patch("rtmidi.MidiIn", return_value=MockMidiPort()), patch(
-        "rtmidi.MidiOut", return_value=MockMidiPort()
+    with (
+        patch("rtmidi.MidiIn", return_value=MockMidiPort()),
+        patch("rtmidi.MidiOut", return_value=MockMidiPort()),
     ):
         return AkaiFire(async_handlers=False)
 
@@ -128,9 +129,7 @@ class TestDisplaySysexEncoder(unittest.TestCase):
         bitmap = _last_display_message(self.fire)[11:-1]
         popcount = sum(bin(b).count("1") for b in bitmap)
         self.assertEqual(popcount, 128 * 64)
-        self.assertEqual(
-            set(bitmap[:1168]), {0x7F}, "complete blocks must be all-lit"
-        )
+        self.assertEqual(set(bitmap[:1168]), {0x7F}, "complete blocks must be all-lit")
         self.assertEqual(bitmap[1170], 0x60)
 
     def test_send_failure_raises_midisend_error(self):

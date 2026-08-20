@@ -39,24 +39,36 @@ class Recorder:
 
 def post_click(pos, button=1):
     """Post a left-click (down+up) at `pos`."""
-    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"pos": pos, "button": button}))
-    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, {"pos": pos, "button": button}))
+    pygame.event.post(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"pos": pos, "button": button})
+    )
+    pygame.event.post(
+        pygame.event.Event(pygame.MOUSEBUTTONUP, {"pos": pos, "button": button})
+    )
 
 
 def post_drag(start_pos, end_pos, steps=6):
     """Post a mouse-drag from start to end."""
-    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"pos": start_pos, "button": 1}))
+    pygame.event.post(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"pos": start_pos, "button": 1})
+    )
     sx, sy = start_pos
     ex, ey = end_pos
     for i in range(1, steps + 1):
         nx = sx + (ex - sx) * i // steps
         ny = sy + (ey - sy) * i // steps
-        rel = (nx - sx - (ex - sx) * (i - 1) // steps,
-               ny - sy - (ey - sy) * (i - 1) // steps)
-        pygame.event.post(pygame.event.Event(
-            pygame.MOUSEMOTION, {"pos": (nx, ny), "rel": rel, "buttons": (1, 0, 0)}
-        ))
-    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, {"pos": end_pos, "button": 1}))
+        rel = (
+            nx - sx - (ex - sx) * (i - 1) // steps,
+            ny - sy - (ey - sy) * (i - 1) // steps,
+        )
+        pygame.event.post(
+            pygame.event.Event(
+                pygame.MOUSEMOTION, {"pos": (nx, ny), "rel": rel, "buttons": (1, 0, 0)}
+            )
+        )
+    pygame.event.post(
+        pygame.event.Event(pygame.MOUSEBUTTONUP, {"pos": end_pos, "button": 1})
+    )
 
 
 def pump(fire, duration=0.25):
@@ -102,16 +114,27 @@ def main() -> int:
 
     # Click a sampling of buttons
     btn_targets = [
-        fire.BUTTON_PLAY, fire.BUTTON_STOP, fire.BUTTON_REC,
-        fire.BUTTON_STEP, fire.BUTTON_NOTE, fire.BUTTON_DRUM,
-        fire.BUTTON_PERFORM, fire.BUTTON_BROWSER,
-        fire.BUTTON_PAT_UP, fire.BUTTON_PAT_DOWN,
+        fire.BUTTON_PLAY,
+        fire.BUTTON_STOP,
+        fire.BUTTON_REC,
+        fire.BUTTON_STEP,
+        fire.BUTTON_NOTE,
+        fire.BUTTON_DRUM,
+        fire.BUTTON_PERFORM,
+        fire.BUTTON_BROWSER,
+        fire.BUTTON_PAT_UP,
+        fire.BUTTON_PAT_DOWN,
     ]
     for bid in btn_targets:
         script.append(("btn", bid, fire.button_rects[bid].center))
 
     # Rotary drags — one per rotary
-    for rid in (fire.ROTARY_VOLUME, fire.ROTARY_PAN, fire.ROTARY_FILTER, fire.ROTARY_RESONANCE):
+    for rid in (
+        fire.ROTARY_VOLUME,
+        fire.ROTARY_PAN,
+        fire.ROTARY_FILTER,
+        fire.ROTARY_RESONANCE,
+    ):
         pos = fire.rotary_data[rid]["pos"]
         script.append(("rot", rid, pos))
 
@@ -144,8 +167,10 @@ def main() -> int:
         missing = expected - seen
         ok = not missing
         status = "PASS" if ok else "FAIL"
-        print(f"  [{status}] {name}: expected {len(expected)}, got {len(seen)}"
-              + (f" (missing {sorted(missing)})" if missing else ""))
+        print(
+            f"  [{status}] {name}: expected {len(expected)}, got {len(seen)}"
+            + (f" (missing {sorted(missing)})" if missing else "")
+        )
         return ok
 
     print()
@@ -154,7 +179,12 @@ def main() -> int:
     buttons_ok = check("buttons", set(btn_targets), buttons_seen)
     rotaries_ok = check(
         "rotaries",
-        {fire.ROTARY_VOLUME, fire.ROTARY_PAN, fire.ROTARY_FILTER, fire.ROTARY_RESONANCE},
+        {
+            fire.ROTARY_VOLUME,
+            fire.ROTARY_PAN,
+            fire.ROTARY_FILTER,
+            fire.ROTARY_RESONANCE,
+        },
         rotaries_seen,
     )
 

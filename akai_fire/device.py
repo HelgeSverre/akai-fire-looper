@@ -21,7 +21,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from akai_fire.constants import install as _install_constants
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -341,9 +340,7 @@ class AkaiFireDevice(abc.ABC):
             self.rotary_listeners[rotary_id].append(callback)
         self.start_listening()
 
-    def add_rotary_touch_listener(
-        self, rotary_id: int, callback: Callable
-    ) -> None:
+    def add_rotary_touch_listener(self, rotary_id: int, callback: Callable) -> None:
         with self._lock:
             self.rotary_touch_listeners[rotary_id].append(callback)
         self.start_listening()
@@ -356,7 +353,9 @@ class AkaiFireDevice(abc.ABC):
 
     def remove_listener(self, pad_indices: Any, callback: Callable) -> None:
         """Remove a previously added pad listener (single index or list)."""
-        indices = pad_indices if isinstance(pad_indices, (list, tuple)) else [pad_indices]
+        indices = (
+            pad_indices if isinstance(pad_indices, (list, tuple)) else [pad_indices]
+        )
         with self._lock:
             for idx in indices:
                 listeners = self.pad_listeners.get(idx)
@@ -396,9 +395,7 @@ class AkaiFireDevice(abc.ABC):
                 except ValueError:
                     pass
 
-    def remove_rotary_touch_listener(
-        self, rotary_id: int, callback: Callable
-    ) -> None:
+    def remove_rotary_touch_listener(self, rotary_id: int, callback: Callable) -> None:
         """Remove a previously added rotary-touch listener."""
         with self._lock:
             listeners = self.rotary_touch_listeners.get(rotary_id)

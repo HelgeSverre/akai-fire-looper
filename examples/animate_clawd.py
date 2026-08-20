@@ -25,7 +25,6 @@ from PIL import Image
 
 from akai_fire import Canvas, get_akai_fire
 
-
 DEFAULT_GIF = "/Applications/Claude.app/Contents/Resources/ion-dist/images/install-hub/clawd-magnifier.gif"
 
 OLED_W, OLED_H = Canvas.WIDTH, Canvas.HEIGHT
@@ -92,7 +91,9 @@ def dump_previews(frames: list[Image.Image], outdir: Path, stride: int = 1) -> N
     print(f"wrote {len(frames[::stride])} previews to {outdir}  (stride={stride})")
 
 
-def make_contact_sheet(frames: list[Image.Image], out: Path, cols: int = 8, stride: int = 4) -> None:
+def make_contact_sheet(
+    frames: list[Image.Image], out: Path, cols: int = 8, stride: int = 4
+) -> None:
     picks = frames[::stride]
     rows = (len(picks) + cols - 1) // cols
     sheet = Image.new("RGBA", (cols * OLED_W, rows * OLED_H), (40, 40, 40, 255))
@@ -103,7 +104,9 @@ def make_contact_sheet(frames: list[Image.Image], out: Path, cols: int = 8, stri
     print(f"contact sheet -> {out} ({len(picks)} frames, stride={stride})")
 
 
-def play_on_hardware(frames: list[Image.Image], fps: int = TARGET_FPS, duration: float | None = None) -> None:
+def play_on_hardware(
+    frames: list[Image.Image], fps: int = TARGET_FPS, duration: float | None = None
+) -> None:
     delay = 1 / fps
     deadline = None if duration is None else time.time() + duration
     with get_akai_fire() as fire:
@@ -137,7 +140,12 @@ def main() -> None:
 
     if preview_only:
         outdir = Path("/tmp/clawd-oled-frames")
-        make_contact_sheet(frames, Path("/tmp/clawd-oled-sheet.png"), cols=10, stride=max(1, len(frames) // 40))
+        make_contact_sheet(
+            frames,
+            Path("/tmp/clawd-oled-sheet.png"),
+            cols=10,
+            stride=max(1, len(frames) // 40),
+        )
         dump_previews(frames[:8], outdir, stride=1)
     else:
         play_on_hardware(frames, duration=duration)

@@ -37,7 +37,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from akai_fire import get_akai_fire
 
-
 LOG_LINES_ON_OLED = 4
 LOG_BUFFER_SIZE = 32
 OLED_REFRESH_MIN_INTERVAL = 0.016  # ~60 fps cap
@@ -46,14 +45,20 @@ OLED_REFRESH_MIN_INTERVAL = 0.016  # ~60 fps cap
 # Falls back to PIL's default bitmap font on systems without Menlo.
 FONT_PATH = "/System/Library/Fonts/Menlo.ttc"
 FONT_SIZE = 11
-LINE_HEIGHT = 16   # 128x64 / 4 rows = 16 px per row
+LINE_HEIGHT = 16  # 128x64 / 4 rows = 16 px per row
 LINE_Y = (0, 16, 32, 48)
 
 # Small palette used to give each pad press a different color so repeated
 # presses visibly cycle.
 PAD_PALETTE = [
-    (127, 0, 0), (127, 64, 0), (127, 127, 0), (0, 127, 0),
-    (0, 127, 127), (0, 0, 127), (64, 0, 127), (127, 0, 127),
+    (127, 0, 0),
+    (127, 64, 0),
+    (127, 127, 0),
+    (0, 127, 0),
+    (0, 127, 127),
+    (0, 0, 127),
+    (64, 0, 127),
+    (127, 0, 127),
 ]
 
 
@@ -90,8 +95,11 @@ def rotary_name(fire, controller_id: int) -> str:
 def button_name(fire, button_id: int) -> str:
     # Reverse-lookup the constant name for readable logging.
     for name in dir(fire):
-        if name.startswith("BUTTON_") and getattr(fire.__class__, name, None) == button_id:
-            return name[len("BUTTON_"):]
+        if (
+            name.startswith("BUTTON_")
+            and getattr(fire.__class__, name, None) == button_id
+        ):
+            return name[len("BUTTON_") :]
     return f"0x{button_id:02X}"
 
 
@@ -303,7 +311,9 @@ class EventMonitor:
             f"rotary_touches={self.stats.rotary_touches}  "
             f"solos={self.stats.solos}"
         )
-        print(f"unique pads pressed: {sum(1 for c in self.pad_press_count if c > 0)}/64")
+        print(
+            f"unique pads pressed: {sum(1 for c in self.pad_press_count if c > 0)}/64"
+        )
         print()
         print("last events (newest first):")
         for entry in self.stats.log:

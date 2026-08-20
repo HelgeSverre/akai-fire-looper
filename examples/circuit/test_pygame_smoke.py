@@ -5,6 +5,7 @@ Opens a mock AKAI Fire window for 3 seconds.
 
 Run: uv run python examples/circuit/test_pygame_smoke.py
 """
+
 import sys
 import os
 import time

@@ -223,12 +223,10 @@ class TestCanvasPrimitives(unittest.TestCase):
         self.assertTrue(self._on(127, 0))
 
     def test_draw_horizontal_line_ignores_out_of_bounds_row(self):
-        self.canvas.draw_horizontal_line(0, -1, 10)   # y off top
-        self.canvas.draw_horizontal_line(0, 64, 10)   # y off bottom
+        self.canvas.draw_horizontal_line(0, -1, 10)  # y off top
+        self.canvas.draw_horizontal_line(0, 64, 10)  # y off bottom
         # Canvas should still be blank
-        self.assertFalse(any(
-            self._on(x, y) for x in range(128) for y in range(64)
-        ))
+        self.assertFalse(any(self._on(x, y) for x in range(128) for y in range(64)))
 
     def test_draw_vertical_line_sets_correct_pixels(self):
         self.canvas.draw_vertical_line(5, 10, 20)
@@ -271,9 +269,7 @@ class TestCanvasHighLevel(unittest.TestCase):
         return self.canvas.image.getpixel((x, y)) == 0
 
     def _count_lit(self, x0, y0, x1, y1):
-        return sum(
-            1 for x in range(x0, x1) for y in range(y0, y1) if self._on(x, y)
-        )
+        return sum(1 for x in range(x0, x1) for y in range(y0, y1) if self._on(x, y))
 
     # --- draw_value_page ----------------------------------------------
     def test_draw_value_page_header_is_inverted(self):
@@ -290,10 +286,7 @@ class TestCanvasHighLevel(unittest.TestCase):
 
         def bar_filled(canvas):
             # The bar lives at y=40..48; count filled pixels in that row
-            return sum(
-                1 for x in range(128)
-                if canvas.image.getpixel((x, 43)) == 0
-            )
+            return sum(1 for x in range(128) if canvas.image.getpixel((x, 43)) == 0)
 
         self.assertGreater(bar_filled(high), bar_filled(low))
 
@@ -309,7 +302,7 @@ class TestCanvasHighLevel(unittest.TestCase):
         # Selected row (index 1) is drawn highlighted (inverted fill_rect)
         # at y_offset = CONTENT_START, line_height=12. Heuristic: the
         # selected row has significantly more lit pixels than neighbours.
-        row_y = Canvas.CONTENT_START + 0 * 12     # first visible row
+        row_y = Canvas.CONTENT_START + 0 * 12  # first visible row
         selected_y = Canvas.CONTENT_START + 1 * 12  # second visible row (selected)
         self.assertGreater(
             self._count_lit(0, selected_y, 128, selected_y + 12),

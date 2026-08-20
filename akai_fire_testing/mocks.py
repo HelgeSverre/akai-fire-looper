@@ -17,7 +17,6 @@ import os
 
 from akai_fire.errors import InvalidParameterError
 
-
 # =============================================================================
 # Data Classes for Event Recording
 # =============================================================================
@@ -430,11 +429,11 @@ class MockCanvas:
         for col in range(cols + 1):
             self.draw_vertical_line(2 + (col * cell_width), 16, rows * cell_height)
         for row, col, text in cell_info:
-            self.draw_text(text, 2 + (col * cell_width) + 2, 16 + (row * cell_height) + 2)
+            self.draw_text(
+                text, 2 + (col * cell_width) + 2, 16 + (row * cell_height) + 2
+            )
 
-    def draw_split_screen(
-        self, title: str, left_content: list, right_content: list
-    ):
+    def draw_split_screen(self, title: str, left_content: list, right_content: list):
         """Draw a split-screen layout (mirrors real Canvas signature)."""
         self.fill_rect(0, 0, self.width, 12, color=0)
         self.draw_text(title, 2, 2, color=1)
@@ -976,9 +975,7 @@ class MockAkaiFire(AkaiFireDevice):
         """Simulate a button release."""
         self._dispatch_button(button_id, "release")
 
-    def simulate_rotary_turn(
-        self, rotary_id: int, direction: str, velocity: int = 1
-    ):
+    def simulate_rotary_turn(self, rotary_id: int, direction: str, velocity: int = 1):
         """Simulate a rotary turn. ``left``/``right`` alias to CCW/CW."""
         if direction == "left":
             direction = "counterclockwise"

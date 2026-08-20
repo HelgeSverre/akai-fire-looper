@@ -16,7 +16,6 @@ from PIL import Image, ImageDraw, ImageFont
 from akai_fire import Canvas, get_akai_fire
 from examples.animate_clawd import DEFAULT_GIF, load_frames  # reuse pipeline
 
-
 TEXT = "You're absolutely right!  "  # trailing spaces = gap before it loops
 FONT_PATH = "/System/Library/Fonts/Menlo.ttc"
 FONT_SIZE = 14
@@ -49,8 +48,15 @@ def char_widths(font, text: str) -> list[int]:
     return widths
 
 
-def render_text_band(font, text: str, widths: list[int], scroll_px: int, frame: int,
-                     band_w: int, band_h: int) -> Image.Image:
+def render_text_band(
+    font,
+    text: str,
+    widths: list[int],
+    scroll_px: int,
+    frame: int,
+    band_w: int,
+    band_h: int,
+) -> Image.Image:
     """Draw the scrolling, dancing text onto a band of (band_w x band_h)."""
     total_w = sum(widths)
     band = Image.new("1", (band_w, band_h), 1)  # 1 = off
@@ -63,7 +69,9 @@ def render_text_band(font, text: str, widths: list[int], scroll_px: int, frame: 
             if x_cursor > band_w:
                 break
             if x_cursor + widths[i] >= 0:
-                y_off = int(round(WAVE_AMP * math.sin(frame * WAVE_SPEED + i * WAVE_FREQ)))
+                y_off = int(
+                    round(WAVE_AMP * math.sin(frame * WAVE_SPEED + i * WAVE_FREQ))
+                )
                 draw.text((x_cursor, y_off + 2), ch, font=font, fill=0)  # 0 = on
             x_cursor += widths[i]
         # second pass starts right after the first
@@ -107,7 +115,9 @@ def play(duration: float | None = None) -> None:
                 canvas.clear(1)
                 # Text band at top
                 band = render_text_band(
-                    font, TEXT, widths,
+                    font,
+                    TEXT,
+                    widths,
                     scroll_px=frame * SCROLL_PX_PER_FRAME,
                     frame=frame,
                     band_w=OLED_W,
@@ -144,7 +154,9 @@ def preview(duration_frames: int = 60) -> None:
     for row, frame in enumerate(picks):
         canvas = Image.new("1", (OLED_W, OLED_H), 1)
         band = render_text_band(
-            font, TEXT, widths,
+            font,
+            TEXT,
+            widths,
             scroll_px=frame * SCROLL_PX_PER_FRAME,
             frame=frame,
             band_w=OLED_W,

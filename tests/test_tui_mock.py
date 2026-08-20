@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     import rich  # noqa: F401
+
     HAS_RICH = True
 except ImportError:
     HAS_RICH = False
@@ -417,9 +418,7 @@ class TestTuiMockInput(unittest.TestCase):
         self.fire.set_focus("rotary", 0)  # VOLUME
         self.fire.inject_key("+")
         self.fire.inject_key("-")
-        self.assertEqual(
-            turns, [("clockwise", 1), ("counterclockwise", 1)]
-        )
+        self.assertEqual(turns, [("clockwise", 1), ("counterclockwise", 1)])
 
     def test_rotary_turn_no_focus_does_nothing(self):
         turns = []

@@ -24,12 +24,12 @@ from akai_fire_testing import MockAkaiFire as TestingMock
 
 try:
     from mock_gui_tui import MockAkaiFire as TuiMock
+
     HAS_TUI = True
 except ImportError:
     HAS_TUI = False
 
 from mock_gui_pygame import MockAkaiFire as PygameMock
-
 
 # Four live implementations share this contract.
 IMPLS = [AkaiFire, PygameMock, TestingMock]
@@ -39,8 +39,8 @@ if HAS_TUI:
 # The specific values that had drifted historically — every one of these
 # must match the authoritative module value.
 REGRESSION_CONSTANTS = [
-    "CONTROL_BANK_USER2",       # was 0x18 in pygame + TUI; should be 0x03
-    "CONTROL_BANK_ALL_OFF",     # was 0x00 in pygame + TUI; should be 0x10
+    "CONTROL_BANK_USER2",  # was 0x18 in pygame + TUI; should be 0x03
+    "CONTROL_BANK_ALL_OFF",  # was 0x00 in pygame + TUI; should be 0x10
     "CONTROL_BANK_ALL_ON",
     "BUTTON_PLAY",
     "BUTTON_SHIFT",
