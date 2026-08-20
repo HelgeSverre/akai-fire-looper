@@ -1,7 +1,9 @@
-python-rtmidi==1.5.8
-pillow~=11.1.0
-black==25.1.0
-transitions~=0.9.2
-tkdial~=0.0.7
-pygame~=2.6.0
+# Curated mirror of pyproject.toml (runtime deps + all extras).
+# Canonical install is `uv sync --all-extras`; this file exists for
+# pip-only environments.
+python-rtmidi>=1.5.8
+pillow>=11.1.0
+pygame>=2.6.0
 rich>=13
+transitions>=0.9.2
+black>=25.1.0

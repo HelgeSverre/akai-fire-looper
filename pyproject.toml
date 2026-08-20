@@ -1,6 +1,33 @@
 [project]
 name = "akai-fire-looper"
 version = "0.1.0"
-description = "Add your description here"
+description = "Python library for the AKAI Fire MIDI controller: pad LEDs, button/track LEDs, OLED canvas, and an event-driven API for building sequencers and grooveboxes."
+readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "python-rtmidi>=1.5.8",
+    "pillow>=11.1.0",
+]
+
+[project.optional-dependencies]
+pygame = ["pygame>=2.6.0"]
+tui = ["rich>=13"]
+examples = ["transitions>=0.9.2"]
+dev = ["black>=25.1.0"]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Explicit package list: the repo root also holds dev conveniences
+# (mock GUIs, screen_manager, examples) that are not part of the
+# installable surface.
+packages = [
+    "akai_fire",
+    "akai_fire_framework",
+    "akai_fire_testing",
+]
+
+[tool.black]
+line-length = 88

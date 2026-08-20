@@ -1,4 +1,16 @@
-venv
-.venv
-.idea
-__pycache__
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.coverage
+.pytest_cache/
+
+# Environments / editors
+.idea/
+.claude/settings.local.json
+
+# Generated output
+_screens/
