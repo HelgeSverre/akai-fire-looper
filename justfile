@@ -1,84 +1,83 @@
-# AKAI Fire Library - Development Commands
-# Requires: just (https://github.com/casey/just) and uv (https://github.com/astral-sh/uv)
+# akai-fire-looper — Python library for the AKAI Fire MIDI controller
+#
+# Dev Python is pinned to 3.12 via .python-version: pygame 2.6.1's font
+# module is broken on 3.14 and would take the pygame-mock tests with it.
 
-# Default recipe to display available commands
+uv := "uv"
+
+# Show available recipes
 default:
     @just --list
 
-# Setup development environment
+# === Setup ===
+
+# Create .venv and sync every dependency from pyproject.toml/uv.lock
+[group('setup')]
 setup:
-    @echo "Setting up development environment..."
-    uv venv
-    @echo "Virtual environment created."
-    @echo "Installing dependencies..."
-    uv pip install -r requirements.txt
-    @echo "✓ Development environment ready!"
+    {{ uv }} sync --all-extras
 
-# Install dependencies
-install:
-    uv pip install -r requirements.txt
+# Smoke-test packaging: install the repo as an editable package
+[group('setup')]
+install-editable:
+    {{ uv }} pip install -e .
 
-# Install package in development mode
-install-dev:
-    uv pip install -e .
+# === QA ===
 
-# Format code with black
-format:
-    uv run black .
-
-# Check code formatting without making changes
-format-check:
-    uv run black --check .
-
-# Run all tests
+# Run the full test suite
+[group('qa')]
 test:
-    uv run python -m unittest discover tests -v
+    {{ uv }} run python -m unittest discover tests
 
-# Run specific test file
-test-file file:
-    uv run python -m unittest {{file}} -v
+# Run specific tests (e.g. just test-file tests.test_canvas)
+[group('qa')]
+test-file *ARGS:
+    {{ uv }} run python -m unittest {{ ARGS }}
 
-# Run tests with hardware (comprehensive report)
-test-hardware:
-    uv run python run_hardware_tests.py
+# Check formatting without changing files
+[group('qa')]
+lint:
+    {{ uv }} run black --check .
 
-# Run a specific example
+# Pre-commit gate: formatting + tests
+[group('qa')]
+check: lint test
+
+# === Format ===
+
+# Format all Python files
+[group('format')]
+format:
+    {{ uv }} run black .
+
+# === Run ===
+
+# Run an example by name (just example display_hello_world)
+[group('run')]
 example name:
-    uv run python examples/{{name}}.py
+    {{ uv }} run python "examples/{{ name }}.py"
 
-# List all available examples
+# List available examples
+[group('run')]
 examples:
-    @echo "Available examples:"
-    @find examples -name "*.py" -not -path "*/dupes/*" | sed 's|examples/||' | sed 's|\.py$||' | sort
+    @find examples -maxdepth 1 -name "*.py" | sed 's|examples/||;s|\.py$||' | sort
 
-# Clean up generated files
+# Interactive pygame mock of the controller (clickable window)
+[group('run')]
+mock:
+    {{ uv }} run python mock_gui_pygame.py
+
+# Terminal-UI mock of the controller (rich)
+[group('run')]
+tui:
+    {{ uv }} run python examples/run_tui_mock.py
+
+# === Clean ===
+
+# Remove caches and generated output
+[group('clean')]
 clean:
     find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-    find . -type f -name "*.pyc" -delete
-    find . -type f -name "*.pyo" -delete
+    find . -type f -name "*.py[cod]" -delete
     find . -type f -name ".coverage" -delete
     find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-
-
-# Check code quality and run tests
-check: format-check test
-
-# Full development cycle: format, test, clean
-dev: format test clean
-
-# Update requirements.txt with current installed packages
-freeze:
-    uv pip freeze > requirements.txt
-
-# Show project status
-status:
-    @echo "🔥 AKAI Fire Library Status"
-    @echo "=========================="
-    @echo "Python version: $(python --version)"
-    @echo "Virtual environment: $({{ if os() == "windows" { ".venv/Scripts/python" } else { ".venv/bin/python" } }} --version 2>/dev/null || echo 'Not activated')"
-    @echo "Installed packages:"
-    @uv pip list --quiet || echo "Run 'just setup' to install dependencies"
-
-# Run the mock GUI (if available)
-mock:
-    uv run python examples/screen_simple.py
+    rm -rf _screens dist build
