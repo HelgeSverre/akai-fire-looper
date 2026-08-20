@@ -908,6 +908,103 @@ class TestReconnect(unittest.TestCase):
             fire.close()
 
 
+class TestAsyncDispatchInvariants(unittest.TestCase):
+    """Documented dispatch guarantees, proven for async_handlers=True.
+
+    CLAUDE.md promises: modifier state is latched before any handler
+    runs (even under async dispatch), and max_workers=1 preserves FIFO
+    ordering. These invariants were previously only tested on the
+    serial path.
+    """
+
+    def setUp(self):
+        # @patch on setUp only covers setUp itself; AkaiFire is
+        # constructed inside the test methods, so the patches must live
+        # for the whole method via start()/stop().
+        self._in_patcher = patch("rtmidi.MidiIn")
+        self._out_patcher = patch("rtmidi.MidiOut")
+        mock_midi_in = self._in_patcher.start()
+        mock_midi_out = self._out_patcher.start()
+        self.mock_midi_in = MockMidiPort()
+        self.mock_midi_out = MockMidiPort()
+        mock_midi_in.return_value = self.mock_midi_in
+        mock_midi_out.return_value = self.mock_midi_out
+
+    def tearDown(self):
+        self._in_patcher.stop()
+        self._out_patcher.stop()
+
+    def _wait_until(self, predicate, timeout=2.0, interval=0.005):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if predicate():
+                return True
+            time.sleep(interval)
+        return False
+
+    def test_modifier_latched_before_async_pad_handler_runs(self):
+        """Pad handlers see coherent SHIFT state even with async dispatch."""
+        fire = AkaiFire(async_handlers=True, max_workers=4)
+        try:
+            observed = []
+            done = threading.Event()
+
+            @fire.on_pad(3)
+            def handler(velocity):
+                observed.append(fire.is_shift_pressed())
+                done.set()
+
+            # Latching happens inline in _dispatch_button before the
+            # handler is submitted to the pool, so this is deterministic
+            # even though the handler itself runs on a worker thread.
+            fire._process_message([[0x90, fire.BUTTON_SHIFT, 127], 0.0])
+            fire._process_message([[0x90, 54 + 3, 100], 0.0])
+
+            self.assertTrue(done.wait(2.0), "pad handler never ran")
+            self.assertEqual(observed, [True])
+        finally:
+            fire.close()
+
+    def test_max_workers_one_preserves_fifo_ordering(self):
+        """With max_workers=1, events reach handlers in arrival order."""
+        fire = AkaiFire(async_handlers=True, max_workers=1)
+        try:
+            received = []
+
+            @fire.on_pad()
+            def handler(pad_index, velocity):
+                received.append(pad_index)
+
+            total = 25
+            for i in range(total):
+                fire._process_message([[0x90, 54 + i, 100], 0.0])
+
+            self.assertTrue(
+                self._wait_until(lambda: len(received) >= total),
+                f"only {len(received)}/{total} events delivered",
+            )
+            self.assertEqual(received, list(range(total)))
+        finally:
+            fire.close()
+
+    def test_reconnect_rebuilds_dispatcher_even_when_not_listening(self):
+        """A later start_listening() must not silently dispatch inline.
+
+        Regression: reconnect() only rebuilt the dispatcher when the
+        listener had been running pre-close, leaving async_handlers=True
+        devices with inline-only dispatch after reconnect-then-listen.
+        """
+        fire = AkaiFire(async_handlers=True)
+        try:
+            self.assertFalse(fire.listening)  # never started listening
+            self.assertTrue(fire.reconnect())
+            self.assertIsNotNone(fire._dispatcher)
+            fire.start_listening()
+            self.assertIsNotNone(fire._dispatcher)
+        finally:
+            fire.close()
+
+
 class TestMidiSendRetry(unittest.TestCase):
     """Retry delay defaults must not block the caller for hundreds of ms."""
 
