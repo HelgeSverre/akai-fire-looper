@@ -9,7 +9,7 @@ This document provides a deep-dive into the AKAI Fire library architecture.
 │                      Application Layer                       │
 │  (Examples: Circuit Sequencer, Groovebox, Custom Apps)       │
 ├─────────────────────────────────────────────────────────────┤
-│                    Framework Layer (Planned)                 │
+│                    Framework Layer                           │
 │  AkaiFireApp, ModeManager, ScreenMixin, GridMixin           │
 ├─────────────────────────────────────────────────────────────┤
 │                       Core Library                           │
@@ -24,7 +24,7 @@ This document provides a deep-dive into the AKAI Fire library architecture.
 
 ## Core Components
 
-### AkaiFire (`akai_fire.py`)
+### AkaiFire (`akai_fire/hardware.py`)
 
 The main interface to the AKAI Fire MIDI controller.
 
@@ -59,7 +59,7 @@ render_to_display()
 @fire.on_rotary_turn(rotary_id=None)
 ```
 
-### Canvas (`akai_fire.py`)
+### Canvas (`akai_fire/canvas.py`)
 
 128x64 monochrome OLED display abstraction.
 
@@ -271,10 +271,20 @@ ROTARY_SELECT = 0x76
 
 ```
 akai-fire-looper/
-├── akai_fire.py           # Core library (AkaiFire, Canvas)
-├── mock_gui_pygame.py     # Pygame mock implementation
+├── akai_fire/             # Core library package
+│   ├── constants.py       # Authoritative MIDI constants
+│   ├── errors.py          # Exception hierarchy
+│   ├── canvas.py          # OLED canvas abstraction (128x64)
+│   ├── device.py          # AkaiFireDevice base (dispatch, listeners)
+│   ├── hardware.py        # AkaiFire (rtmidi I/O, SysEx, polling)
+│   └── __init__.py        # Lazy public re-exports
+├── akai_fire_framework/   # App framework (app, grid, mode, screen, transport)
+├── akai_fire_testing/     # Headless testing mocks + assertions
+│
+├── mock_gui_pygame.py     # Interactive pygame mock (dev convenience)
+├── mock_gui_tui.py        # Terminal-UI mock (rich)
 ├── screen_manager.py      # High-level screen management
-├── utils.py               # Utility functions
+├── animation_utils.py     # Animation helpers for examples
 │
 ├── examples/
 │   ├── circuit/           # Circuit Tracks sequencer
@@ -284,10 +294,12 @@ akai-fire-looper/
 │   ├── groovebox/         # Groovebox example
 │   └── *.py               # Basic examples
 │
-├── tests/                 # Test suite
-│   ├── test_akai_fire.py
+├── tests/                 # Test suite (unittest)
+│   ├── test_akai_fire.py      # Hardware impl + dispatch/threading
+│   ├── test_sysex_encoder.py  # OLED encoder golden vectors
+│   ├── test_device_contract.py# Cross-implementation parity
 │   ├── test_canvas.py
-│   └── test_screen_manager.py
+│   └── ...
 │
 └── docs/                  # Documentation
     ├── ARCHITECTURE.md    # This file

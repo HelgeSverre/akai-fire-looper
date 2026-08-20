@@ -8,24 +8,21 @@ This is a Python library for interfacing with the AKAI Fire MIDI controller, des
 
 ## Development Commands
 
-This project uses `uv` for Python environment and dependency management, and `just` for common development tasks.
+This project uses `uv` for Python environment and dependency management, and `just` for common development tasks. Run `just` to see all recipes.
 
 ### Setup Environment
 ```bash
-# Quick setup with just
-just setup
-
-# Manual setup with uv
-uv venv  # Creates .venv directory
-source .venv/bin/activate  # macOS/Linux
-uv pip install -r requirements.txt  # Install from requirements.txt
+just setup          # or: uv sync --all-extras
 ```
+
+Dev Python is pinned to 3.12 via `.python-version` — pygame 2.6.1's
+font module is broken on Python 3.14 and would take the pygame-mock
+tests down with it.
 
 ### Running Tests
 ```bash
-just test  # Run all tests
-just test-hardware  # Run tests with comprehensive hardware report
-just test-file tests.test_canvas  # Run specific test file
+just test                        # Run all tests
+just test-file tests.test_canvas # Run specific test module
 
 # Manual with uv
 uv run python -m unittest discover tests -v
@@ -33,8 +30,8 @@ uv run python -m unittest discover tests -v
 
 ### Code Formatting
 ```bash
-just format  # Format all Python files
-just format-check  # Check formatting without changes
+just format        # Format all Python files
+just check         # format-check + test (pre-commit gate)
 
 # Manual with uv
 uv run black .
@@ -51,18 +48,18 @@ uv run python examples/display_hello_world.py
 
 ### Managing Dependencies
 ```bash
-just install  # Install dependencies
-just freeze  # Update requirements.txt with current packages
+just setup  # Sync the venv from pyproject.toml / uv.lock
 
 # Manual with uv
-uv pip install -r requirements.txt
-uv pip freeze > requirements.txt
+uv sync --all-extras
 ```
+
+`requirements.txt` is a curated mirror of `pyproject.toml` for
+pip-only environments — update both together, never `uv pip freeze`.
 
 ### All Available Commands
 ```bash
 just  # Show all available commands
-just status  # Show project status
 just clean  # Clean up generated files
 ```
 
@@ -70,24 +67,46 @@ just clean  # Clean up generated files
 
 ### Core Components
 
-1. **AkaiFire Class** (`akai_fire.py`): Main interface to the MIDI controller
-   - Manages MIDI I/O through `rtmidi`
-   - Handles pad colors, button LEDs, and screen updates
-   - Event system for pad/button/encoder interactions
-   - Supports both global and specific event listeners
+The core library lives in the `akai_fire/` package:
 
-2. **Canvas Class** (`akai_fire.py`): Screen abstraction layer
-   - 128x64 monochrome display
+1. **Constants** (`akai_fire/constants.py`): Authoritative MIDI constants
+   - Every implementation inherits them via the `@install` class decorator
+   - Never redefine button/rotary/LED IDs locally
+
+2. **Errors** (`akai_fire/errors.py`): Exception hierarchy
+   - `AkaiFireError` base; `MIDIConnectionError`, `MIDISendError`,
+     `InvalidParameterError`, `HardwareError`, `StateError`
+
+3. **Canvas** (`akai_fire/canvas.py`): Screen abstraction layer
+   - 128x64 monochrome display (pixel 0 = lit on hardware)
    - Drawing primitives (pixels, lines, rectangles, circles, text)
    - BMP export for development without hardware
 
-3. **MockAkaiFire Class** (`mock_gui_pygame.py`): Pygame-based hardware simulator
-   - Full visual simulation of the AKAI Fire
-   - Same API as AkaiFire for seamless development
-   - Auto-fallback via `get_akai_fire()` when hardware unavailable
+4. **AkaiFireDevice** (`akai_fire/device.py`): Shared abstract base
+   - Listener registries, decorators (`on_pad`, `on_button`, ...),
+     removal methods, and `_dispatch_*` helpers — authored once
+   - Modifier-key latching and pad-geometry utilities
 
-4. **ScreenManager** (`screen_manager.py`): High-level screen management
-   - Pre-built screen types: TextScreen, MenuScreen, ProgressScreen, GridScreen, ValueScreen
+5. **AkaiFire** (`akai_fire/hardware.py`): Hardware implementation
+   - Manages MIDI I/O through `rtmidi`
+   - Handles pad colors, button LEDs, and OLED SysEx updates
+   - Async handler dispatch thread pool + MIDI polling thread
+
+`akai_fire/__init__.py` re-exports the public surface lazily —
+importing `akai_fire` pulls neither rtmidi nor Pillow until an
+`AkaiFire`/`Canvas` is actually used.
+
+### Mocks and Support Packages
+
+- **akai_fire_testing**: headless mock + assertions for CI
+  (`MockAkaiFire`, `MockCanvas`, event simulation, screenshots)
+- **akai_fire_framework**: app framework (`AkaiFireApp`, modes,
+  grid, screens, transport)
+- **mock_gui_pygame.py**: interactive pygame mock (dev convenience,
+  auto-fallback of `get_akai_fire()`)
+- **mock_gui_tui.py**: terminal-UI mock via rich
+- **screen_manager.py**: TextScreen, MenuScreen, ProgressScreen,
+  GridScreen, ValueScreen
    - Screen transitions and lifecycle management
 
 5. **Event System**: Callback-based architecture
@@ -142,7 +161,11 @@ if you want async offload but preserve FIFO ordering.
 ## Testing Approach
 
 Tests use Python's built-in `unittest` framework with mocked MIDI ports. The test suite includes:
-- Hardware communication tests with mocked MIDI (`test_akai_fire.py`)
+- Hardware communication, dispatch threading, and reconnect behavior (`test_akai_fire.py`)
+- OLED SysEx encoder golden vectors (`test_sysex_encoder.py`)
+- Cross-implementation parity contract (`test_device_contract.py`) — every
+  AkaiFire implementation (hardware, pygame mock, TUI mock, testing mock)
+  must expose the same surface, return types, and error contracts
 - Canvas drawing operations (`test_canvas.py`)
 - Screen manager and screen types (`test_screen_manager.py`)
 
@@ -171,9 +194,12 @@ The `examples/groovebox/` directory contains a complete sequencer application de
 
 ## Dependencies
 
-Core dependencies (see `requirements.txt`):
-- `python-rtmidi==1.5.8` - MIDI communication
-- `pillow~=11.1.0` - Image manipulation for Canvas
-- `pygame==2.6.1` - Mock GUI rendering
-- `black==25.1.0` - Code formatting
-- `transitions~=0.9.2` - State machines (used in examples)
+Core dependencies (see `pyproject.toml`):
+- `python-rtmidi>=1.5.8` - MIDI communication
+- `pillow>=11.1.0` - Image manipulation for Canvas
+
+Optional extras:
+- `pygame>=2.6.0` - interactive mock GUI (`[pygame]`)
+- `rich>=13` - terminal-UI mock (`[tui]`)
+- `transitions>=0.9.2` - state machines, used by examples (`[examples]`)
+- `black>=25.1.0` - code formatting (`[dev]`)
