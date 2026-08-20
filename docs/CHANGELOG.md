@@ -7,6 +7,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Package split** — the monolithic `akai_fire.py` is now the
+  `akai_fire/` package (`constants`, `errors`, `canvas`, `device`,
+  `hardware`) with a lazy `__init__` so importing the library pulls
+  neither rtmidi nor Pillow until used
+- **Listener removal API** — `remove_listener`, `remove_global_listener`,
+  `remove_button_listener`, `remove_rotary_listener`,
+  `remove_rotary_touch_listener` on every implementation
+- **OLED SysEx encoder golden-vector tests** (`test_sysex_encoder.py`)
+- **Cross-implementation contract tests** pinning return types, error
+  contracts, canvas signatures, and the `(row, col)` pad convention
+
+### Changed
+- `pad_position()` now returns `(row, col)`, matching GridMixin and
+  the example apps (was `(col, row)` on the device base)
+- LED setters return `bool` on all implementations; invalid pad/button
+  arguments raise `InvalidParameterError` everywhere (previously some
+  mocks returned `False` or ignored silently)
+- MockCanvas pixel convention aligned with real Canvas (0 = lit);
+  screenshots now match device output; high-level draw methods share
+  real Canvas signatures and geometry
+- Project is pip-installable (`[build-system]` + explicit packages);
+  dev Python pinned to 3.12 via `.python-version`
+
+### Fixed
+- Track-LED clamp degraded `RECTANGLE_LED_HIGH_GREEN` (4) to 2 on
+  hardware and mocks; range is now 0-4 everywhere
+- `clear_all()` sent the track-LED clear twice
+- `reconnect()` rebuilt the async dispatcher only when listening,
+  silently degrading later `start_listening()` to inline dispatch
+- `Canvas.draw_value_page` crashed on `min_val == max_val` and drew
+  out-of-range bars
+- pygame mock no longer permanently swallows Ctrl-C or tears down
+  process-global pygame state on close
+
+### Added
 
 #### Circuit Sequencer Example
 - **E2E Visual Demo** (`demo_e2e.py`) - Automated visual testing with DemoRunner class

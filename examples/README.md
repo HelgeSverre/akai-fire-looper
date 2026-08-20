@@ -45,13 +45,6 @@ This directory contains example applications demonstrating various features of t
 - `batch_performance.py` - Performance comparison demo
 - `comprehensive_test.py` - Hardware test for all components
 
-## Archived Examples
-
-The `dupes/` directory contains older or duplicate examples that have been superseded by the examples above:
-- Basic examples that were replaced with better implementations
-- Earlier versions of sequencers and loopers
-- Duplicate functionality examples
-
 ## Running Examples
 
 Most examples can be run directly:
