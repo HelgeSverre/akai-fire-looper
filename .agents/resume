@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Python, .venv, and the package caches survive snapshot activation and resume.
+# This library has no services or authentication to restore. Keep dependency
+# installation in setup, not on the latency-sensitive wake path.

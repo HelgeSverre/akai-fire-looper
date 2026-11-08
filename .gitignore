@@ -14,3 +14,6 @@ build/
 
 # Generated output
 _screens/
+
+# Orb-local portal metadata
+.amp/portals/*

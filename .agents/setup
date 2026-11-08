@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+SECONDS=0
+
+echo '==> Checking MIDI runtime libraries'
+missing=()
+for package in libasound2 libjack-jackd2-0; do
+    if [[ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)" != 'install ok installed' ]]; then
+        missing+=("$package")
+    fi
+done
+if ((${#missing[@]})); then
+    time sudo apt-get update
+    time sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
+fi
+
+# uv is included in the Amp orb base image. Keep just on the login-shell PATH
+# too, without changing shell profiles or activating a virtual environment.
+echo '==> Checking just'
+if ! command -v just >/dev/null 2>&1; then
+    time curl --fail --silent --show-error --location https://just.systems/install.sh |
+        sudo bash -s -- --tag 1.40.0 --to /usr/local/bin
+fi
+just --version
+uv --version
+
+echo '==> Installing the Python version from .python-version'
+time uv python install
+
+echo '==> Syncing locked dependencies, including all optional extras'
+time uv sync --locked --all-extras
+
+echo "==> Orb setup finished in ${SECONDS}s; use just check to validate"
