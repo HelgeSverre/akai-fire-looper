@@ -1,12 +1,12 @@
 # AKAI Fire for Python
 
-A **Python library and application framework** for controlling the AKAI Fire and building your own controller applications.
+A **Python library and application framework** for controlling the AKAI Fire and building custom applications.
 
-Read pads, buttons and encoders; control RGB LEDs; draw on the 128×64 OLED; and give the hardware whatever behavior your application needs. Build custom control surfaces, interactive displays, MIDI tools, sequencers or other integrations. The library communicates directly over USB MIDI—FL Studio is not required.
+Handle pad, button and encoder input, control RGB LEDs, and draw on the 128×64 OLED over USB MIDI.
 
 [![An example application built with the framework, running in the interactive Fire mock](docs/images/mock-demo.gif)](docs/images/mock-demo.png)
 
-*One example of the framework in use: the JT-4000 editor running in the pygame mock, with pad faders, OLED graphs and note activity. [Still PNG](docs/images/mock-demo.png) · [Mock controls and hardware comparison](docs/MOCK_GUI.md)*
+*JT-4000 editor in the pygame mock, showing pad faders, OLED graphs and note activity. [Still PNG](docs/images/mock-demo.png) · [Mock controls and hardware comparison](docs/MOCK_GUI.md)*
 
 ## Library, framework and testing tools
 
@@ -18,11 +18,11 @@ Use the device library inside an existing program, or build an application with 
 | `akai_fire_framework` | Build apps with `AkaiFireApp`: lifecycle hooks, a display loop, input routing, cleanup, and optional mode/screen/grid/transport helpers |
 | `akai_fire_testing` | Test your code without hardware using headless controller/MIDI mocks, simulated input and output assertions |
 
-The repository also includes clickable pygame and terminal mocks, small API examples, and example applications. You can develop and test controller behavior before connecting a physical Fire.
+Use the pygame and terminal mocks for interactive development, and headless mocks for automated tests.
 
 ## Get started
 
-Use Python 3.12 and [uv](https://docs.astral.sh/uv/). The repository pins 3.12 because pygame's font support was problematic on 3.14 during development.
+Use Python 3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```sh
 git clone https://github.com/HelgeSverre/akai-fire-looper.git
@@ -65,7 +65,7 @@ if __name__ == "__main__":
         app.run()
 ```
 
-Your app defines the behavior. The framework runs the display loop, pumps mock events, removes its handlers on shutdown, and closes connections it owns. Use `on_update(dt)` for ongoing UI changes and `on_encoder_turn(...)` for knob input. The [framework guide](docs/FRAMEWORK.md) covers these hooks, optional mixins, threading and resource ownership.
+The framework runs the display loop, processes mock input, and cleans up its handlers and connections on shutdown. Use `on_update(dt)` to update the display and `on_encoder_turn(...)` for knob input. See the [framework guide](docs/FRAMEWORK.md) for hooks, mixins, threading and resource ownership.
 
 ## Use the library in another project
 
@@ -92,11 +92,11 @@ with AkaiFire() as fire:
 
 `AkaiFire()` requires hardware. Pads use indices 0–63 and RGB channels 0–127. OLED pixels use `0` for lit and `1` for unlit. The device context manager clears the display and closes MIDI; call `clear_all()` when you also want LEDs cleared.
 
-The installed distribution includes all three library packages. Interactive GUI/TUI mocks and examples are repository tools; run them from a checkout. In the checkout, `get_akai_fire()` can select hardware or an interactive mock. For hardware-free tests in any project, use `akai_fire_testing.MockAkaiFire`. You can also pass a controller explicitly to a framework app, for example `PadLights(AkaiFire())`; the caller owns that connection.
+Interactive mocks and examples run from a repository checkout, where `get_akai_fire()` selects hardware or a mock. Use `akai_fire_testing.MockAkaiFire` for headless tests in any project. Apps also accept an explicit controller, such as `PadLights(fire)`; the caller owns and closes that connection.
 
 ## Explore the examples
 
-The examples show ways to use the library and framework, from a single input callback to a multi-mode application. Start with the [example catalog](examples/README.md) for pad colors, OLED graphics, buttons, encoders, LEDs, batching and mocks.
+The [example catalog](examples/README.md) covers pad colors, OLED graphics, input events, LEDs, batching and mocks.
 
 | Example app | What it demonstrates | Run from the checkout |
 | --- | --- | --- |
@@ -106,11 +106,11 @@ The examples show ways to use the library and framework, from a single input cal
 
 Circuit needs an explicitly selected instrument output for sound. The editor connects automatically only when exactly one JT-4000 output is present; otherwise it runs in preview mode. These apps send MIDI and do not generate computer audio. Their README files cover controls, prerequisites and limitations.
 
-The clip looper and modal demo teach state management. Earlier standalone sequencer experiments live in `examples/legacy`. Instrument profiles, musical clocks, recording logic and persistence belong to the apps that need them.
+The clip looper and modal demo teach state management. Earlier sequencer experiments live in `examples/legacy`.
 
 ## Project status
 
-The library and framework are under active development. Hardware callbacks can run on worker threads; applications must coordinate shared state with the display thread. The framework provides a UI frame loop; musical scheduling belongs to the application. Pad-release events and app-level reconnect notifications are current gaps. See the [framework guide](docs/FRAMEWORK.md) and [roadmap](docs/ROADMAP.md).
+Hardware callbacks can run on worker threads; applications must coordinate shared state with the display thread. The framework provides a UI frame loop; applications handle musical scheduling. Pad-release events and app-level reconnect notifications are current gaps. See the [framework guide](docs/FRAMEWORK.md) and [roadmap](docs/ROADMAP.md).
 
 Automated tests exercise mocked MIDI ports and controller implementations. Physical Fire/JT-4000 behavior for the example apps still needs hardware validation.
 
@@ -140,4 +140,4 @@ With [just](https://github.com/casey/just), use `just test`, `just example oled_
 
 ## Credits
 
-Built by [Helge Sverre](https://github.com/HelgeSverre). This is an independent Python project for the AKAI Fire. AKAI, FL Studio and Behringer product names identify the hardware and software used by the examples.
+Built by [Helge Sverre](https://github.com/HelgeSverre).
