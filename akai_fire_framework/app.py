@@ -9,21 +9,12 @@ Provides the minimal foundation for any AKAI Fire app:
 - Context manager support
 """
 
+import math
 import time
-import sys
-import os
+from functools import partial
 
-# Add parent directory to path to import akai_fire
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-try:
-    from akai_fire import get_akai_fire
-except ImportError:
-    # Fallback for when running from different locations
-    from mock_gui_pygame import MockAkaiFire
-
-    def get_akai_fire():
-        return MockAkaiFire()
+from akai_fire import get_akai_fire
+from akai_fire_framework._subscriptions import _EventSubscriptions
 
 
 class AkaiFireApp:
@@ -52,6 +43,7 @@ class AkaiFireApp:
     """
 
     # Class-level configuration (override in subclass)
+    STARTUP_SECONDS: float = 0.0
     FPS: int = 30
     APP_NAME: str = "AKAI Fire App"
     VERSION: str = "1.0"
@@ -65,32 +57,51 @@ class AkaiFireApp:
                   which auto-detects hardware or falls back to mock.
         """
         self.fire = fire if fire is not None else get_akai_fire()
-        self.canvas = self.fire.get_canvas()
         self._owns_fire = fire is None  # Track if we need to close it
 
         self.running = False
         self._last_update_time = 0.0
+        self._shutdown = False
+        self._event_subscriptions = _EventSubscriptions()
 
-        # Set up event handlers
-        self._setup_event_handlers()
-
-        # Call user initialization
-        self.on_init()
+        # User state must exist before decorators start MIDI polling.
+        try:
+            self.canvas = self.fire.get_canvas()
+            self.on_init()
+            self._setup_event_handlers()
+        except Exception:
+            try:
+                self._event_subscriptions.close()
+            finally:
+                if self._owns_fire:
+                    self.fire.close()
+            raise
 
     def _setup_event_handlers(self):
-        """Wire up hardware events to instance methods."""
-
-        @self.fire.on_pad()
-        def pad_handler(pad, velocity):
-            self.on_pad_press(pad, velocity)
-
-        @self.fire.on_button()
-        def button_handler(button_id, event):
-            self.on_button_press(button_id, event)
-
-        @self.fire.on_rotary_turn()
-        def encoder_handler(encoder_id, direction, velocity):
-            self.on_encoder_turn(encoder_id, direction, velocity)
+        """Wire up hardware events to instance methods as one owned batch."""
+        self._event_subscriptions.bind_all(
+            [
+                (
+                    self.fire.on_pad(),
+                    self.fire.remove_global_listener,
+                    lambda pad, velocity: (
+                        self.on_pad_press(pad, velocity) if velocity > 0 else None
+                    ),
+                ),
+                (
+                    self.fire.on_button(),
+                    partial(self.fire.remove_button_listener, "global"),
+                    lambda button, event: self.on_button_press(button, event),
+                ),
+                (
+                    self.fire.on_rotary_turn(),
+                    partial(self.fire.remove_rotary_listener, "global"),
+                    lambda encoder, direction, velocity: self.on_encoder_turn(
+                        encoder, direction, velocity
+                    ),
+                ),
+            ]
+        )
 
     # =========================================================================
     # Lifecycle Hooks (override in subclass)
@@ -156,22 +167,33 @@ class AkaiFireApp:
     # Main Loop
     # =========================================================================
 
-    def run(self):
+    def run(self, *, duration: float | None = None):
         """
         Main application loop.
 
-        Runs until self.running is set to False or window is closed (mock mode).
+        Runs until quit(), window close, or the optional duration in seconds.
+        Duration is useful for bounded smoke runs; it excludes the startup banner.
         """
+        if self.FPS <= 0:
+            raise ValueError("FPS must be positive")
+        if duration is not None and (duration < 0 or not math.isfinite(duration)):
+            raise ValueError("duration must be finite and non-negative")
+        if self._shutdown:
+            raise RuntimeError("Application has shut down")
+        if self.running:
+            raise RuntimeError("Application is already running")
         self.running = True
-        self.on_start()
-        self.fire.start_listening()
-
-        # Show startup screen
-        self._show_startup_screen()
-
         try:
+            self._show_startup_screen()
+            # The banner must not erase the application's initial display.
+            self.on_start()
+            self.fire.start_listening()
+            self._last_update_time = time.monotonic()
+            deadline = None if duration is None else self._last_update_time + duration
             while self.running:
-                current_time = time.time()
+                current_time = time.monotonic()
+                if deadline is not None and current_time >= deadline:
+                    break
                 dt = current_time - self._last_update_time
 
                 # Update at configured FPS
@@ -195,31 +217,40 @@ class AkaiFireApp:
 
     def _show_startup_screen(self):
         """Display startup screen briefly."""
+        if self.STARTUP_SECONDS <= 0:
+            return
         self.canvas.clear()
         self.canvas.draw_text(self.APP_NAME, 20, 20)
         self.canvas.draw_text(f"v{self.VERSION}", 45, 40)
         self.fire.render_to_display()
-        time.sleep(1)
+        time.sleep(self.STARTUP_SECONDS)
         self.canvas.clear()
 
     def shutdown(self):
         """Clean shutdown of the application."""
+        if self._shutdown:
+            return
+        self._shutdown = True
         self.running = False
-        self.on_stop()
-
         try:
-            # Clear display
-            self.fire.clear_all()
-            self.canvas.clear()
-            self.canvas.draw_text("GOODBYE", 35, 25)
-            self.fire.render_to_display()
-
-            # Close fire if we own it
+            try:
+                self._event_subscriptions.close()
+            finally:
+                try:
+                    self.on_stop()
+                finally:
+                    # Instrument cleanup can fail after unplugging. The controller
+                    # still needs its own cleanup, including when it was borrowed.
+                    try:
+                        self.fire.clear_all()
+                        self.canvas.clear()
+                        self.canvas.draw_text("GOODBYE", 35, 25)
+                        self.fire.render_to_display()
+                    except Exception as e:
+                        print(f"Error during shutdown: {e}")
+        finally:
             if self._owns_fire:
                 self.fire.close()
-
-        except Exception as e:
-            print(f"Error during shutdown: {e}")
 
     # =========================================================================
     # Context Manager

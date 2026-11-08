@@ -815,7 +815,7 @@ def _render_knobs_row(focus: Tuple[str, int]) -> Table:
 
 
 def _render_button(label: str, lit: bool, focused: bool, width: int = 6) -> Text:
-    text = f" {label:^{width-2}} "
+    text = f" {label:^{width - 2}} "
     if lit and focused:
         style = "bold black on yellow"
     elif lit:
@@ -856,9 +856,9 @@ def _render_mute_solo_column(track_leds: List[int], focus: Tuple[str, int]) -> T
         mute_focused = focused_idx == i * 2
         solo_focused = focused_idx == i * 2 + 1
         lit = track_leds[i] > 0
-        out.append_text(_render_button(f"M{i+1}", False, mute_focused, width=4))
+        out.append_text(_render_button(f"M{i + 1}", False, mute_focused, width=4))
         out.append("  ")
-        out.append_text(_render_button(f"S{i+1}", lit, solo_focused, width=4))
+        out.append_text(_render_button(f"S{i + 1}", lit, solo_focused, width=4))
         if i < 3:
             out.append("\n")
     return out

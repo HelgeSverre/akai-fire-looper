@@ -25,7 +25,7 @@ just test                        # Run all tests
 just test-file tests.test_canvas # Run specific test module
 
 # Manual with uv
-uv run python -m unittest discover tests -v
+uv run python -m unittest discover -v
 ```
 
 ### Code Formatting
@@ -34,16 +34,17 @@ just format        # Format all Python files
 just check         # format-check + test (pre-commit gate)
 
 # Manual with uv
-uv run black .
+uv run ruff check .
+uv run ruff format .
 ```
 
 ### Running Examples
 ```bash
-just example display_hello_world  # Run specific example
+just example oled_wave  # Run specific example
 just examples  # List all available examples
 
 # Manual with uv
-uv run python examples/display_hello_world.py
+uv run python -m examples.oled_wave
 ```
 
 ### Managing Dependencies
@@ -185,12 +186,11 @@ When adding features, ensure tests mock the MIDI ports to avoid hardware depende
 4. Use event decorators or listeners for user input
 5. Update screen using Canvas operations
 
-### Working with the Groovebox Example
-The `examples/groovebox/` directory contains a complete sequencer application demonstrating:
-- State machine pattern for UI modes
-- Modular view system
-- Settings management
-- Complex event handling
+### Working with Applications
+
+Run maintained apps as modules from the repository root: `uv run python -m examples.apps.circuit`, `examples.apps.synth_editor`, or `examples.apps.midi_scope`. The old modular Groovebox scaffold was replaced by the synth editor; standalone experiments are in `examples/legacy/`. See `examples/README.md` for current names, controls, and validation limits.
+
+Use `AkaiFireApp` for app-owned controller lifecycle and frame updates. Keep musical clocks, external MIDI connections and snapshot formats with the app. Tests must inject/mock instrument ports as well as the Fire connection.
 
 ## Dependencies
 
@@ -202,4 +202,4 @@ Optional extras:
 - `pygame>=2.6.0` - interactive mock GUI (`[pygame]`)
 - `rich>=13` - terminal-UI mock (`[tui]`)
 - `transitions>=0.9.2` - state machines, used by examples (`[examples]`)
-- `black>=25.1.0` - code formatting (`[dev]`)
+- `ruff>=0.17.4` - linting and formatting (`[dev]`); Black remains available for older tooling

@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+
+- JT-4000 MICRO controller app with 16 documented CC parameters, OLED parameter/envelope views, bounded auditions, and validated local snapshots.
+- MIDI Scope app with input history, encoder traces, freeze/clear controls, and CSV export.
+- `AkaiFireApp.run(duration=...)` for bounded runs and application-level regression tests.
 - **Package split** — the monolithic `akai_fire.py` is now the
   `akai_fire/` package (`constants`, `errors`, `canvas`, `device`,
   `hardware`) with a lazy `__init__` so importing the library pulls
@@ -19,6 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   contracts, canvas signatures, and the `(row, col)` pad convention
 
 ### Changed
+
+- Circuit now lives under `examples/apps/circuit` and uses the application runtime. The unfinished modular Groovebox is replaced by `examples/apps/synth_editor`.
+- Example modules use feature prefixes and module launch commands; see the [catalog](../examples/README.md). Older standalone music experiments moved to `examples/legacy`.
+- Default test discovery includes Circuit; just recipes use Ruff for lint/format and expose `just app NAME`.
+- README and guides distinguish implemented behavior, hardware prerequisites, and remaining framework/app limits.
 - `pad_position()` now returns `(row, col)`, matching GridMixin and
   the example apps (was `(col, row)` on the device base)
 - LED setters return `bool` on all implementations; invalid pad/button
@@ -31,6 +40,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   dev Python pinned to 3.12 via `.python-version`
 
 ### Fixed
+
+- Application initialization/shutdown and subscription rollback/teardown preserve resource ownership even when a callback/remover fails.
+- Circuit clock progression beyond four bars, scheduled note gates and cancellation, mute/solo phase, step parameter writes, settings routing, MIDI recording input, and pattern-range shrinking.
+- Looper record-button double registration and recording BPM normalization.
+- Procedural mock event pumping, example import paths, empty MIDI menus, and several cleanup/error paths.
 - Track-LED clamp degraded `RECTANGLE_LED_HIGH_GREEN` (4) to 2 on
   hardware and mocks; range is now 0-4 everywhere
 - `clear_all()` sent the track-LED clear twice

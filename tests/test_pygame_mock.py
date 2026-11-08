@@ -8,7 +8,9 @@ need ``pos``/``rel``/``buttons`` attributes for the mock's handlers.
 import os
 import sys
 import unittest
+from itertools import pairwise
 from types import SimpleNamespace
+from unittest.mock import patch
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
@@ -159,6 +161,88 @@ class TestPygameMockInputDispatch(unittest.TestCase):
         self.fire._handle_mouse_motion(_evt(pos=pos, rel=(0, -5), buttons=(0, 0, 0)))
         self.assertEqual(turns, [])
 
+    def test_drag_keeps_its_encoder_after_leaving_the_knob(self):
+        turns, touches = [], []
+        rotary = self.fire.ROTARY_FILTER
+        self.fire.add_rotary_listener(
+            rotary, lambda direction, velocity: turns.append((direction, velocity))
+        )
+        self.fire.add_rotary_touch_listener(rotary, touches.append)
+        start = self.fire.rotary_data[rotary]["pos"]
+        self.fire._handle_mouse_down(_evt(pos=start))
+        self.fire._handle_mouse_motion(
+            _evt(pos=(start[0], 300), rel=(0, -40), buttons=(1, 0, 0))
+        )
+        self.fire._handle_mouse_up(_evt(pos=(start[0], 300)))
+        self.assertEqual(turns, [("clockwise", 40)])
+        self.assertEqual(touches, ["touch", "release"])
+        self.assertIsNone(self.fire._drag_rotary)
+
+    def test_select_click_presses_switch_but_drag_only_turns(self):
+        events, turns = [], []
+        self.fire.add_button_listener(self.fire.BUTTON_SELECT, events.append)
+        self.fire.add_rotary_listener(
+            self.fire.ROTARY_SELECT, lambda *args: turns.append(args)
+        )
+        pos = self.fire.rotary_data[self.fire.ROTARY_SELECT]["pos"]
+        self.fire._handle_mouse_down(_evt(pos=pos))
+        self.fire._handle_mouse_up(_evt(pos=pos))
+        self.assertEqual(events, ["press", "release"])
+        events.clear()
+        self.fire._handle_mouse_down(_evt(pos=pos))
+        self.fire._handle_mouse_motion(_evt(pos=pos, rel=(0, -5), buttons=(1, 0, 0)))
+        self.fire._handle_mouse_up(_evt(pos=pos))
+        self.assertEqual(events, [])
+        self.assertEqual(turns, [("clockwise", 5)])
+
+    def test_release_outside_button_clears_modifier(self):
+        pos = self.fire.button_rects[self.fire.BUTTON_SHIFT].center
+        self.fire._handle_mouse_down(_evt(pos=pos))
+        self.assertTrue(self.fire.is_shift_pressed())
+        self.fire._handle_mouse_up(_evt(pos=(0, 0)))
+        self.assertFalse(self.fire.is_shift_pressed())
+
+    def test_focus_loss_releases_captured_input(self):
+        import pygame
+
+        self.fire._handle_mouse_down(
+            _evt(pos=self.fire.button_rects[self.fire.BUTTON_ALT].center)
+        )
+        self.fire._handle_mouse_down(
+            _evt(pos=self.fire.rotary_data[self.fire.ROTARY_PAN]["pos"])
+        )
+        pygame.event.post(pygame.event.Event(pygame.WINDOWFOCUSLOST))
+        self.fire.process_events()
+        self.assertFalse(self.fire.is_alt_pressed())
+        self.assertIsNone(self.fire._drag_rotary)
+
+    def test_scroll_turns_only_the_hovered_encoder(self):
+        turns = []
+        self.fire.add_rotary_listener(
+            self.fire.ROTARY_VOLUME, lambda *args: turns.append(args)
+        )
+        with patch(
+            "pygame.mouse.get_pos",
+            return_value=self.fire.rotary_data[self.fire.ROTARY_VOLUME]["pos"],
+        ):
+            self.fire._handle_mouse_wheel(_evt(y=-2))
+        with patch("pygame.mouse.get_pos", return_value=self.fire.pad_rects[0].center):
+            self.fire._handle_mouse_wheel(_evt(y=3))
+        self.assertEqual(turns, [("counterclockwise", 2)])
+
+    def test_every_visible_button_and_pad_is_reachable(self):
+        buttons, pads = [], []
+        self.fire.on_button()(lambda button, event: buttons.append((button, event)))
+        self.fire.on_pad()(lambda index, velocity: pads.append(index))
+        for button, rect in self.fire.button_rects.items():
+            self.fire._handle_mouse_down(_evt(pos=rect.center))
+            self.fire._handle_mouse_up(_evt(pos=rect.center))
+            self.assertEqual(buttons[-2:], [(button, "press"), (button, "release")])
+        for rect in self.fire.pad_rects:
+            self.fire._handle_mouse_down(_evt(pos=rect.center))
+            self.fire._handle_mouse_up(_evt(pos=rect.center))
+        self.assertEqual(pads, list(range(64)))
+
 
 @unittest.skipUnless(
     HAS_PYGAME,
@@ -176,6 +260,66 @@ class TestPygameMockVisualState(unittest.TestCase):
     def _flush(self) -> None:
         """Drain the setter queue and paint one frame."""
         self.fire.process_events()
+
+    def test_controls_fit_panel_without_overlapping_hit_targets(self):
+        rects = self.fire.pad_rects + list(self.fire.button_rects.values())
+        for index, rect in enumerate(rects):
+            self.assertTrue(self.fire.panel_rect.contains(rect))
+            self.assertEqual(rect.collidelist(rects[index + 1 :]), -1)
+            self.assertFalse(rect.colliderect(self.fire.oled_rect))
+        for row in range(4):
+            pads = self.fire.pad_rects[row * 16 : (row + 1) * 16]
+            self.assertEqual(len({p.top for p in pads}), 1)
+            self.assertEqual(len({b.left - a.right for a, b in pairwise(pads)}), 1)
+            self.assertEqual(self.fire.track_led_rects[row].centery, pads[0].centery)
+
+    def test_button_led_hues_and_track_led_values_are_visible(self):
+        for button in (
+            self.fire.BUTTON_PLAY,
+            self.fire.BUTTON_REC,
+            self.fire.BUTTON_STEP,
+        ):
+            self.fire.set_button_led(button, 2)
+        self.fire.set_track_led(1, self.fire.RECTANGLE_LED_HIGH_RED)
+        self.fire.set_track_led(2, self.fire.RECTANGLE_LED_HIGH_GREEN)
+        self._flush()
+        play = self.fire.screen.get_at(
+            self.fire.button_rects[self.fire.BUTTON_PLAY].center
+        )
+        rec = self.fire.screen.get_at(
+            self.fire.button_rects[self.fire.BUTTON_REC].center
+        )
+        step = self.fire.screen.get_at(
+            self.fire.button_rects[self.fire.BUTTON_STEP].center
+        )
+        red_track = self.fire.screen.get_at(self.fire.track_led_rects[0].center)
+        green_track = self.fire.screen.get_at(self.fire.track_led_rects[1].center)
+        self.assertGreater(play.g, play.r)
+        self.assertGreater(rec.r, rec.g)
+        self.assertGreater(step.r, step.b)
+        self.assertGreater(step.g, step.b)
+        self.assertGreater(red_track.r, red_track.g)
+        self.assertGreater(green_track.g, green_track.r)
+
+    def test_user2_bank_value_does_not_light_channel_and_mixer(self):
+        self.fire.set_control_bank_leds(self.fire.CONTROL_BANK_USER2)
+        self._flush()
+        channel = self.fire.screen.get_at((54, 51))
+        mixer = self.fire.screen.get_at((54, 71))
+        user2 = self.fire.screen.get_at((54, 111))
+        self.assertLess(channel.r, channel.g)
+        self.assertLess(mixer.r, mixer.g)
+        self.assertGreater(user2.r, user2.g)
+
+    def test_oled_keeps_all_native_pixels_and_polarity(self):
+        self.fire.canvas.clear(1)
+        self.fire.canvas.image.putpixel((127, 63), 0)
+        self._flush()
+        rect = self.fire.oled_rect
+        lit = self.fire.screen.get_at((rect.right - 1, rect.bottom - 1))
+        unlit = self.fire.screen.get_at(rect.topleft)
+        self.assertGreater(lit.r, 200)
+        self.assertLess(unlit.r, 20)
 
     def test_set_pad_color_updates_state(self):
         self.fire.set_pad_color(0, 127, 64, 0)

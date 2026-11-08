@@ -19,24 +19,25 @@ setup:
 # Smoke-test packaging: install the repo as an editable package
 [group('setup')]
 install-editable:
-    {{ uv }} pip install -e .
+    {{ uv }} sync --all-extras
 
 # === QA ===
 
 # Run the full test suite
 [group('qa')]
 test:
-    {{ uv }} run python -m unittest discover tests
+    {{ uv }} run python -m unittest discover
 
 # Run specific tests (e.g. just test-file tests.test_canvas)
 [group('qa')]
 test-file *ARGS:
     {{ uv }} run python -m unittest {{ ARGS }}
 
-# Check formatting without changing files
+# Check lint and formatting without changing files
 [group('qa')]
 lint:
-    {{ uv }} run black --check .
+    {{ uv }} run ruff check .
+    {{ uv }} run ruff format --check .
 
 # Pre-commit gate: formatting + tests
 [group('qa')]
@@ -47,19 +48,24 @@ check: lint test
 # Format all Python files
 [group('format')]
 format:
-    {{ uv }} run black .
+    {{ uv }} run ruff format .
 
 # === Run ===
 
-# Run an example by name (just example display_hello_world)
+# Run an example by name (just example pads_color_fades)
 [group('run')]
 example name:
-    {{ uv }} run python "examples/{{ name }}.py"
+    {{ uv }} run python -m "examples.{{ name }}"
+
+# Run a complete app (just app circuit / synth_editor / midi_scope)
+[group('run')]
+app name:
+    {{ uv }} run python -m "examples.apps.{{ name }}"
 
 # List available examples
 [group('run')]
 examples:
-    @find examples -maxdepth 1 -name "*.py" | sed 's|examples/||;s|\.py$||' | sort
+    @find examples -maxdepth 1 -name "*.py" ! -name "_*.py" | sed 's|examples/||;s|\.py$||' | sort
 
 # Interactive pygame mock of the controller (clickable window)
 [group('run')]
@@ -69,7 +75,7 @@ mock:
 # Terminal-UI mock of the controller (rich)
 [group('run')]
 tui:
-    {{ uv }} run python examples/run_tui_mock.py
+    {{ uv }} run python -m examples.mock_terminal
 
 # === Clean ===
 

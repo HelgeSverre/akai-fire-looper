@@ -10,24 +10,18 @@ Demonstrates:
 - Transport controls
 
 Usage:
-    uv run python examples/apps/modal_demo.py
+    uv run python -m examples.apps.modal_demo
 """
 
-import sys
-import os
 from enum import Enum, auto
 
-# Add project root to path
-sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
-
+from akai_fire.device import AkaiFireDevice
 from akai_fire_framework import (
     AkaiFireApp,
+    GridMixin,
     ModeHandler,
     ModeManagerMixin,
     ScreenMixin,
-    GridMixin,
     TransportMixin,
 )
 
@@ -125,8 +119,8 @@ class ModalDemoApp(
 
     # Button to mode mapping
     MODE_BUTTONS = {
-        Mode.MAIN: 0x2D,  # BUTTON_NOTE
-        Mode.SETTINGS: 0x21,  # BUTTON_BROWSER
+        Mode.MAIN: AkaiFireDevice.BUTTON_NOTE,
+        Mode.SETTINGS: AkaiFireDevice.BUTTON_BROWSER,
     }
 
     def on_init(self):
@@ -146,19 +140,15 @@ class ModalDemoApp(
         # Set up transport buttons
         self.setup_transport_buttons()
 
-        # Set up mode switching buttons
-        @self.fire.on_button(self.fire.BUTTON_NOTE)
-        def handle_note(event):
-            if event == "press":
-                self.set_mode(Mode.MAIN)
-
-        @self.fire.on_button(self.fire.BUTTON_BROWSER)
-        def handle_browser(event):
-            if event == "press":
-                self.set_mode(Mode.SETTINGS)
-
         # Start in main mode
         self.set_mode(Mode.MAIN)
+
+    def on_button_press(self, button_id, event):
+        if event == "press":
+            if button_id == self.fire.BUTTON_NOTE:
+                self.set_mode(Mode.MAIN)
+            elif button_id == self.fire.BUTTON_BROWSER:
+                self.set_mode(Mode.SETTINGS)
 
     def on_pad_press(self, pad, velocity):
         """Dispatch pad press to current mode."""
@@ -177,10 +167,10 @@ class ModalDemoApp(
         if self.current_mode == Mode.MAIN:
             # Main mode display
             status = f"{info['bpm']} BPM"
-            if self.is_playing:
-                status = "PLAYING"
-            elif self.is_recording:
+            if self.is_recording:
                 status = "REC"
+            elif self.is_playing:
+                status = "PLAYING"
 
             self.draw_header("MAIN MODE", status)
             self.draw_content_lines(

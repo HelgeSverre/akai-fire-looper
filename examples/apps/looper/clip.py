@@ -4,10 +4,10 @@ Clip data structure for MIDI Looper.
 A clip contains recorded MIDI events with timing information.
 """
 
+import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import List, Optional
-import time
 
 
 class ClipState(Enum):
@@ -55,6 +55,7 @@ class Clip:
 
     # Recording state
     _record_start: float = 0.0
+    _record_bpm: float = 120.0
     _pending_notes: dict = field(default_factory=dict)  # note -> (start_time, velocity)
 
     # Playback state
@@ -90,23 +91,29 @@ class Clip:
 
     def start_recording(self, bpm: float = 120.0):
         """Start recording into this clip."""
+        if bpm <= 0 or self.length_bars <= 0:
+            raise ValueError("bpm and length_bars must be positive")
+        self._record_bpm = bpm
         self.state = ClipState.RECORDING
-        self._record_start = time.time()
+        self._record_start = time.monotonic()
         self._pending_notes = {}
         # Clear existing events for fresh recording
         self.events.clear()
 
     def start_overdub(self, bpm: float = 120.0):
         """Start overdubbing (add to existing content)."""
+        if bpm <= 0 or self.length_bars <= 0:
+            raise ValueError("bpm and length_bars must be positive")
+        self._record_bpm = bpm
         self.state = ClipState.RECORDING
-        self._record_start = time.time()
+        self._record_start = time.monotonic()
         self._pending_notes = {}
         # Keep existing events
 
     def stop_recording(self):
         """Stop recording and finalize clip."""
         # Complete any pending notes
-        now = time.time()
+        now = time.monotonic()
         for note, (start_time, velocity) in self._pending_notes.items():
             duration = now - start_time
             self._add_event(start_time, note, velocity, duration)
@@ -123,7 +130,7 @@ class Clip:
         if self.state != ClipState.RECORDING:
             return
 
-        self._pending_notes[note] = (time.time(), velocity)
+        self._pending_notes[note] = (time.monotonic(), velocity)
 
     def record_note_off(self, note: int):
         """Record a note-off event."""
@@ -132,14 +139,14 @@ class Clip:
 
         if note in self._pending_notes:
             start_time, velocity = self._pending_notes.pop(note)
-            duration = time.time() - start_time
+            duration = time.monotonic() - start_time
             self._add_event(start_time, note, velocity, duration)
 
     def _add_event(self, abs_time: float, note: int, velocity: int, duration: float):
         """Add an event with absolute timing, converting to normalized time."""
-        # Calculate loop length in seconds
-        # (simplified: 4 bars at 120 BPM = 8 seconds)
-        loop_seconds = self.length_bars * 2.0  # Assuming 120 BPM, 4 beats per bar
+        # Store musical position using the tempo at recording start. Playback
+        # can then use a different BPM without moving notes within the loop.
+        loop_seconds = self.length_bars * 4 * 60.0 / self._record_bpm
 
         # Convert to normalized time within loop
         elapsed = abs_time - self._record_start
@@ -166,7 +173,7 @@ class Clip:
 
         self.state = ClipState.PLAYING
         self._play_position = 0.0
-        self._last_update = time.time()
+        self._last_update = time.monotonic()
 
     def stop_playing(self):
         """Stop playing this clip."""
@@ -195,7 +202,7 @@ class Clip:
         if self.state != ClipState.PLAYING:
             return []
 
-        now = time.time()
+        now = time.monotonic()
         dt = now - self._last_update
         self._last_update = now
 
@@ -306,7 +313,9 @@ class ClipGrid:
         """Stop all clips."""
         for track in self.clips:
             for clip in track:
-                if clip.is_playing or clip.is_recording:
+                if clip.is_recording:
+                    clip.stop_recording()
+                else:
                     clip.stop_playing()
 
     def update(self, bpm: float = 120.0) -> List[tuple]:

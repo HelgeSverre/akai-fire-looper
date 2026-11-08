@@ -186,12 +186,18 @@ class TestTuiMockScaffold(unittest.TestCase):
         self.assertIn(h, self.fire.pad_listeners[5])
 
     def test_on_pad_list(self):
+        received = []
+
         @self.fire.on_pad([1, 2, 3])
-        def h(vel):
-            pass
+        def h(pad, velocity):
+            received.append((pad, velocity))
 
         for idx in (1, 2, 3):
-            self.assertIn(h, self.fire.pad_listeners[idx])
+            self.fire._dispatch_pad(idx, 100)
+        self.assertEqual(received, [(1, 100), (2, 100), (3, 100)])
+        self.fire.remove_listener([1, 2, 3], h)
+        self.fire._dispatch_pad(1, 100)
+        self.assertEqual(len(received), 3)
 
     def test_on_button_global_and_specific(self):
         @self.fire.on_button()
@@ -497,7 +503,7 @@ class TestTuiMockRendering(unittest.TestCase):
             fire.close()
 
     # Live-render-thread lifecycle is manually verified via
-    # examples/run_tui_mock.py — we can't capture rich.live's console
+    # examples/mock_terminal.py — we can't capture rich.live's console
     # cleanly in a test, and the thread-start/join plumbing is already
     # exercised by the scaffold's close() idempotency test.
 

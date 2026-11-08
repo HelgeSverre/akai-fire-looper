@@ -35,7 +35,7 @@ class TestHeadlessImport(unittest.TestCase):
 
             sys.meta_path.insert(0, _Block({blocked_repr}))
 
-            {textwrap.indent(code, '            ').lstrip()}
+            {textwrap.indent(code, "            ").lstrip()}
             """)
         env = {**os.environ, "PYTHONPATH": project_root}
         return subprocess.run(

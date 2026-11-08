@@ -779,7 +779,7 @@ class TestAsyncDispatch(unittest.TestCase):
 
     def test_caller_runs_when_queue_saturated(self):
         """Caller-runs backpressure: oversubscribed events still execute."""
-        fire = AkaiFire(async_handlers=True, max_workers=1, handler_queue_size=2)
+        fire = AkaiFire(async_handlers=True, max_workers=2, handler_queue_size=2)
         try:
             counts = [0]
             block = threading.Event()
@@ -787,12 +787,12 @@ class TestAsyncDispatch(unittest.TestCase):
             @fire.on_pad()
             def handler(pad_index, velocity):
                 # First few events will block workers
-                if pad_index < 3:
+                if pad_index < 2:
                     block.wait(timeout=2.0)
                 counts[0] += 1
 
-            # Saturate the queue. Sized 2 + 1 worker = 3 in-flight, then
-            # caller-runs kicks in for subsequent events.
+            # Two admitted handlers occupy both workers; subsequent events
+            # use caller-runs backpressure in the parallel configuration.
             with self.assertLogs("akai_fire", level="WARNING"):
                 for i in range(6):
                     fire._process_message([[0x90, 54 + i, 100], 0])

@@ -1,284 +1,62 @@
 # Troubleshooting
 
-Common issues and solutions when working with the AKAI Fire library.
+## Examples cannot import a module
 
----
+Run from the repository root, using module notation:
 
-## Hardware Connection Issues
-
-### "No MIDI ports found"
-
-**Symptoms:**
-- `get_akai_fire()` falls back to mock
-- Empty port list from `AkaiFire.list_midi_ports()`
-
-**Solutions:**
-
-1. **Check USB connection**
-   - Ensure AKAI Fire is connected via USB
-   - Try a different USB port/cable
-   - Check if the device appears in system audio/MIDI settings
-
-2. **Check for port conflicts**
-   - Close FL Studio or other DAWs that might hold the port
-   - On macOS: Check Audio MIDI Setup
-   - On Windows: Check Device Manager
-
-3. **Verify rtmidi installation**
-   ```bash
-   pip install python-rtmidi
-   # Or with uv:
-   uv pip install python-rtmidi
-   ```
-
-### "Permission denied" on Linux
-
-**Solution:**
-Add user to audio group:
-```bash
-sudo usermod -aG audio $USER
-# Log out and back in
+```sh
+uv sync --all-extras
+uv run python -m examples.apps.circuit
+uv run python -m examples.oled_wave
 ```
 
-Or create udev rule:
-```bash
-echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="09e8", MODE="0666"' | sudo tee /etc/udev/rules.d/99-akai.rules
-sudo udevadm control --reload-rules
+Direct paths such as `python examples/apps/circuit/main.py` do not establish the package context. Examples no longer modify `sys.path`. The interactive mocks live at the repository root and are not included in an installed wheel.
+
+## The controller is not found
+
+List MIDI ports:
+
+```sh
+uv run python -c 'from akai_fire import AkaiFire; print(AkaiFire.list_midi_ports())'
 ```
 
----
+Connect the Fire before starting, check its USB cable, and close applications holding its MIDI ports. The default match is the substring `FL STUDIO FIRE`; use `AkaiFire(port_name="...")` for a different name. `get_akai_fire()` can fall back to pygame; use `get_akai_fire(use_mock=False)` when a missing controller should be an error.
 
-## Display Issues
+## The mock window freezes or does not repaint
 
-### OLED not updating
+Pygame needs `process_events()` on the main thread. `AkaiFireApp.run()` handles this. Procedural examples use `examples._runtime.wait(fire, seconds)` instead of a long blocking sleep. An `input()` prompt blocks the window; it is suitable only for the hardware-only snippet in the README.
 
-**Symptoms:**
-- Drawing to canvas but display stays blank
-- Canvas works in BMP export but not on device
+For headless tests use `akai_fire_testing.MockAkaiFire`. For pygame integration tests, set `SDL_VIDEODRIVER=dummy` and `SDL_AUDIODRIVER=dummy` before importing pygame. The development interpreter is pinned to Python 3.12.
 
-**Solutions:**
+## The OLED is blank or inverted
 
-1. **Call `render_to_display()`**
-   ```python
-   canvas = fire.get_canvas()
-   canvas.draw_text("Hello", 10, 10)
-   fire.render_to_display()  # Don't forget this!
-   ```
+Draw onto `fire.get_canvas()` and then call `fire.render_to_display()`. The framework does the render after `on_update()`. Pixel `0` is lit; pixel `1` is unlit. Coordinates outside 128×64 do not appear. Keep a text line within about 21 characters at the default font size; use short labels or scrolling for longer content.
 
-2. **Check SysEx is enabled**
-   - Some MIDI interfaces filter SysEx
-   - Try connecting directly without MIDI interface
+## Circuit is silent
 
-### Garbled display
+Circuit produces MIDI, not computer audio. Set an exact instrument port name from the printed port list:
 
-**Solutions:**
-- Clear canvas before drawing: `canvas.clear()`
-- Check coordinate values are within bounds (0-127 x, 0-63 y)
-
----
-
-## Mock GUI Issues
-
-### Pygame window not opening
-
-**Symptoms:**
-- Script runs but no window appears
-- Import error for pygame
-
-**Solutions:**
-
-1. **Install pygame**
-   ```bash
-   pip install pygame
-   # Or with uv:
-   uv pip install pygame
-   ```
-
-2. **On macOS with Apple Silicon**
-   ```bash
-   # May need to run with specific Python
-   arch -x86_64 python3 script.py
-   # Or install native pygame
-   pip install pygame --pre
-   ```
-
-3. **Check display server (Linux)**
-   ```bash
-   # If running headless, pygame may fail
-   export SDL_VIDEODRIVER=dummy
-   ```
-
-### Window appears but is unresponsive
-
-**Solution:**
-Make sure to call `process_events()` in your main loop:
-```python
-while fire.running:
-    if not fire.process_events():
-        break
-    # Your update code
-    time.sleep(0.016)
+```sh
+CIRCUIT_MIDI_OUTPUT="Your synth port" uv run python -m examples.apps.circuit
 ```
 
----
+The Fire's own port is not a synth output. Default track channels are 10, 1, 2 and 3; match your receiving instruments. NOTE pads audition short notes. Press REC before entering notes to record them, or use STEP's pitch parameter to write a step. PLAY alone does not create pattern content.
 
-## Event Handling Issues
+`CIRCUIT_MIDI_INPUT` selects an optional external keyboard input. Positive note-on input records into the armed recording track while transport is recording; it is not a general MIDI-through router.
 
-### Pad/button events not firing
+## The synth editor is silent or shows question marks
 
-**Symptoms:**
-- Decorators defined but callbacks not called
-- Events work in mock but not on hardware
+The editor automatically opens an output only when there is exactly one port containing `JT-4000`. Set `SYNTH_MIDI_OUTPUT` and `SYNTH_MIDI_CHANNEL` explicitly otherwise. `DEMO` on the OLED means no MIDI port is connected. Connect the synth's audio output to headphones or your audio system.
 
-**Solutions:**
+A `?` means the editor has not sent that parameter yet. It does not read the current patch from the synth. REC saves the locally known CC values; SELECT sends a saved snapshot. These are not native SysEx preset dumps. See the [editor guide](../examples/apps/synth_editor/README.md).
 
-1. **Call `start_listening()`**
-   ```python
-   fire = get_akai_fire()
-   # ... setup callbacks ...
-   fire.start_listening()  # Required!
-   ```
+## Tests or lint fail
 
-2. **Check decorator syntax**
-   ```python
-   # Correct - with parentheses
-   @fire.on_pad()
-   def handler(pad, velocity):
-       pass
-
-   # Wrong - missing parentheses
-   @fire.on_pad  # Will fail
-   def handler(pad, velocity):
-       pass
-   ```
-
-3. **Verify button IDs**
-   ```python
-   # Use constants, not magic numbers
-   @fire.on_button(fire.BUTTON_PLAY)  # Correct
-   @fire.on_button(0x33)              # Works but fragile
-   ```
-
-### Multiple callbacks for same event
-
-**Solution:**
-Decorators accumulate - don't redefine:
-```python
-# This creates TWO handlers:
-@fire.on_pad(0)
-def handler1(velocity):
-    pass
-
-@fire.on_pad(0)
-def handler2(velocity):
-    pass
+```sh
+uv run python -m unittest discover
+uv run python -m unittest tests.test_example_apps
+uv run ruff check .
+uv run ruff format --check .
 ```
 
----
-
-## Performance Issues
-
-### Low frame rate / choppy updates
-
-**Solutions:**
-
-1. **Batch pad color updates**
-   ```python
-   # Slow - 64 individual calls
-   for i in range(64):
-       fire.set_pad_color(i, r, g, b)
-
-   # Fast - single batch call
-   colors = [(i, r, g, b) for i in range(64)]
-   fire.set_multiple_pad_colors(colors)
-   ```
-
-2. **Reduce update frequency**
-   ```python
-   # Only update at 30 FPS
-   if time.time() - last_update > 0.033:
-       update_display()
-       last_update = time.time()
-   ```
-
-3. **Minimize canvas redraws**
-   - Only redraw when state changes
-   - Use dirty rectangles if possible
-
----
-
-## Circuit Example Issues
-
-### "ModuleNotFoundError: No module named 'core'"
-
-**Solution:**
-Run from the circuit directory:
-```bash
-cd examples/circuit
-python main.py
-```
-
-Or use the correct Python path:
-```bash
-python examples/circuit/main.py  # May need path fixes
-```
-
-### Demo crashes immediately
-
-**Symptoms:**
-- `demo_e2e.py` exits with error
-- Mock window closes instantly
-
-**Solutions:**
-
-1. **Check pygame installation** (see above)
-
-2. **Run with timeout**
-   ```bash
-   timeout 10 python examples/circuit/demo_e2e.py --demo intro
-   ```
-
-3. **Check error output**
-   ```bash
-   python examples/circuit/demo_e2e.py 2>&1 | head -50
-   ```
-
----
-
-## Testing Issues
-
-### Tests fail with MIDI errors
-
-**Solution:**
-Tests should mock MIDI - check for missing patches:
-```python
-from unittest.mock import patch
-
-@patch("rtmidi.MidiIn")
-@patch("rtmidi.MidiOut")
-def test_something(mock_out, mock_in):
-    # Test code here
-    pass
-```
-
-### Tests hang indefinitely
-
-**Solution:**
-Add timeouts to test runner:
-```bash
-pytest --timeout=10 tests/
-```
-
----
-
-## Getting Help
-
-If your issue isn't covered here:
-
-1. **Check existing issues**: [GitHub Issues](https://github.com/HelgeSverre/akai-fire-looper/issues)
-2. **Search the codebase**: Many edge cases are handled in examples
-3. **Open a new issue**: Include:
-   - Python version
-   - OS and version
-   - Full error traceback
-   - Minimal reproduction code
+The Circuit suite is included in the first command. Tests replace MIDI ports; a hardware connection should never be required. Full Ruff lint still has pre-existing style findings documented in [cleanup evidence](code-cleanup.md). Do not interpret that baseline as permission to ignore new undefined names or broken imports.

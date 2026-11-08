@@ -6,16 +6,8 @@ This demonstrates the simplest possible app using just the base class.
 Press any pad to increment a counter and light up that pad.
 
 Usage:
-    uv run python examples/apps/pad_counter.py
+    uv run python -m examples.apps.pad_counter
 """
-
-import sys
-import os
-
-# Add project root to path
-sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
 
 from akai_fire_framework import AkaiFireApp
 

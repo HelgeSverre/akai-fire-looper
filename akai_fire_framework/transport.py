@@ -5,7 +5,10 @@ Provides play/stop/record functionality with LED feedback.
 """
 
 from enum import Enum
+from functools import partial
 from typing import Callable, List, Optional
+
+from akai_fire_framework._subscriptions import _EventSubscriptions
 
 
 class TransportState(Enum):
@@ -116,7 +119,9 @@ class TransportMixin:
 
     def toggle_record(self):
         """Toggle recording on/off."""
-        if self.is_recording:
+        if self._transport_state == TransportState.ARMED:
+            self.stop()
+        elif self.is_recording:
             self.play()  # Keep playing, just stop recording
         elif self.is_playing:
             self.record()
@@ -143,7 +148,7 @@ class TransportMixin:
         self._transport_state = state
 
         # Notify callbacks
-        for callback in self._transport_callbacks:
+        for callback in list(self._transport_callbacks):
             try:
                 callback(state, old_state)
             except Exception as e:
@@ -211,20 +216,30 @@ class TransportMixin:
 
         Call this in on_init() if you want standard behavior.
         """
-        if not hasattr(self, "fire"):
+        if not hasattr(self, "fire") or getattr(
+            self, "_transport_buttons_setup", False
+        ):
             return
+        subscriptions = getattr(self, "_event_subscriptions", None)
+        if subscriptions is None:
+            self._event_subscriptions = subscriptions = _EventSubscriptions()
 
-        @self.fire.on_button(self.fire.BUTTON_PLAY)
-        def handle_play(event):
+        def on_press(action, event):
             if event == "press":
-                self.toggle_play()
+                action()
 
-        @self.fire.on_button(self.fire.BUTTON_STOP)
-        def handle_stop(event):
-            if event == "press":
-                self.stop()
-
-        @self.fire.on_button(self.fire.BUTTON_REC)
-        def handle_rec(event):
-            if event == "press":
-                self.toggle_record()
+        subscriptions.bind_all(
+            [
+                (
+                    self.fire.on_button(button),
+                    partial(self.fire.remove_button_listener, button),
+                    partial(on_press, action),
+                )
+                for button, action in (
+                    (self.fire.BUTTON_PLAY, self.toggle_play),
+                    (self.fire.BUTTON_STOP, self.stop),
+                    (self.fire.BUTTON_REC, self.toggle_record),
+                )
+            ]
+        )
+        self._transport_buttons_setup = True

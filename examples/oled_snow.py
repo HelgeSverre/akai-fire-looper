@@ -1,0 +1,42 @@
+import random
+
+from akai_fire import get_akai_fire
+from examples._runtime import wait
+
+
+def tv_snow(fire, duration=10, fps=30):
+    """
+    Generate static random pixel values (TV snow noise) on the AKAI Fire's display.
+
+    Args:
+        fire: AkaiFire instance
+        duration (int): Duration of the noise animation in seconds (default: 10 seconds).
+        fps (int): Frames per second to control the speed of noise updates (default: 30).
+    """
+    canvas = fire.get_canvas()
+    total_frames = int(duration * fps)  # Calculate total frames for the given duration
+
+    print(f"Starting TV snow animation for {duration} seconds...")
+    for frame in range(total_frames):
+        # Clear the display
+        canvas.clear()
+
+        # Generate random pixels for the entire screen (128x64 resolution)
+        for x in range(128):
+            for y in range(64):
+                if random.choice([True, False]):  # Randomly turn pixels on or off
+                    canvas.set_pixel(x, y, 0)
+
+        # Send the updated canvas to the device
+        fire.render_to_display()
+
+        # Pause to control frame rate
+        wait(fire, 1 / fps)
+
+
+if __name__ == "__main__":
+    with get_akai_fire() as fire:
+        try:
+            tv_snow(fire, duration=3, fps=30)
+        except KeyboardInterrupt:
+            print("Animation interrupted by user.")

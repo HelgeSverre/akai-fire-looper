@@ -17,3 +17,7 @@ _screens/
 
 # Orb-local portal metadata
 .amp/portals/*
+
+# Demo exports
+jt4000-snapshot.json
+midi-scope.csv

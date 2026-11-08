@@ -34,7 +34,9 @@ class _HandlerDispatcher:
     Backpressure strategy is **caller-runs**: when the bounded submit
     queue is saturated, the MIDI polling thread runs the handler inline
     (logging a warning). No event is ever dropped; under sustained
-    overload the MIDI thread briefly stalls instead.
+    overload the MIDI thread briefly stalls instead. A single-worker
+    dispatcher waits for capacity instead, preserving FIFO. Recursive
+    submissions from that worker enqueue without waiting on themselves.
 
     Every submission is wrapped with a per-handler try/except that
     routes exceptions through ``logger.exception`` so one misbehaving
@@ -42,38 +44,46 @@ class _HandlerDispatcher:
     """
 
     def __init__(self, max_workers: int = 4, queue_size: int = 64):
+        if queue_size <= 0:
+            raise ValueError("handler_queue_size must be positive")
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers,
             thread_name_prefix="akai-fire-handler",
         )
         self._sem = threading.BoundedSemaphore(queue_size)
+        self._serial = max_workers == 1
+        self._worker = threading.local()
 
     def submit(self, fn, *args) -> None:
-        if not self._sem.acquire(blocking=False):
-            logger.warning("Handler queue full; running %r inline on MIDI thread", fn)
-            try:
-                fn(*args)
-            except Exception:
-                logger.exception("Handler %r raised (inline)", fn)
-            return
+        # A serial pool waits for capacity to preserve FIFO. Reentrant
+        # submission from its worker must enqueue without waiting on itself.
+        reentrant = self._serial and getattr(self._worker, "active", False)
+        acquired = not reentrant and self._sem.acquire(blocking=self._serial)
 
-        def _run():
+        def run():
+            previous = getattr(self._worker, "active", False)
+            self._worker.active = True
             try:
                 fn(*args)
             except Exception:
                 logger.exception("Handler %r raised", fn)
             finally:
-                self._sem.release()
+                self._worker.active = previous
 
+        if not acquired and not reentrant:
+            logger.warning("Handler queue full; running %r inline on MIDI thread", fn)
+            run()
+            return
         try:
-            self._executor.submit(_run)
+            future = self._executor.submit(run)
         except RuntimeError:
-            # Executor already shut down — run inline so we don't lose the event.
-            self._sem.release()
-            try:
-                fn(*args)
-            except Exception:
-                logger.exception("Handler %r raised (post-shutdown)", fn)
+            if acquired:
+                self._sem.release()
+            run()
+        else:
+            if acquired:
+                # Cancellation also releases admission capacity.
+                future.add_done_callback(lambda future: self._sem.release())
 
     def shutdown(self) -> None:
         try:
@@ -99,62 +109,63 @@ class AkaiFire(AkaiFireDevice):
 
     def _deliver_display(self, canvas) -> None:
         """Encode the canvas as an OLED SysEx message and send it."""
-        if not self.midi_out:
-            raise StateError("MIDI output not initialized")
+        with self._io_lock:
+            if not self.midi_out:
+                raise StateError("MIDI output not initialized")
 
-        if not isinstance(canvas, Canvas):
-            raise InvalidParameterError(
-                f"Expected Canvas object, got: {type(canvas).__name__}"
-            )
+            if not isinstance(canvas, Canvas):
+                raise InvalidParameterError(
+                    f"Expected Canvas object, got: {type(canvas).__name__}"
+                )
 
-        # For OLED 128x64, calculated as ceil(128*64/7)
-        bitmap_size = 1171
-        bitmap = [0] * bitmap_size
+            # For OLED 128x64, calculated as ceil(128*64/7)
+            bitmap_size = 1171
+            bitmap = [0] * bitmap_size
 
-        # Static mapping table - could be class constant for better performance
-        bitmap_pixel_mapping = [
-            [13, 0, 1, 2, 3, 4, 5, 6],
-            [19, 20, 7, 8, 9, 10, 11, 12],
-            [25, 26, 27, 14, 15, 16, 17, 18],
-            [31, 32, 33, 34, 21, 22, 23, 24],
-            [37, 38, 39, 40, 41, 28, 29, 30],
-            [43, 44, 45, 46, 47, 48, 35, 36],
-            [49, 50, 51, 52, 53, 54, 55, 42],
-        ]
+            # Static mapping table - could be class constant for better performance
+            bitmap_pixel_mapping = [
+                [13, 0, 1, 2, 3, 4, 5, 6],
+                [19, 20, 7, 8, 9, 10, 11, 12],
+                [25, 26, 27, 14, 15, 16, 17, 18],
+                [31, 32, 33, 34, 21, 22, 23, 24],
+                [37, 38, 39, 40, 41, 28, 29, 30],
+                [43, 44, 45, 46, 47, 48, 35, 36],
+                [49, 50, 51, 52, 53, 54, 55, 42],
+            ]
 
-        # Convert canvas to bitmap - optimized with direct pixel access
-        pixels = canvas.image.load()
-        for y in range(canvas.HEIGHT):
-            y_div_8 = y // 8
-            y_mod_8 = y % 8
-            for x in range(canvas.WIDTH):
-                if pixels[x, y] == 0:  # Black pixel in PIL = ON in OLED
-                    x_mapped = x + canvas.WIDTH * y_div_8
-                    rb = bitmap_pixel_mapping[x_mapped % 7][y_mod_8]
-                    index = (x_mapped // 7) * 8 + (rb // 7)
-                    bitmap[index] |= 1 << (rb % 7)
+            # Convert canvas to bitmap - optimized with direct pixel access
+            pixels = canvas.image.load()
+            for y in range(canvas.HEIGHT):
+                y_div_8 = y // 8
+                y_mod_8 = y % 8
+                for x in range(canvas.WIDTH):
+                    if pixels[x, y] == 0:  # Black pixel in PIL = ON in OLED
+                        x_mapped = x + canvas.WIDTH * y_div_8
+                        rb = bitmap_pixel_mapping[x_mapped % 7][y_mod_8]
+                        index = (x_mapped // 7) * 8 + (rb // 7)
+                        bitmap[index] |= 1 << (rb % 7)
 
-        # Send to display
-        sysex_data = [
-            0xF0,
-            0x47,
-            0x7F,
-            0x43,
-            0x0E,
-            (len(bitmap) + 4) >> 7,
-            (len(bitmap) + 4) & 0x7F,
-            0,
-            0x07,
-            0,
-            0x7F,
-        ]
-        sysex_data.extend(bitmap)
-        sysex_data.append(0xF7)
+            # Send to display
+            sysex_data = [
+                0xF0,
+                0x47,
+                0x7F,
+                0x43,
+                0x0E,
+                (len(bitmap) + 4) >> 7,
+                (len(bitmap) + 4) & 0x7F,
+                0,
+                0x07,
+                0,
+                0x7F,
+            ]
+            sysex_data.extend(bitmap)
+            sysex_data.append(0xF7)
 
-        try:
-            self.midi_out.send_message(sysex_data)
-        except Exception as e:
-            raise MIDISendError(f"Failed to send display SysEx message: {e}") from e
+            try:
+                self.midi_out.send_message(sysex_data)
+            except Exception as e:
+                raise MIDISendError(f"Failed to send display SysEx message: {e}") from e
 
     def new_canvas(self) -> Canvas:
         """Create a new blank canvas."""
@@ -167,8 +178,10 @@ class AkaiFire(AkaiFireDevice):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit - clears display and closes connection"""
-        self.clear_display()
-        self.close()
+        try:
+            self.clear_display()
+        finally:
+            self.close()
 
     def __init__(
         self,
@@ -194,12 +207,18 @@ class AkaiFire(AkaiFireDevice):
                 default ``4`` allows parallel handling of independent events.
             handler_queue_size: Bounded-queue size for handler submission. When
                 the queue is full, the MIDI thread runs the handler inline
-                (caller-runs backpressure); no event is dropped.
+                (caller-runs backpressure); no event is dropped. With one worker,
+                submission waits for capacity to preserve FIFO. Recursive submission
+                from that worker queues without waiting on its own capacity.
             send_retry_delay: Seconds to wait between MIDI send retries.
             send_max_retries: Max MIDI send retry attempts.
         """
         # Base class installs self._lock + modifier flags.
         super().__init__()
+        self._connection_lock = threading.RLock()
+        self._io_lock = threading.RLock()
+        self.midi_in = None
+        self.midi_out = None
 
         # _stop_event replaces the old ``self.listening`` bool; Event
         # acquires no lock on is_set(), so the polling loop doesn't spin
@@ -231,10 +250,6 @@ class AkaiFire(AkaiFireDevice):
 
         # Performance optimizations
         self._last_pad_states = {}  # Track pad states to avoid redundant updates
-        self._batch_threshold = (
-            5  # Use batch updates if updating more than this many pads
-        )
-        self._cached_messages = {}  # Will be populated after MIDI init
 
         # Initialize MIDI ports
         try:
@@ -253,7 +268,8 @@ class AkaiFire(AkaiFireDevice):
             self.midi_in.open_port(self.input_port_index)
 
         except Exception as e:
-            raise MIDIConnectionError(f"Failed to initialize MIDI: {e}")
+            self.close()
+            raise MIDIConnectionError(f"Failed to initialize MIDI: {e}") from e
 
         # Modifier-key state (_shift_pressed / _alt_pressed) is latched
         # inline in _process_message before any user handler runs, so code
@@ -268,22 +284,17 @@ class AkaiFire(AkaiFireDevice):
 
     def _init_performance_caches(self):
         """Initialize performance optimization caches."""
-        # Pre-compute common sysex messages
-        self._cached_messages["clear_pads"] = self._create_sysex_message(
-            [(i, 0, 0, 0) for i in range(64)]
+        common_colors = (
+            (0, 0, 0),
+            (127, 127, 127),
+            (127, 0, 0),
+            (0, 127, 0),
+            (0, 0, 127),
         )
-        self._cached_messages["all_white"] = self._create_sysex_message(
-            [(i, 127, 127, 127) for i in range(64)]
-        )
-        self._cached_messages["all_red"] = self._create_sysex_message(
-            [(i, 127, 0, 0) for i in range(64)]
-        )
-        self._cached_messages["all_green"] = self._create_sysex_message(
-            [(i, 0, 127, 0) for i in range(64)]
-        )
-        self._cached_messages["all_blue"] = self._create_sysex_message(
-            [(i, 0, 0, 127) for i in range(64)]
-        )
+        self._cached_messages = {}
+        for color in common_colors:
+            pads = tuple((index, *color) for index in range(64))
+            self._cached_messages[pads] = self._create_sysex_message(pads)
 
     @property
     def listening(self) -> bool:
@@ -292,13 +303,20 @@ class AkaiFire(AkaiFireDevice):
 
     def start_listening(self):
         """Start the event listening thread (idempotent)."""
-        with self._lock:
+        with self._connection_lock:
+            if self.midi_in is None:
+                raise StateError("MIDI input not initialized; reconnect first")
             if self._stop_event.is_set():
-                self._stop_event.clear()
+                stop_event = threading.Event()
+                self._stop_event = stop_event
                 self.listening_thread = threading.Thread(
-                    target=self._listen, daemon=True
+                    target=self._listen, args=(self.midi_in, stop_event), daemon=True
                 )
-                self.listening_thread.start()
+                try:
+                    self.listening_thread.start()
+                except Exception:
+                    stop_event.set()
+                    raise
                 logger.debug("Started listening thread")
 
     def _send_midi_safe(
@@ -319,31 +337,32 @@ class AkaiFire(AkaiFireDevice):
         Returns:
             True if message sent successfully, False otherwise.
         """
-        if not self.midi_out:
-            logger.error("MIDI output port not initialized")
-            return False
+        with self._io_lock:
+            if not self.midi_out:
+                logger.error("MIDI output port not initialized")
+                return False
 
-        if max_retries is None:
-            max_retries = self._send_max_retries
-        if retry_delay is None:
-            retry_delay = self._send_retry_delay
+            if max_retries is None:
+                max_retries = self._send_max_retries
+            if retry_delay is None:
+                retry_delay = self._send_retry_delay
 
-        for attempt in range(max_retries):
-            try:
-                self.midi_out.send_message(message)
-                return True
-            except Exception as e:
-                logger.warning(
-                    f"Failed to send MIDI message {message} (attempt {attempt + 1}/{max_retries}): {e}"
-                )
-                if attempt < max_retries - 1:
-                    time.sleep(retry_delay)
-                else:
-                    logger.error(
-                        f"Failed to send MIDI message after {max_retries} attempts: {message}"
+            for attempt in range(max_retries):
+                try:
+                    self.midi_out.send_message(message)
+                    return True
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to send MIDI message {message} (attempt {attempt + 1}/{max_retries}): {e}"
                     )
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                    else:
+                        logger.error(
+                            f"Failed to send MIDI message after {max_retries} attempts: {message}"
+                        )
 
-        return False
+            return False
 
     @staticmethod
     def list_midi_ports() -> Dict[str, List[str]]:
@@ -395,25 +414,33 @@ class AkaiFire(AkaiFireDevice):
 
     def close(self):
         """Closes the MIDI input and output ports safely."""
-        self._stop_event.set()
-        if self.listening_thread and self.listening_thread.is_alive():
-            self.listening_thread.join(timeout=2.0)  # Don't wait forever
+        with self._connection_lock:
+            self._stop_event.set()
+            thread = self.listening_thread
+            if (
+                thread
+                and thread is not threading.current_thread()
+                and thread.is_alive()
+            ):
+                thread.join(timeout=2.0)
 
-        if self._dispatcher is not None:
-            self._dispatcher.shutdown()
+            dispatcher = self._dispatcher
             self._dispatcher = None
+            if dispatcher is not None:
+                dispatcher.shutdown()
 
-        try:
-            if hasattr(self, "midi_in") and self.midi_in:
-                self.midi_in.close_port()
-        except Exception as e:
-            logger.error(f"Error closing MIDI input: {e}")
-
-        try:
-            if hasattr(self, "midi_out") and self.midi_out:
-                self.midi_out.close_port()
-        except Exception as e:
-            logger.error(f"Error closing MIDI output: {e}")
+            with self._io_lock:
+                for name in ("midi_in", "midi_out"):
+                    port = getattr(self, name, None)
+                    setattr(self, name, None)
+                    if port is not None:
+                        try:
+                            port.close_port()
+                        except Exception:
+                            logger.exception("Error closing %s", name)
+                self._last_pad_states.clear()
+                self._shift_pressed = False
+                self._alt_pressed = False
 
     def reconnect(self) -> bool:
         """Attempt to reconnect to MIDI ports.
@@ -421,52 +448,56 @@ class AkaiFire(AkaiFireDevice):
         Returns:
             True if reconnection successful, False otherwise
         """
-        logger.info("Attempting to reconnect to AKAI Fire...")
+        with self._connection_lock:
+            logger.info("Attempting to reconnect to AKAI Fire...")
 
-        # Snapshot listener state BEFORE close() clears _stop_event; otherwise
-        # self.listening is always False here and the restart branch below is
-        # unreachable.
-        was_listening = self.listening
+            # Snapshot listener state BEFORE close() clears _stop_event; otherwise
+            # self.listening is always False here and the restart branch below is
+            # unreachable.
+            was_listening = self.listening
 
-        # Close existing connections (also tears down the dispatcher).
-        self.close()
+            # Close existing connections (also tears down the dispatcher).
+            self.close()
 
-        try:
-            # Re-initialize MIDI
-            self.midi_in = rtmidi.MidiIn()
-            self.midi_out = rtmidi.MidiOut()
-            self.input_port_index, self.output_port_index = self._find_ports()
+            with self._io_lock:
+                try:
+                    # Re-initialize MIDI
+                    self.midi_in = rtmidi.MidiIn()
+                    self.midi_out = rtmidi.MidiOut()
+                    self.input_port_index, self.output_port_index = self._find_ports()
 
-            if self.output_port_index is None or self.input_port_index is None:
-                logger.error("AKAI Fire ports not found during reconnection")
-                return False
+                    if self.output_port_index is None or self.input_port_index is None:
+                        logger.error("AKAI Fire ports not found during reconnection")
+                        self.close()
+                        return False
 
-            self.midi_out.open_port(self.output_port_index)
-            self.midi_in.open_port(self.input_port_index)
+                    self.midi_out.open_port(self.output_port_index)
+                    self.midi_in.open_port(self.input_port_index)
 
-            # Clear cached states
-            self._last_pad_states.clear()
+                    # Clear cached states
+                    self._last_pad_states.clear()
 
-            # Always rebuild the async dispatcher that close() tore down,
-            # regardless of whether we are about to start listening: a
-            # later start_listening() must not silently fall back to
-            # inline dispatch on the polling thread.
-            if self._dispatcher is None and self._async_handlers:
-                self._dispatcher = _HandlerDispatcher(
-                    max_workers=self._max_workers,
-                    queue_size=self._handler_queue_size,
-                )
+                    # Always rebuild the async dispatcher that close() tore down,
+                    # regardless of whether we are about to start listening: a
+                    # later start_listening() must not silently fall back to
+                    # inline dispatch on the polling thread.
+                    if self._dispatcher is None and self._async_handlers:
+                        self._dispatcher = _HandlerDispatcher(
+                            max_workers=self._max_workers,
+                            queue_size=self._handler_queue_size,
+                        )
 
-            # Restart listener if it was running pre-close.
-            if was_listening:
-                self.start_listening()
+                    # Restart listener if it was running pre-close.
+                    if was_listening:
+                        self.start_listening()
 
-            logger.info("Successfully reconnected to AKAI Fire")
-            return True
+                    logger.info("Successfully reconnected to AKAI Fire")
+                    return True
 
-        except Exception as e:
-            logger.error(f"Failed to reconnect: {e}")
-            return False
+                except Exception as e:
+                    self.close()
+                    logger.error(f"Failed to reconnect: {e}")
+                    return False
 
     def is_connected(self) -> bool:
         """Check if MIDI ports are connected and responsive.
@@ -474,29 +505,30 @@ class AkaiFire(AkaiFireDevice):
         Returns:
             True if connected, False otherwise
         """
-        if not hasattr(self, "midi_out") or not self.midi_out:
-            return False
+        with self._io_lock:
+            if not hasattr(self, "midi_out") or not self.midi_out:
+                return False
 
-        try:
-            # Try to send a harmless message (clear a non-existent pad)
-            test_msg = [
-                0xF0,
-                0x47,
-                0x7F,
-                0x43,
-                0x65,
-                0x00,
-                0x04,
-                0xFF,
-                0x00,
-                0x00,
-                0x00,
-                0xF7,
-            ]
-            self.midi_out.send_message(test_msg)
-            return True
-        except Exception:
-            return False
+            try:
+                # Try to send a harmless message (clear a non-existent pad)
+                test_msg = [
+                    0xF0,
+                    0x47,
+                    0x7F,
+                    0x43,
+                    0x65,
+                    0x00,
+                    0x04,
+                    0xFF,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0xF7,
+                ]
+                self.midi_out.send_message(test_msg)
+                return True
+            except Exception:
+                return False
 
     def clear_all(self) -> bool:
         """Clear all LEDs and display."""
@@ -536,6 +568,18 @@ class AkaiFire(AkaiFireDevice):
 
         return sysex_header + [length_high, length_low] + payload + [0xF7]
 
+    def _send_pad_colors(self, pad_colors) -> bool:
+        """Own the pad wire write and its successful cache commit as one effect."""
+        with self._io_lock:
+            message = self._cached_messages.get(tuple(pad_colors))
+            if message is None:
+                message = self._create_sysex_message(pad_colors)
+            if not self._send_midi_safe(message):
+                return False
+            for index, red, green, blue in pad_colors:
+                self._last_pad_states[index] = (red, green, blue)
+            return True
+
     def set_pad_color(self, index: int, red: int, green: int, blue: int) -> bool:
         """
         Set pad color with validation.
@@ -552,38 +596,37 @@ class AkaiFire(AkaiFireDevice):
         Raises:
             InvalidParameterError: If pad index is out of range
         """
-        if not isinstance(index, int) or not (0 <= index <= 63):
-            raise InvalidParameterError(f"Pad index must be integer 0-63, got: {index}")
+        with self._io_lock:
+            if not isinstance(index, int) or not (0 <= index <= 63):
+                raise InvalidParameterError(
+                    f"Pad index must be integer 0-63, got: {index}"
+                )
 
-        # Clamp color values with validation
-        if not isinstance(red, int):
-            raise InvalidParameterError(
-                f"Red value must be integer, got: {type(red).__name__}"
-            )
-        if not isinstance(green, int):
-            raise InvalidParameterError(
-                f"Green value must be integer, got: {type(green).__name__}"
-            )
-        if not isinstance(blue, int):
-            raise InvalidParameterError(
-                f"Blue value must be integer, got: {type(blue).__name__}"
-            )
+            # Clamp color values with validation
+            if not isinstance(red, int):
+                raise InvalidParameterError(
+                    f"Red value must be integer, got: {type(red).__name__}"
+                )
+            if not isinstance(green, int):
+                raise InvalidParameterError(
+                    f"Green value must be integer, got: {type(green).__name__}"
+                )
+            if not isinstance(blue, int):
+                raise InvalidParameterError(
+                    f"Blue value must be integer, got: {type(blue).__name__}"
+                )
 
-        red = max(0, min(127, red))
-        green = max(0, min(127, green))
-        blue = max(0, min(127, blue))
+            red = max(0, min(127, red))
+            green = max(0, min(127, green))
+            blue = max(0, min(127, blue))
 
-        color = (red, green, blue)
-        # Short-circuit only when the pad is ALREADY showing this color.
-        # _last_pad_states keys are pad indices, not historical states.
-        if self._last_pad_states.get(index) == color:
-            return True
+            color = (red, green, blue)
+            # Short-circuit only when the pad is ALREADY showing this color.
+            # _last_pad_states keys are pad indices, not historical states.
+            if self._last_pad_states.get(index) == color:
+                return True
 
-        sysex_message = self._create_sysex_message([(index, red, green, blue)])
-        sent = self._send_midi_safe(sysex_message)
-        if sent:
-            self._last_pad_states[index] = color
-        return sent
+            return self._send_pad_colors([(index, red, green, blue)])
 
     def set_pad_color_fast(self, index: int, red: int, green: int, blue: int) -> bool:
         """
@@ -601,14 +644,7 @@ class AkaiFire(AkaiFireDevice):
         Returns:
             bool: True if successful
         """
-        sysex_message = self._create_sysex_message([(index, red, green, blue)])
-        sent = self._send_midi_safe(sysex_message)
-        if sent:
-            # Keep the cache coherent so a later set_pad_color() with the
-            # same color correctly short-circuits and a different color
-            # correctly sends.
-            self._last_pad_states[index] = (red, green, blue)
-        return sent
+        return self._send_pad_colors([(index, red, green, blue)])
 
     def set_multiple_pad_colors(
         self, pad_colors: List[Tuple[int, int, int, int]]
@@ -636,12 +672,7 @@ class AkaiFire(AkaiFireDevice):
                     logger.warning(f"Invalid pad index: {index}")
 
         if validated_colors:
-            sysex_message = self._create_sysex_message(validated_colors)
-            sent = self._send_midi_safe(sysex_message)
-            if sent:
-                for idx, r, g, b in validated_colors:
-                    self._last_pad_states[idx] = (r, g, b)
-            return sent
+            return self._send_pad_colors(validated_colors)
         return False
 
     def clear_pad(self, index: int) -> bool:
@@ -650,17 +681,7 @@ class AkaiFire(AkaiFireDevice):
 
     def clear_all_pads(self) -> bool:
         """Clear all pads efficiently using cached message."""
-        # Use cached clear message for better performance
-        if hasattr(self, "_cached_messages") and "clear_pads" in self._cached_messages:
-            sent = self._send_midi_safe(self._cached_messages["clear_pads"])
-        else:
-            # Fallback to creating message
-            pad_colors = [(i, 0, 0, 0) for i in range(64)]
-            sysex_message = self._create_sysex_message(pad_colors)
-            sent = self._send_midi_safe(sysex_message)
-        if sent:
-            self._last_pad_states = {i: (0, 0, 0) for i in range(64)}
-        return sent
+        return self._send_pad_colors([(index, 0, 0, 0) for index in range(64)])
 
     def reset_pads(self, red: int = 0, green: int = 0, blue: int = 0) -> bool:
         """Reset all pads to a specific color."""
@@ -677,30 +698,7 @@ class AkaiFire(AkaiFireDevice):
         Returns:
             bool: True if successful
         """
-        r, g, b = color
-        # Check for cached common colors
-        cached_key = None
-        if r == 0 and g == 0 and b == 0 and "clear_pads" in self._cached_messages:
-            cached_key = "clear_pads"
-        elif (
-            r == 127 and g == 127 and b == 127 and "all_white" in self._cached_messages
-        ):
-            cached_key = "all_white"
-        elif r == 127 and g == 0 and b == 0 and "all_red" in self._cached_messages:
-            cached_key = "all_red"
-        elif r == 0 and g == 127 and b == 0 and "all_green" in self._cached_messages:
-            cached_key = "all_green"
-        elif r == 0 and g == 0 and b == 127 and "all_blue" in self._cached_messages:
-            cached_key = "all_blue"
-
-        if cached_key is not None:
-            sent = self._send_midi_safe(self._cached_messages[cached_key])
-            if sent:
-                self._last_pad_states = {i: (r, g, b) for i in range(64)}
-            return sent
-        # Fallback to creating message (reset_pads → set_multiple_pad_colors
-        # already updates _last_pad_states).
-        return self.reset_pads(r, g, b)
+        return self.reset_pads(*color)
 
     def set_button_led(self, button_id: int, value: int) -> bool:
         """Set button LED state with validation."""
@@ -842,19 +840,21 @@ class AkaiFire(AkaiFireDevice):
             self._dispatch_rotary_turn(controller, direction, velocity)
             return
 
-    def _listen(self):
-        """Poll the MIDI input port for messages and dispatch them.
-
-        Uses ``self._stop_event`` for termination; ``is_set()`` is lockless,
-        so the loop doesn't acquire an RLock every iteration. The 1 ms
-        idle sleep keeps CPU usage low while MIDI is quiet.
-        """
-        while not self._stop_event.is_set():
-            message = self.midi_in.get_message()
-            if message:
-                self._process_message(message)
-            else:
-                time.sleep(0.001)
+    def _listen(self, midi_in, stop_event):
+        """Poll only this generation's input; retired reads never dispatch."""
+        try:
+            while not stop_event.is_set():
+                message = midi_in.get_message()
+                if stop_event.is_set():
+                    break
+                if message:
+                    self._process_message(message)
+                else:
+                    stop_event.wait(0.001)
+        except Exception:
+            logger.exception("MIDI input polling failed")
+        finally:
+            stop_event.set()
 
 
 # Convenience functions for device discovery and auto-selection

@@ -1,101 +1,22 @@
 # Roadmap
 
-This document outlines the development priorities for the AKAI Fire library.
+## Implemented
 
-## Current Focus: AkaiFireApp Framework
+- Driver and mocks share device callbacks, LED operations and canvas rendering.
+- The app framework owns lifecycle, input subscriptions, frame timing and shutdown.
+- Optional modes, screen/grid helpers and transport state are available.
+- Circuit runs through the framework and has a separate musical clock/note scheduler.
+- The JT-4000 editor sends documented CCs and saves local CC snapshots.
+- MIDI Scope records controller events, graphs movement and exports CSV.
+- The default test discovery includes the Circuit suite and application contracts.
 
-### Phase 1: Framework Core (In Progress)
+## Next priorities
 
-Create a modular application framework extracted from circuit example patterns:
+1. Foreground input dispatch with consistent ordering across hardware and mocks.
+2. Pad-release events, followed by a held-note keyboard example.
+3. Disconnect notifications and explicit recovery behavior in applications.
+4. Physical Fire/JT-4000 verification of the maintained apps and their controls.
+5. Circuit timing look-ahead for negative micro offsets and full per-pattern sync-rate scheduling. Current negative offsets clamp to the step boundary; sync rate scales gates, not the track clock.
+6. Decide whether to build a full MIDI clip looper. The current looper is a clip-state teaching demo with no instrument I/O.
 
-```
-akai_fire_framework/
-├── app.py          # AkaiFireApp base class
-├── mode.py         # ModeHandler + ModeManagerMixin
-├── screen.py       # ScreenMixin
-├── grid.py         # GridMixin
-├── transport.py    # TransportMixin
-└── config.py       # Configuration classes
-```
-
-**Goals:**
-- [ ] Base class with lifecycle hooks (on_init, on_start, on_update, on_stop)
-- [ ] Event routing (on_pad_press, on_button_press, on_encoder_turn)
-- [ ] Main loop with FPS control
-- [ ] Context manager support
-- [ ] Optional mixins for modes, screen, grid, transport
-
-### Phase 2: Example Applications
-
-Build applications to validate and showcase the framework:
-
-#### MIDI Looper
-- Pads as clip slots (4 tracks x 16 clips)
-- Record/play/overdub per clip
-- Simple 2-mode interface
-
-#### MIDI Matrix/Router
-- 4x16 pad matrix for routing
-- Toggle MIDI connections visually
-- Real-time routing display
-
-#### Drum Machine
-- 16 drum pads with patterns
-- Step sequencer integration
-- Kit/Pattern/Song modes
-
-### Phase 3: Circuit Example Refactor
-
-Update the Circuit Tracks sequencer to use the framework:
-- Import from akai_fire_framework
-- Remove duplicated boilerplate
-- Keep domain-specific sequencer logic
-
----
-
-## Backlog
-
-### Documentation
-- [ ] API reference generation from docstrings
-- [ ] Video tutorials for complex examples
-- [ ] Framework migration guide
-
-### Testing
-- [ ] Integration tests with mock hardware
-- [ ] Performance benchmarks
-- [ ] CI/CD pipeline setup
-
-### Features
-- [ ] MIDI clock sync (receive external clock)
-- [ ] Project save/load (JSON or similar)
-- [ ] MIDI learn mode for button mapping
-- [ ] Web-based configuration UI
-
-### Hardware Support
-- [ ] Test with different AKAI Fire firmware versions
-- [ ] Document any version-specific quirks
-
----
-
-## Completed
-
-### v0.2.x
-- [x] Screen Manager System
-- [x] Mock GUI (Pygame)
-- [x] Groovebox Example
-- [x] Testing Infrastructure
-
-### v0.1.x
-- [x] Core AkaiFire class
-- [x] Canvas drawing
-- [x] Event system
-- [x] Basic examples
-
----
-
-## Contributing
-
-If you'd like to contribute to any roadmap items:
-1. Check for existing issues/PRs
-2. Open an issue to discuss approach
-3. Submit a PR with tests
+The legacy sequencer/groovebox scripts are reference experiments. New features should go into the maintained apps rather than another overlapping sequencer.

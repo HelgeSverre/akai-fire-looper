@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MIDI Looper application using AkaiFireApp framework.
+Clip-state looper demo using AkaiFireApp; MIDI input/output is not wired.
 
 Features:
 - 4 tracks x 16 clips grid
@@ -17,36 +17,22 @@ Controls:
 - Volume encoder: Adjust BPM
 
 Usage:
-    uv run python examples/apps/looper/looper_app.py
+    uv run python -m examples.apps.looper.looper_app
 """
 
-import sys
-import os
 from enum import Enum, auto
-
-# Add project root to path
-sys.path.insert(
-    0,
-    os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    ),
-)
 
 from akai_fire_framework import (
     AkaiFireApp,
+    GridMixin,
     ModeHandler,
     ModeManagerMixin,
     ScreenMixin,
-    GridMixin,
     TransportMixin,
     TransportState,
 )
 
-# Handle both direct execution and module import
-try:
-    from .clip import Clip, ClipState, ClipGrid
-except ImportError:
-    from clip import Clip, ClipState, ClipGrid
+from .clip import ClipGrid, ClipState
 
 
 class Mode(Enum):
@@ -82,6 +68,7 @@ class MainMode(ModeHandler):
         else:
             # Empty clip - arm for recording
             clip.arm()
+            self.app.arm()
 
         # Update pad display
         self.app._update_pads()
@@ -186,42 +173,6 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
         self.register_mode(Mode.MAIN, MainMode(self))
         self.register_mode(Mode.SETTINGS, SettingsMode(self))
 
-        # Set up transport buttons
-        self.setup_transport_buttons()
-
-        # Override record button for looper-specific behavior
-        @self.fire.on_button(self.fire.BUTTON_REC)
-        def handle_rec(event):
-            if event == "press":
-                self._handle_record()
-
-        # Set up mode buttons
-        @self.fire.on_button(self.fire.BUTTON_NOTE)
-        def handle_note(event):
-            if event == "press":
-                self.set_mode(Mode.MAIN)
-
-        @self.fire.on_button(self.fire.BUTTON_BROWSER)
-        def handle_browser(event):
-            if event == "press":
-                self.set_mode(Mode.SETTINGS)
-
-        # SOLO buttons for track selection
-        solo_buttons = [
-            self.fire.BUTTON_SOLO_1,
-            self.fire.BUTTON_SOLO_2,
-            self.fire.BUTTON_SOLO_3,
-            self.fire.BUTTON_SOLO_4,
-        ]
-
-        for idx, btn in enumerate(solo_buttons):
-
-            @self.fire.on_button(btn)
-            def handle_solo(event, track=idx):
-                if event == "press":
-                    self.grid.selected_track = track
-                    self._update_track_leds()
-
         # Add transport callback for state changes
         self.add_transport_callback(self._on_transport_change)
 
@@ -232,6 +183,26 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
         """Called when app starts."""
         self._update_pads()
         self._update_track_leds()
+
+    def on_button_press(self, button_id, event):
+        if event != "press":
+            return
+        if button_id == self.fire.BUTTON_PLAY:
+            self.toggle_play()
+        elif button_id == self.fire.BUTTON_STOP:
+            self.stop()
+        elif button_id == self.fire.BUTTON_REC:
+            self._handle_record()
+        elif button_id == self.fire.BUTTON_NOTE:
+            self.set_mode(Mode.MAIN)
+        elif button_id == self.fire.BUTTON_BROWSER:
+            self.set_mode(Mode.SETTINGS)
+        elif button_id in self.fire.SOLO_BUTTONS.values():
+            self.grid.selected_track = self.fire.get_solo_index(button_id) - 1
+            self._update_track_leds()
+
+    def on_stop(self):
+        self.grid.stop_all()
 
     def on_pad_press(self, pad: int, velocity: int):
         """Dispatch pad press to current mode."""
@@ -245,12 +216,9 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
         """Main update loop."""
         # Update all clips and check for triggered events
         if self.is_playing:
-            triggered = self.grid.update(self.bpm)
-            for track, slot, events in triggered:
-                # In a real implementation, send MIDI events
-                for event in events:
-                    # print(f"Trigger: T{track+1} S{slot+1} - Note {event.note}")
-                    pass
+            # This example demonstrates clip state and timing. It has no MIDI
+            # instrument output; applications can send the returned events.
+            self.grid.update(self.bpm)
 
         # Update display
         self._update_display()
@@ -263,37 +231,32 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
         self.update_transport_leds()
 
     def _handle_record(self):
-        """Handle record button press."""
         clip = self.grid.selected_clip
-
         if clip.is_recording:
-            # Stop recording
             clip.stop_recording()
-            self._update_pads()
-        elif self.is_recording:
-            # Global record - start recording into selected clip
-            clip.start_recording(self.bpm)
-            self._update_pads()
+            self.play()
+        elif self.transport_state == TransportState.ARMED:
+            self.stop()
+        elif self.is_playing:
+            self.record()
         else:
-            # Arm for recording
-            if clip.has_content:
-                # Overdub mode
-                clip.start_overdub(self.bpm)
-            else:
-                clip.arm()
-            self._update_pads()
+            clip.arm()
+            self.arm()
+        self._update_pads()
 
-            # Toggle global record state
-            self.toggle_record()
-
-    def _on_transport_change(
-        self, new_state: TransportState, old_state: TransportState
-    ):
-        """Handle transport state changes."""
+    def _on_transport_change(self, new_state, old_state):
         if new_state == TransportState.STOPPED:
-            # Stop all clips
             self.grid.stop_all()
-            self._update_pads()
+        elif new_state == TransportState.RECORDING:
+            # One transition owns both the transport and selected clip. REC is
+            # registered once, so it cannot arm and cancel in the same press.
+            clip = self.grid.selected_clip
+            if not clip.is_recording:
+                if clip.has_content:
+                    clip.start_overdub(self.bpm)
+                else:
+                    clip.start_recording(self.bpm)
+        self._update_pads()
 
     def _update_pads(self):
         """Update all pad colors based on clip states."""
@@ -328,7 +291,7 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
         """Update track LED indicators."""
         # Use SOLO LEDs to show selected track
         for i in range(4):
-            btn = getattr(self.fire, f"BUTTON_SOLO_{i+1}")
+            btn = getattr(self.fire, f"BUTTON_SOLO_{i + 1}")
             brightness = 2 if i == self.grid.selected_track else 0
             self.fire.set_button_led(btn, brightness)
 
@@ -358,7 +321,7 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
             if info["clip_state"] == "EMPTY":
                 lines.append("Press pad to arm")
             elif info["clip_state"] == "ARMED":
-                lines.append("Press REC to record")
+                lines.append("PLAY=record REC=cancel")
 
             self.draw_content_lines(lines)
 

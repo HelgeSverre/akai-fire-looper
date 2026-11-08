@@ -106,9 +106,9 @@ def create_test_midi() -> MockMidiManager:
     return MockMidiManager()
 
 
-def create_test_environment() -> (
-    Tuple[MockAkaiFire, MockMidiManager, ControllableTimingEngine]
-):
+def create_test_environment() -> Tuple[
+    MockAkaiFire, MockMidiManager, ControllableTimingEngine
+]:
     """
     Create a complete test environment with all components.
 

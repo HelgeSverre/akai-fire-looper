@@ -209,10 +209,10 @@ class ModeManagerMixin:
             raise ValueError(f"Mode {mode_id} not registered")
 
         old_mode = self._current_mode
-        old_handler = self._modes.get(old_mode) if old_mode else None
+        old_handler = self._modes.get(old_mode) if old_mode is not None else None
 
         # Exit old mode
-        if old_handler:
+        if old_handler is not None:
             old_handler.on_exit()
             for callback in self._mode_callbacks.get(old_mode, {}).get("on_exit", []):
                 callback()
@@ -277,7 +277,7 @@ class ModeManagerMixin:
         Returns:
             True if the event was handled
         """
-        if self.current_handler:
+        if self.current_handler is not None:
             return self.current_handler.handle_pad_press(pad, velocity)
         return False
 
@@ -292,7 +292,7 @@ class ModeManagerMixin:
             direction: "clockwise" or "counterclockwise"
             velocity: Turn speed (1-127)
         """
-        if self.current_handler:
+        if self.current_handler is not None:
             encoder_name = self.ENCODER_NAMES.get(encoder_id, "unknown")
             self.current_handler.handle_encoder_turn(encoder_name, direction, velocity)
 
@@ -306,7 +306,7 @@ class ModeManagerMixin:
         Returns:
             True if the event was handled
         """
-        if self.current_handler:
+        if self.current_handler is not None:
             return self.current_handler.handle_button_press(button)
         return False
 
@@ -317,7 +317,7 @@ class ModeManagerMixin:
         Args:
             step: Current step index
         """
-        if self.current_handler:
+        if self.current_handler is not None:
             self.current_handler.on_step(step)
 
     def dispatch_transport_change(self, state: str):
@@ -327,5 +327,5 @@ class ModeManagerMixin:
         Args:
             state: New transport state
         """
-        if self.current_handler:
+        if self.current_handler is not None:
             self.current_handler.on_transport_change(state)

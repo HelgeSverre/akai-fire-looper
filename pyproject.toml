@@ -13,7 +13,10 @@ dependencies = [
 pygame = ["pygame>=2.6.0"]
 tui = ["rich>=13"]
 examples = ["transitions>=0.9.2"]
-dev = ["black>=25.1.0"]
+dev = [
+    "black>=25.1.0",
+    "ruff>=0.17.4",
+]
 
 [build-system]
 requires = ["setuptools>=77"]

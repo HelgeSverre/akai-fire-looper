@@ -1,0 +1,988 @@
+import time
+from dataclasses import dataclass
+from enum import Enum, auto
+from typing import Dict, List, Optional, Tuple
+
+# noinspection PyPackageRequirements
+import rtmidi
+
+from akai_fire import get_akai_fire
+
+
+class ScreenMode(Enum):
+    MAIN = "main"
+    MIDI_SELECT_INPUT = "midi_select_input"
+    MIDI_SELECT_OUTPUT = "midi_select_output"
+    MIDI_MONITOR = "midi_monitor"
+
+
+class LoopState(Enum):
+    EMPTY = auto()
+    PLAYING = auto()
+    STOPPED = auto()
+
+
+class RecordingState(Enum):
+    READY = auto()  # Not recording or armed
+    ARMED = auto()  # Ready to start recording on next bar
+    RECORDING = auto()  # Currently recording
+    FINISHING = auto()  # Waiting for quantized end
+
+
+@dataclass
+class Loop:
+    midi_messages: List[Tuple[float, List[int]]]
+    state: LoopState = LoopState.EMPTY
+    start_time: Optional[float] = None
+    length: float = 4.0  # Length in bars
+    quantize: bool = True
+
+
+@dataclass
+class ClipRecording:
+    track: int
+    loop: int
+    state: RecordingState
+    start_time: Optional[float] = None
+    scheduled_end_time: Optional[float] = None
+
+
+class Track:
+    def __init__(self, index: int):
+        self.index = index
+        self.loops: Dict[int, Loop] = {i: Loop(midi_messages=[]) for i in range(16)}
+        self.is_muted = False
+        self.is_soloed = False
+
+
+# noinspection PyUnusedLocal
+class MidiLooper:
+    def __init__(self, bpm: float = 120.0):
+        print("Initializing MIDI Looper...")
+        self.bpm = bpm
+        self._update_timing_params()
+
+        self.recording: Optional[ClipRecording] = None
+        self.selected_clip: Optional[Tuple[int, int]] = None  # (track, loop)
+
+        # Initialize hardware
+        self.fire = get_akai_fire()
+        self.canvas = self.fire.get_canvas()
+
+        # MIDI setup
+        self.midi_in = rtmidi.MidiIn()
+        self.midi_out = rtmidi.MidiOut()
+
+        self.midi_inputs = self.midi_in.get_ports()
+        self.midi_outputs = self.midi_out.get_ports()
+
+        self.selected_midi_input = 0
+        self.selected_midi_input_channel = 0
+
+        self.selected_midi_output = 0
+        self.selected_midi_output_channel = 0
+
+        self.midi_input_select_index = 0
+        self.midi_output_select_index = 0
+
+        self.midi_monitor_messages = []
+        self.max_monitor_messages = 20
+
+        # Tracks (4 tracks, 16 loops each)
+        self.tracks = [Track(i) for i in range(4)]
+        self.selected_track = 0
+        self.active_clip = None  # (track, loop) of currently selected clip
+
+        self.screen_mode = ScreenMode.MAIN
+
+        # Global state
+        self.global_start_time: Optional[float] = None
+        self.is_playing = False
+        self.is_recording = False
+        self.record_armed_loop: Optional[Tuple[int, int]] = None  # (track, loop)
+        self.current_bar = 0
+        self.current_step = 0
+        self.last_pressed_pad = None  # For debugging display
+
+        # Setup hardware and UI
+        self._setup_midi()
+        self._setup_controls()
+        self._init_display()
+        print("Initialization complete")
+
+    def _setup_midi(self):
+        """Setup MIDI connections."""
+        print("Available MIDI inputs:", self.midi_inputs)
+        print("Available MIDI outputs:", self.midi_out.get_ports())
+
+        if self.midi_inputs:
+            try:
+                self.midi_in.open_port(self.selected_midi_input)
+                print(
+                    f"Opened MIDI input: {self.midi_inputs[self.selected_midi_input]}"
+                )
+            except Exception as e:
+                print(f"Error opening MIDI input: {e}")
+                raise
+
+        # Try to find a MIDI output port
+        try:
+            output_ports = self.midi_out.get_ports()
+            if output_ports:
+                self.midi_out.open_port(0)  # Open first available output
+                print(f"Opened MIDI output: {output_ports[0]}")
+            else:
+                print("No MIDI output ports available")
+        except Exception as e:
+            print(f"Error opening MIDI output: {e}")
+            raise
+
+    def _update_timing_params(self):
+        """Update timing parameters based on BPM."""
+        self.beats_per_bar = 4
+        self.steps_per_beat = 4
+        self.total_steps = self.beats_per_bar * self.steps_per_beat
+        self.beat_duration = 60.0 / self.bpm
+        self.bar_duration = self.beat_duration * self.beats_per_bar
+        self.step_duration = self.beat_duration / self.steps_per_beat
+
+    def _setup_controls(self):
+        """Set up all hardware controls."""
+        # Pad matrix (64 pads total)
+        self.fire.add_listener(range(64), self._handle_pad)
+
+        # Transport controls
+        self.fire.add_button_listener(self.fire.BUTTON_PLAY, self._handle_play)
+        self.fire.add_button_listener(self.fire.BUTTON_STOP, self._handle_stop)
+        self.fire.add_button_listener(self.fire.BUTTON_REC, self._handle_rec)
+
+        # Track controls
+        for i in range(4):
+            self.fire.add_button_listener(
+                getattr(self.fire, f"BUTTON_SOLO_{i + 1}"),
+                lambda btn, evt, track=i: self._handle_solo(track, evt),
+            )
+
+        # Navigation
+        self.fire.add_button_listener(self.fire.BUTTON_PATTERN, self._handle_pattern)
+        self.fire.add_button_listener(self.fire.BUTTON_BROWSER, self._handle_browser)
+
+        # Parameter controls
+        self.fire.add_rotary_listener(self.fire.ROTARY_VOLUME, self._handle_bpm)
+        self.fire.add_rotary_listener(self.fire.ROTARY_PAN, self._handle_loop_length)
+        self.fire.add_rotary_listener(
+            self.fire.ROTARY_SELECT, self._handle_rotary_select
+        )
+
+        # Mode buttons
+        self.fire.add_button_listener(self.fire.BUTTON_STEP, self._handle_step_mode)
+        self.fire.add_button_listener(self.fire.BUTTON_NOTE, self._handle_note_mode)
+        self.fire.add_button_listener(
+            self.fire.BUTTON_SELECT, self._handle_rotary_select_press
+        )
+        self.fire.add_button_listener(self.fire.BUTTON_BANK, self._handle_bank)
+
+        # Add grid left/right button handlers
+        self.fire.add_button_listener(
+            self.fire.BUTTON_GRID_LEFT, self._handle_grid_left
+        )
+        self.fire.add_button_listener(
+            self.fire.BUTTON_GRID_RIGHT, self._handle_grid_right
+        )
+
+    def _init_display(self):
+        """Initialize the display state."""
+        self.fire.clear_all_pads()
+        self.fire.clear_all_button_leds()
+        self.fire.clear_all_track_leds()
+        self._update_display()
+
+    def _handle_play(self, event: str):
+        """Handle play button press."""
+        if event == "press":
+            if not self.is_playing:
+                self._start_playback(time.time())
+            else:
+                self._stop_playback()
+
+    def _handle_stop(self, event: str):
+        """Handle stop button press."""
+        if event == "press":
+            self._stop_playback()
+            self.current_bar = 0
+            self.current_step = 0
+            self._update_display()
+
+    def _handle_rec(self, event: str):
+        """Handle record button press."""
+        if event == "press":
+            if self.recording:
+                if self.recording.state == RecordingState.RECORDING:
+                    # Schedule recording to stop at next bar
+                    self.recording.state = RecordingState.FINISHING
+                    self.recording.scheduled_end_time = self._next_bar_time()
+                elif self.recording.state == RecordingState.ARMED:
+                    # Cancel armed recording
+                    self._cancel_recording()
+            elif self.selected_clip:
+                # Start new recording on selected clip
+                track, loop = self.selected_clip
+                self._arm_recording(track, loop)
+
+            self._update_record_button()
+            self._update_display()
+
+    def _handle_solo(self, track: int, event: str):
+        """Handle track solo button press."""
+        if event == "press":
+            self.tracks[track].is_soloed = not self.tracks[track].is_soloed
+            self._update_display()
+
+    def _handle_pattern(self, event: str):
+        """Handle pattern button press."""
+        pass  # To be implemented
+
+    def _handle_grid_left(self, event: str):
+        """Handle grid left button for channel selection."""
+        if event == "press":
+            if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                self.selected_midi_input_channel = (
+                    self.selected_midi_input_channel - 1
+                ) % 16
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                self.selected_midi_output_channel = (
+                    self.selected_midi_output_channel - 1
+                ) % 16
+            self._update_display()
+
+    def _handle_grid_right(self, event: str):
+        """Handle grid right button for channel selection."""
+        if event == "press":
+            if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                self.selected_midi_input_channel = (
+                    self.selected_midi_input_channel + 1
+                ) % 16
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                self.selected_midi_output_channel = (
+                    self.selected_midi_output_channel + 1
+                ) % 16
+            self._update_display()
+
+    def _change_midi_output(self, new_index: int):
+        """Change the active MIDI output."""
+        if new_index != self.selected_midi_output:
+            try:
+                # Close existing port
+                if self.midi_out.is_port_open():
+                    self.midi_out.close_port()
+
+                # Open new port
+                self.midi_out.open_port(new_index)
+                self.selected_midi_output = new_index
+                print(f"Switched to MIDI output: {self.midi_outputs[new_index]}")
+            except Exception as e:
+                print(f"Error changing MIDI output: {e}")
+
+    def _change_midi_input(self, new_index: int):
+        print(f"Changing MIDI input to: {self.midi_inputs[new_index]}")
+
+        """Change the active MIDI input."""
+        if new_index != self.selected_midi_input:
+            try:
+                # Close existing port
+                if self.midi_in.is_port_open():
+                    self.midi_in.close_port()
+
+                # Open new port
+                self.midi_in.open_port(new_index)
+                self.selected_midi_input = new_index
+                print(f"Switched to MIDI input: {self.midi_inputs[new_index]}")
+            except Exception as e:
+                print(f"Error changing MIDI input: {e}")
+
+    def _handle_browser(self, event: str):
+        """Cycle through main -> input select -> output select screens."""
+        if event == "press":
+            # Cycle through modes
+            if self.screen_mode == ScreenMode.MAIN:
+                self.screen_mode = ScreenMode.MIDI_SELECT_INPUT
+                self.fire.set_button_led(
+                    self.fire.BUTTON_BROWSER, self.fire.LED_HIGH_GREEN
+                )
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                self.screen_mode = ScreenMode.MIDI_SELECT_OUTPUT
+                self.fire.set_button_led(
+                    self.fire.BUTTON_BROWSER, self.fire.LED_HIGH_RED
+                )
+            else:  # MIDI_OUTPUT_SELECT or any other mode
+                self.screen_mode = ScreenMode.MAIN
+                self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_OFF)
+
+        self._update_display()
+
+    def _handle_rotary_select_press(self, event: str):
+        """Handle select button press to confirm MIDI port selection."""
+        if event == "press":
+            if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+                self._change_midi_input(self.midi_input_select_index)
+                # Switch back to main screen after selection
+                self.screen_mode = ScreenMode.MAIN
+                self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_OFF)
+            elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+                self._change_midi_output(self.midi_output_select_index)
+                # Switch back to main screen after selection
+                self.screen_mode = ScreenMode.MAIN
+                self.fire.set_button_led(self.fire.BUTTON_BROWSER, self.fire.LED_OFF)
+            self._update_display()
+
+    def _handle_rotary_select(self, direction: str, velocity: int):
+        """Handle MIDI port selection scrolling."""
+        if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+            if direction == "clockwise":
+                self.midi_input_select_index = min(
+                    len(self.midi_inputs) - 1, self.midi_input_select_index + 1
+                )
+            else:
+                self.midi_input_select_index = max(0, self.midi_input_select_index - 1)
+            self._update_display()
+        elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+            if direction == "clockwise":
+                self.midi_output_select_index = min(
+                    len(self.midi_outputs) - 1, self.midi_output_select_index + 1
+                )
+            else:
+                self.midi_output_select_index = max(
+                    0, self.midi_output_select_index - 1
+                )
+            self._update_display()
+
+    def _handle_bank(self, event: str):
+        """Toggle MIDI monitor view."""
+        if event == "press":
+            if self.screen_mode == ScreenMode.MIDI_MONITOR:
+                self.screen_mode = ScreenMode.MAIN
+                self.fire.set_button_led(self.fire.BUTTON_BANK, self.fire.LED_OFF)
+            else:
+                self.screen_mode = ScreenMode.MIDI_MONITOR
+                self.fire.set_button_led(
+                    self.fire.BUTTON_BANK, self.fire.LED_HIGH_GREEN
+                )
+            self._update_display()
+
+    def _decode_midi_for_display(self, message):
+        """Convert MIDI message to readable format."""
+        if not message:
+            return "Empty message"
+
+        status = message[0] & 0xF0
+        channel = message[0] & 0x0F
+
+        # TODO: Program change, sysex, etc.
+
+        if status == 0x90 and message[2] > 0:  # Note On
+            return f"Note {message[1]} On  vel:{message[2]}"
+        elif status == 0x80 or (status == 0x90 and message[2] == 0):  # Note Off
+            return f"Note {message[1]} Off"
+        elif status == 0xB0:  # CC
+            return f"CC {message[1]}  val:{message[2]}"
+        elif status == 0xE0:  # Pitch Bend
+            value = (message[2] << 7) + message[1]
+            return f"Pitch {value}"
+
+        else:
+            return f"MIDI: {' '.join(hex(b)[2:].zfill(2) for b in message)}"
+
+    def _handle_step_mode(self, event: str):
+        """Handle step mode button press."""
+        pass  # To be implemented
+
+    def _handle_note_mode(self, event: str):
+        """Handle note mode button press."""
+        pass  # To be implemented
+
+    def _handle_bpm(self, direction: str, velocity: int):
+        """Handle BPM changes from volume encoder."""
+        if direction == "counterclockwise":
+            diff = -1.0 * velocity
+        else:
+            diff = 1.0 * velocity
+
+        self.bpm = max(30.0, min(300.0, self.bpm + diff))
+        self._update_timing_params()
+        self._update_display()
+
+    def _handle_loop_length(self, direction: str, velocity: int):
+        """Handle loop length changes from pan encoder."""
+        if self.recording:  # Changed from record_armed_loop
+            track, loop = self.recording.track, self.recording.loop
+            loop_obj = self.tracks[track].loops[loop]
+
+            if direction == "counterclockwise":
+                diff = -1.0 * velocity
+            else:
+                diff = 1.0 * velocity
+
+            loop_obj.length = max(1.0, min(16.0, loop_obj.length + diff))
+            self._update_display()
+
+    def _handle_pad(self, pad_index: int):
+        """Handle pad press for loop triggering/recording."""
+        print(f"🎹 PAD PRESSED: pad_index={pad_index}")
+        self.last_pressed_pad = pad_index  # Store for debugging display
+        track = pad_index // 16
+        loop = pad_index % 16
+        print(f"🎯 CALCULATED: track={track}, loop={loop}")
+
+        # Validate indices
+        if track >= len(self.tracks):
+            print(f"❌ INVALID TRACK: {track} >= {len(self.tracks)}")
+            return
+        if loop not in self.tracks[track].loops:
+            print(f"❌ INVALID LOOP: {loop} not in track {track} loops")
+            return
+
+        # Update selected clip
+        self.selected_clip = (track, loop)
+        loop_obj = self.tracks[track].loops[loop]
+        print(
+            f"✅ SELECTED CLIP: track={track}, loop={loop}, state={loop_obj.state.name}"
+        )
+
+        # Handle recording state changes
+        if (
+            self.recording
+            and self.recording.track == track
+            and self.recording.loop == loop
+        ):
+            if self.recording.state == RecordingState.RECORDING:
+                # Schedule recording to stop at next bar
+                self.recording.state = RecordingState.FINISHING
+                self.recording.scheduled_end_time = self._next_bar_time()
+            elif self.recording.state == RecordingState.ARMED:
+                # Cancel armed recording
+                self._cancel_recording()
+        elif loop_obj.state == LoopState.EMPTY:
+            # Arm empty loop for recording
+            self._arm_recording(track, loop)
+        else:
+            # Toggle existing loop
+            if loop_obj.state == LoopState.PLAYING:
+                loop_obj.state = LoopState.STOPPED
+            else:
+                loop_obj.state = LoopState.PLAYING
+                if not self.is_playing:
+                    self._start_playback(time.time())
+
+        self._update_record_button()
+        self._update_display()
+
+    def _arm_recording(self, track: int, loop: int):
+        """Arm a clip for recording."""
+        print(f"🎸 ARMING RECORDING: track={track}, loop={loop}")
+        self.recording = ClipRecording(
+            track=track, loop=loop, state=RecordingState.ARMED
+        )
+
+        loop_obj = self.tracks[track].loops[loop]
+        loop_obj.midi_messages = []  # Clear any existing messages
+
+        if not self.is_playing:
+            self._start_playback(time.time())
+
+    def _cancel_recording(self):
+        """Cancel current recording."""
+        if self.recording:
+            track, loop = self.recording.track, self.recording.loop
+            loop_obj = self.tracks[track].loops[loop]
+
+            if not loop_obj.midi_messages:
+                loop_obj.state = LoopState.EMPTY
+
+            self.recording = None
+
+    def _start_recording(self):
+        """Start actual recording."""
+        if not self.recording or self.recording.state != RecordingState.ARMED:
+            return
+
+        self.recording.state = RecordingState.RECORDING
+        self.recording.start_time = time.time()
+
+        # Set initial loop state
+        loop_obj = self.tracks[self.recording.track].loops[self.recording.loop]
+        loop_obj.midi_messages = []
+
+    def _finish_recording(self):
+        """Finish and cleanup recording."""
+        if not self.recording:
+            return
+
+        track, loop = self.recording.track, self.recording.loop
+        loop_obj = self.tracks[track].loops[loop]
+
+        if not loop_obj.midi_messages:
+            loop_obj.state = LoopState.EMPTY
+        else:
+            loop_obj.state = LoopState.PLAYING
+
+            # Quantize recorded MIDI if enabled
+            if loop_obj.quantize:
+                self._quantize_loop(loop_obj)
+
+        self.recording = None
+        self._update_record_button()
+
+    def _quantize_loop(self, loop: Loop):
+        """Quantize recorded MIDI messages to the nearest step."""
+        quantized_messages = []
+        for timestamp, message in loop.midi_messages:
+            # Quantize to nearest step
+            step = round(timestamp / self.step_duration)
+            quantized_time = step * self.step_duration
+            if quantized_time < loop.length * self.bar_duration:
+                quantized_messages.append((quantized_time, message))
+        loop.midi_messages = sorted(quantized_messages)
+
+    def _next_bar_time(self) -> float:
+        """Calculate the timestamp of the next bar start."""
+        if not self.is_playing or self.global_start_time is None:
+            return time.time()
+
+        current_time = time.time()
+        elapsed = current_time - self.global_start_time
+        current_bar_start = (elapsed // self.bar_duration) * self.bar_duration
+        return self.global_start_time + current_bar_start + self.bar_duration
+
+    def _update_record_button(self):
+        """Update record button LED based on current state."""
+        if self.recording:
+            if self.recording.state in (
+                RecordingState.RECORDING,
+                RecordingState.FINISHING,
+            ):
+                self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_HIGH_RED)
+            elif self.recording.state == RecordingState.ARMED:
+                self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_DULL_RED)
+        else:
+            self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_OFF)
+
+    def _handle_bar_start(self):
+        """Handle actions that occur at the start of each bar."""
+        if self.recording:
+            if self.recording.state == RecordingState.ARMED:
+                self._start_recording()
+            elif (
+                self.recording.state == RecordingState.FINISHING
+                and self.recording.scheduled_end_time
+                and time.time() >= self.recording.scheduled_end_time
+            ):
+                self._finish_recording()
+
+    def _start_playback(self, start_time: float):
+        """Start global playback."""
+        self.is_playing = True
+        self.global_start_time = start_time
+        self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_HIGH_GREEN)
+        self._update_display()
+
+    def _stop_playback(self):
+        """Stop global playback."""
+        self.is_playing = False
+        self.global_start_time = None
+        self._all_notes_off()
+        self.fire.set_button_led(self.fire.BUTTON_PLAY, self.fire.LED_OFF)
+        self._update_display()
+
+    def _stop_recording(self, track: int, loop: int):
+        """Stop recording the current loop."""
+        if not self.is_recording:
+            return
+
+        loop_obj = self.tracks[track].loops[loop]
+
+        if not loop_obj.midi_messages:
+            # No MIDI recorded, reset to empty
+            loop_obj.state = LoopState.EMPTY
+        else:
+            loop_obj.state = LoopState.PLAYING
+
+            # Quantize recorded MIDI if enabled
+            if loop_obj.quantize:
+                quantized_messages = []
+                for timestamp, message in loop_obj.midi_messages:
+                    # Quantize to nearest step
+                    step = round(timestamp / self.step_duration)
+                    quantized_time = step * self.step_duration
+                    if quantized_time < loop_obj.length * self.bar_duration:
+                        quantized_messages.append((quantized_time, message))
+                loop_obj.midi_messages = sorted(quantized_messages)
+
+        self.is_recording = False
+        self.record_armed_loop = None
+        self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_OFF)
+        self._update_display()
+
+    def _all_notes_off(self):
+        """Send note off messages for all notes on all channels."""
+        for channel in range(16):
+            for note in range(128):
+                self.midi_out.send_message([0x80 | channel, note, 0])
+
+    def _process_midi(self):
+        """Process MIDI input/output and timing."""
+        current_time = time.time()
+
+        if self.is_playing and self.global_start_time is not None:
+            elapsed = current_time - self.global_start_time
+            new_step = int((elapsed % self.bar_duration) / self.step_duration)
+            new_bar = int(elapsed / self.bar_duration)
+
+            # Handle step change
+            if new_step != self.current_step:
+                self.current_step = new_step
+                if new_step == 0:
+                    self.current_bar = new_bar
+                    self._handle_bar_start()
+                self._update_display()
+
+            # Process recording
+            if self.recording and self.recording.state == RecordingState.RECORDING:
+                message = self.midi_in.get_message()
+                if message:
+                    midi_data, delta = message
+                    if (midi_data[0] & 0x0F) == self.selected_midi_input_channel:
+                        loop_obj = self.tracks[self.recording.track].loops[
+                            self.recording.loop
+                        ]
+                        timestamp = elapsed % (loop_obj.length * self.bar_duration)
+                        loop_obj.midi_messages.append((timestamp, midi_data))
+
+            self._process_loop_playback(current_time)
+
+        # Process MIDI input
+        while message := self.midi_in.get_message():
+            midi_data, delta = message
+
+            # Add to monitor if in monitor mode
+            if self.screen_mode == ScreenMode.MIDI_MONITOR:
+                decoded = self._decode_midi_for_display(midi_data)
+                self.midi_monitor_messages.insert(0, decoded)
+                if len(self.midi_monitor_messages) > self.max_monitor_messages:
+                    self.midi_monitor_messages.pop()
+                self._update_display()
+
+            # Process MIDI input
+            if (midi_data[0] & 0x0F) == self.selected_midi_input_channel:
+                # Route MIDI to output or recording based on state
+                if self.recording and self.recording.state == RecordingState.RECORDING:
+                    # Only record if global timing is properly initialized
+                    if self.global_start_time is not None:
+                        loop_obj = self.tracks[self.recording.track].loops[
+                            self.recording.loop
+                        ]
+                        timestamp = time.time() - self.global_start_time
+                        timestamp = timestamp % (loop_obj.length * self.bar_duration)
+                        loop_obj.midi_messages.append((timestamp, midi_data))
+                    # If global timing not initialized, pass through to output instead
+                    else:
+                        status = midi_data[0] & 0xF0
+                        new_message = [
+                            status | self.selected_midi_output_channel
+                        ] + list(midi_data[1:])
+                        self.midi_out.send_message(new_message)
+                else:
+                    # Redirect to selected output channel
+                    status = midi_data[0] & 0xF0
+                    new_message = [status | self.selected_midi_output_channel] + list(
+                        midi_data[1:]
+                    )
+                    self.midi_out.send_message(new_message)
+
+    def _process_loop_playback(self, current_time: float):
+        """Handle playback of all active loops."""
+        if not self.is_playing or self.global_start_time is None:
+            return
+
+        elapsed = current_time - self.global_start_time
+
+        for track in self.tracks:
+            if track.is_muted or (
+                any(t.is_soloed for t in self.tracks) and not track.is_soloed
+            ):
+                continue
+
+            for loop in track.loops.values():
+                if loop.state == LoopState.PLAYING:
+                    loop_position = elapsed % (loop.length * self.bar_duration)
+
+                    # Find messages to play in this frame - 1ms window
+                    messages_to_play = [
+                        msg
+                        for t, msg in loop.midi_messages
+                        if abs(t - loop_position) < 0.001
+                    ]
+
+                    for message in messages_to_play:
+                        # Redirect to selected output channel
+                        status = message[0] & 0xF0
+                        new_message = [
+                            status | self.selected_midi_output_channel
+                        ] + list(message[1:])
+                        self.midi_out.send_message(new_message)
+
+    def _update_display(self):
+        """Update the display and LEDs."""
+        self.canvas.clear()
+
+        if self.screen_mode == ScreenMode.MIDI_SELECT_INPUT:
+            self._draw_midi_input_select_screen()
+        elif self.screen_mode == ScreenMode.MIDI_SELECT_OUTPUT:
+            self._draw_midi_output_select_screen()
+        elif self.screen_mode == ScreenMode.MIDI_MONITOR:
+            self._draw_midi_monitor_screen()
+        else:
+            self._draw_main_screen()
+
+        self.fire.render_to_display()
+
+    def _draw_midi_monitor_screen(self):
+        """Draw the MIDI monitor screen."""
+        # Header
+        self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
+        self.canvas.draw_text("MIDI Monitor", 2, 2, color=1)
+
+        # Show MIDI messages
+        y = 15
+        for i, message in enumerate(
+            self.midi_monitor_messages[:4]
+        ):  # Show last 4 messages
+            self.canvas.draw_text(message[:21], 2, y)  # Truncate to fit screen
+            y += 12
+
+        if not self.midi_monitor_messages:
+            self.canvas.draw_text("Waiting for MIDI...", 2, y)
+
+    def _draw_midi_input_select_screen(self):
+        """Draw the MIDI input selection screen with channel."""
+        # Header
+        self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
+        self.canvas.draw_text("MIDI In (1/2)", 2, 2, color=1)
+
+        # Show channel
+        channel_text = f"Channel: {self.selected_midi_input_channel + 1}"
+        self.canvas.draw_text(channel_text, 80, 2, color=1)
+
+        # Show current and adjacent inputs with channel prefix
+        y = 15
+        for i in range(
+            max(0, self.midi_input_select_index - 1),
+            min(len(self.midi_inputs), self.midi_input_select_index + 3),
+        ):
+            prefix = ">" if i == self.midi_input_select_index else " "
+            port_name = self.midi_inputs[i][
+                :16
+            ]  # Truncate port name to leave room for channel
+            if i == self.selected_midi_input:
+                text = (
+                    f"{prefix} ch{self.selected_midi_input_channel + 1} - {port_name}"
+                )
+                self.canvas.fill_rect(0, y, self.canvas.WIDTH, 10, color=0)
+                self.canvas.draw_text(text, 2, y, color=1)
+            else:
+                text = f"{prefix} {port_name}"
+                self.canvas.draw_text(text, 2, y)
+            y += 12
+
+    def _draw_midi_output_select_screen(self):
+        """Draw the MIDI output selection screen with channel."""
+        # Header
+        self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
+        self.canvas.draw_text("MIDI Out (2/2)", 2, 2, color=1)
+
+        # Show channel
+        channel_text = f"Ch: {self.selected_midi_output_channel + 1}"
+        self.canvas.draw_text(channel_text, 80, 2, color=1)
+
+        # Show current and adjacent outputs with channel prefix
+        y = 15
+        for i in range(
+            max(0, self.midi_output_select_index - 1),
+            min(len(self.midi_outputs), self.midi_output_select_index + 3),
+        ):
+            prefix = ">" if i == self.midi_output_select_index else " "
+            port_name = self.midi_outputs[i][
+                :16
+            ]  # Truncate port name to leave room for channel
+            if i == self.selected_midi_output:
+                text = (
+                    f"{prefix} ch{self.selected_midi_output_channel + 1} - {port_name}"
+                )
+                self.canvas.fill_rect(0, y, self.canvas.WIDTH, 10, color=0)
+                self.canvas.draw_text(text, 2, y, color=1)
+            else:
+                text = f"{prefix} {port_name}"
+                self.canvas.draw_text(text, 2, y)
+            y += 12
+
+    def _draw_main_screen(self):
+        """Draw the main looper screen."""
+        # Header with BPM and transport
+        self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
+        self.canvas.draw_text(f"BPM: {self.bpm:.1f}", 2, 2, color=1)
+
+        # Draw transport status
+        status = "REC" if self.is_recording else "PLAY" if self.is_playing else "STOP"
+        self.canvas.draw_text(f"Bar: {self.current_bar + 1}  {status}", 64, 2, color=1)
+
+        # Debug info: show last pressed pad
+        if self.last_pressed_pad is not None:
+            debug_track = self.last_pressed_pad // 16
+            debug_loop = self.last_pressed_pad % 16
+            debug_text = (
+                f"Debug: Pad {self.last_pressed_pad} -> T{debug_track}L{debug_loop}"
+            )
+            self.canvas.draw_text(debug_text, 2, 50, color=1)
+
+        # Current state info
+        y = 15
+        if self.recording:
+            track, loop = self.recording.track, self.recording.loop
+            if track < len(self.tracks) and loop in self.tracks[track].loops:
+                loop_obj = self.tracks[track].loops[loop]
+                state_text = (
+                    f"Track {track + 1} Loop {loop + 1}: {self.recording.state.name}"
+                )
+                length_text = f"Length: {loop_obj.length} bars"
+                self.canvas.draw_text(state_text, 2, y)
+                self.canvas.draw_text(length_text, 2, y + 12)
+            else:
+                # Invalid recording state, reset it
+                self.recording = None
+        elif self.selected_clip:
+            track, loop = self.selected_clip
+            if track < len(self.tracks) and loop in self.tracks[track].loops:
+                loop_obj = self.tracks[track].loops[loop]
+                state_text = f"Track {track + 1} Loop {loop + 1}: {loop_obj.state.name}"
+                if loop_obj.state != LoopState.EMPTY:
+                    length_text = f"Length: {loop_obj.length} bars"
+                    self.canvas.draw_text(state_text, 2, y)
+                    self.canvas.draw_text(length_text, 2, y + 12)
+            else:
+                # Invalid selected clip, reset it
+                self.selected_clip = None
+
+        # Update pad colors to reflect recording states
+        colors = []
+        for track_idx, track in enumerate(self.tracks):
+            for loop_idx, loop_obj in track.loops.items():
+                pad_idx = track_idx * 16 + loop_idx
+
+                # Check if this clip is being recorded
+                is_recording_clip = (
+                    self.recording
+                    and self.recording.track == track_idx
+                    and self.recording.loop == loop_idx
+                )
+
+                if is_recording_clip:
+                    print(
+                        f"🔴 LIGHTING PAD: pad_idx={pad_idx} (track={track_idx}, loop={loop_idx}) state={self.recording.state.name}"
+                    )
+
+                if is_recording_clip:
+                    if self.recording.state == RecordingState.ARMED:
+                        color = (64, 0, 0)  # Medium red for armed
+                    elif self.recording.state == RecordingState.RECORDING:
+                        color = (127, 0, 0)  # Bright red for recording
+                    else:  # FINISHING
+                        color = (127, 64, 0)  # Orange for finishing
+                elif loop_obj.state == LoopState.EMPTY:
+                    color = (10, 10, 10)  # Dim white
+                elif loop_obj.state == LoopState.PLAYING:
+                    color = (0, 127, 0)  # Bright green
+                else:  # STOPPED
+                    color = (0, 0, 127)  # Blue
+
+                colors.append((pad_idx, *color))
+
+        self.fire.set_multiple_pad_colors(colors)
+
+        # Update track status LEDs
+        for i, track in enumerate(self.tracks):
+            if track.is_soloed:
+                self.fire.set_track_led(i + 1, self.fire.RECTANGLE_LED_HIGH_GREEN)
+            elif track.is_muted:
+                self.fire.set_track_led(i + 1, self.fire.RECTANGLE_LED_HIGH_RED)
+            else:
+                self.fire.set_track_led(i + 1, self.fire.RECTANGLE_LED_OFF)
+
+        # Display step indicators on bottom row
+        if self.is_playing:
+            step_colors = []
+            for step in range(16):
+                pad_idx = 48 + step  # Use bottom row for step display
+                if step == self.current_step:
+                    color = (127, 127, 0)  # Bright yellow for current step
+                elif step % 4 == 0:
+                    color = (64, 64, 64)  # Medium gray for beat markers
+                else:
+                    color = (20, 20, 20)  # Dim gray for other steps
+                step_colors.append((pad_idx, *color))
+            self.fire.set_multiple_pad_colors(step_colors)
+
+        # Render canvas to OLED display
+        self.fire.render_to_display()
+
+    def _cleanup(self):
+        """Clean up all resources."""
+        print("Cleaning up...")
+        try:
+            # Stop all playback and recording
+            self._stop_playback()
+            if self.is_recording:
+                if self.record_armed_loop:
+                    self._stop_recording(*self.record_armed_loop)
+
+            # Turn off all notes
+            self._all_notes_off()
+
+            # Clear all visual feedback
+            self.fire.clear_all_pads()
+            self.fire.clear_all_button_leds()
+            self.fire.clear_all_track_leds()
+            self.canvas.clear()
+            self.fire.render_to_display()
+
+            # Close MIDI ports
+            if self.midi_in.is_port_open():
+                self.midi_in.close_port()
+            if self.midi_out.is_port_open():
+                self.midi_out.close_port()
+
+            # Close Fire controller
+            self.fire.close()
+
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+
+        print("Cleanup complete")
+
+    def run(self):
+        """Main loop."""
+        print("Starting MIDI Looper...")
+        try:
+            while True:
+                if hasattr(self.fire, "process_events"):
+                    if not self.fire.process_events():
+                        break
+                self._process_midi()
+                time.sleep(0.001)  # 1ms loop interval
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+        finally:
+            self._cleanup()
+
+
+if __name__ == "__main__":
+    looper = MidiLooper(bpm=120)
+    looper.run()

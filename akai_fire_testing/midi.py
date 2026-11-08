@@ -9,9 +9,9 @@ Classes:
     MockMidiManager: Mock MIDI manager that records all output
 """
 
-from typing import List, Dict, Tuple, Optional, Any
-from dataclasses import dataclass, field
 import time
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -76,6 +76,7 @@ class MockMidiManager:
         self.output_port: Optional[str] = None
         self.input_port: Optional[str] = None
         self._ports_refreshed = False
+        self.input_callback = None
 
     # =========================================================================
     # Port Management (Mock)
@@ -94,10 +95,15 @@ class MockMidiManager:
     def set_output_port(self, port_name: str):
         """Set mock output port."""
         self.output_port = port_name
+        return True
 
     def set_input_port(self, port_name: str):
         """Set mock input port."""
         self.input_port = port_name
+        return True
+
+    def set_input_callback(self, callback):
+        self.input_callback = callback
 
     def get_status(self) -> Dict[str, Any]:
         """

@@ -98,9 +98,9 @@ class MockCanvas:
 
         # Operation recording for assertions
         self.text_drawn: List[Tuple[str, int, int]] = []
-        self.rects_drawn: List[Tuple[int, int, int, int, bool]] = (
-            []
-        )  # (x, y, w, h, filled)
+        self.rects_drawn: List[
+            Tuple[int, int, int, int, bool]
+        ] = []  # (x, y, w, h, filled)
         self.lines_drawn: List[Tuple[int, int, int, int]] = []  # (x0, y0, x1, y1)
         self.circles_drawn: List[Tuple[int, int, int, bool]] = []  # (cx, cy, r, filled)
         self.clear_count = 0
@@ -1017,9 +1017,9 @@ class MockAkaiFire(AkaiFireDevice):
             AssertionError: If color doesn't match
         """
         actual = self.pad_colors[pad_index]
-        assert (
-            actual == expected_color
-        ), f"Pad {pad_index}: expected {expected_color}, got {actual}"
+        assert actual == expected_color, (
+            f"Pad {pad_index}: expected {expected_color}, got {actual}"
+        )
 
     def assert_pad_not_black(self, pad_index: int):
         """
@@ -1046,9 +1046,9 @@ class MockAkaiFire(AkaiFireDevice):
             AssertionError: If value doesn't match
         """
         actual = self.button_leds.get(button_id, 0)
-        assert (
-            actual == expected_value
-        ), f"Button {button_id}: expected {expected_value}, got {actual}"
+        assert actual == expected_value, (
+            f"Button {button_id}: expected {expected_value}, got {actual}"
+        )
 
     def get_lit_pads(self) -> List[int]:
         """

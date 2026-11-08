@@ -17,6 +17,7 @@ import abc
 import logging
 import threading
 from collections import defaultdict
+from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from akai_fire.constants import install as _install_constants
@@ -43,6 +44,7 @@ class AkaiFireDevice(abc.ABC):
         # during the snapshot portion of dispatch; never while a user
         # handler is executing.
         self._lock = threading.RLock()
+        self._handler_context = threading.local()
 
         # Modifier latch state. Updated inline during button dispatch so
         # any pad/button/rotary handler sees coherent state for the
@@ -126,7 +128,7 @@ class AkaiFireDevice(abc.ABC):
     # Handler dispatch — the seam concrete implementations call into
     # --------------------------------------------------------------
 
-    def _invoke(self, handler: Callable, *args: Any) -> None:
+    def _invoke(self, handler: Callable, *args: Any, _modifiers=None) -> None:
         """Dispatch a user handler with per-handler exception isolation.
 
         If ``self._dispatcher`` is set (real AkaiFire with async handlers
@@ -134,22 +136,35 @@ class AkaiFireDevice(abc.ABC):
         raised exception is logged but never prevents sibling handlers
         from running.
         """
-        if self._dispatcher is not None:
-            self._dispatcher.submit(handler, *args)
-            return
-        try:
-            handler(*args)
-        except Exception:
-            logger.exception("Handler %r raised", handler)
+        modifiers = _modifiers
+        if modifiers is None:
+            modifiers = (self._shift_pressed, self._alt_pressed)
+
+        def run():
+            previous = getattr(self._handler_context, "modifiers", None)
+            self._handler_context.modifiers = modifiers
+            try:
+                handler(*args)
+            except Exception:
+                logger.exception("Handler %r raised", handler)
+            finally:
+                self._handler_context.modifiers = previous
+
+        dispatcher = self._dispatcher
+        if dispatcher is not None:
+            dispatcher.submit(run)
+        else:
+            run()
 
     def _dispatch_pad(self, pad_index: int, velocity: int) -> None:
         with self._lock:
             specific = list(self.pad_listeners[pad_index])
             globals_ = list(self.pad_listeners["global"])
+            modifiers = (self._shift_pressed, self._alt_pressed)
         for h in specific:
-            self._invoke(h, velocity)
+            self._invoke(h, velocity, _modifiers=modifiers)
         for h in globals_:
-            self._invoke(h, pad_index, velocity)
+            self._invoke(h, pad_index, velocity, _modifiers=modifiers)
 
     def _dispatch_button(self, button_id: int, event: str) -> None:
         """Dispatch a button press/release, latching modifiers first.
@@ -159,18 +174,19 @@ class AkaiFireDevice(abc.ABC):
         pad handler that reads :meth:`is_shift_pressed` observes a
         coherent value for the same event.
         """
-        if button_id == self.BUTTON_SHIFT:
-            self._shift_pressed = event == "press"
-        elif button_id == self.BUTTON_ALT:
-            self._alt_pressed = event == "press"
-
         with self._lock:
+            if button_id == self.BUTTON_SHIFT:
+                self._shift_pressed = event == "press"
+            elif button_id == self.BUTTON_ALT:
+                self._alt_pressed = event == "press"
+
             specific = list(self.button_listeners[button_id])
             globals_ = list(self.button_listeners["global"])
+            modifiers = (self._shift_pressed, self._alt_pressed)
         for h in specific:
-            self._invoke(h, event)
+            self._invoke(h, event, _modifiers=modifiers)
         for h in globals_:
-            self._invoke(h, button_id, event)
+            self._invoke(h, button_id, event, _modifiers=modifiers)
 
     def _dispatch_rotary_turn(
         self, rotary_id: int, direction: str, velocity: int
@@ -178,19 +194,21 @@ class AkaiFireDevice(abc.ABC):
         with self._lock:
             specific = list(self.rotary_listeners[rotary_id])
             globals_ = list(self.rotary_listeners["global"])
+            modifiers = (self._shift_pressed, self._alt_pressed)
         for h in specific:
-            self._invoke(h, direction, velocity)
+            self._invoke(h, direction, velocity, _modifiers=modifiers)
         for h in globals_:
-            self._invoke(h, rotary_id, direction, velocity)
+            self._invoke(h, rotary_id, direction, velocity, _modifiers=modifiers)
 
     def _dispatch_rotary_touch(self, rotary_id: int, event: str) -> None:
         with self._lock:
             specific = list(self.rotary_touch_listeners[rotary_id])
             globals_ = list(self.rotary_touch_listeners["global"])
+            modifiers = (self._shift_pressed, self._alt_pressed)
         for h in specific:
-            self._invoke(h, event)
+            self._invoke(h, event, _modifiers=modifiers)
         for h in globals_:
-            self._invoke(h, rotary_id, event)
+            self._invoke(h, rotary_id, event, _modifiers=modifiers)
 
     # --------------------------------------------------------------
     # Decorators
@@ -211,10 +229,15 @@ class AkaiFireDevice(abc.ABC):
                 if pad_index is None:
                     self.pad_listeners["global"].append(func)
                 elif isinstance(pad_index, (list, tuple)):
+                    if any(not (0 <= idx <= 63) for idx in pad_index):
+                        raise ValueError("Pad index must be between 0 and 63")
                     for idx in pad_index:
-                        if not (0 <= idx <= 63):
-                            raise ValueError("Pad index must be between 0 and 63")
-                        self.pad_listeners[idx].append(func)
+
+                        @wraps(func)
+                        def wrapper(velocity, index=idx):
+                            return func(index, velocity)
+
+                        self.pad_listeners[idx].append(wrapper)
                 else:
                     if not (0 <= pad_index <= 63):
                         raise ValueError("Pad index must be between 0 and 63")
@@ -315,9 +338,9 @@ class AkaiFireDevice(abc.ABC):
     def add_listener(self, pad_indices: Any, callback: Callable) -> None:
         with self._lock:
             if isinstance(pad_indices, (list, tuple)):
+                if any(not (0 <= idx <= 63) for idx in pad_indices):
+                    raise ValueError("Pad index must be between 0 and 63")
                 for idx in pad_indices:
-                    if not (0 <= idx <= 63):
-                        raise ValueError("Pad index must be between 0 and 63")
                     self.pad_listeners[idx].append(callback)
             else:
                 if not (0 <= pad_indices <= 63):
@@ -360,50 +383,40 @@ class AkaiFireDevice(abc.ABC):
             for idx in indices:
                 listeners = self.pad_listeners.get(idx)
                 if listeners:
-                    try:
-                        listeners.remove(callback)
-                    except ValueError:
-                        pass
+                    for handler in listeners:
+                        if (
+                            handler == callback
+                            or getattr(handler, "__wrapped__", None) == callback
+                        ):
+                            listeners.remove(handler)
+                            break
+
+    def _remove_registered_listener(self, registry, key, callback):
+        with self._lock:
+            listeners = registry.get(key)
+            if listeners:
+                try:
+                    listeners.remove(callback)
+                except ValueError:
+                    pass
 
     def remove_global_listener(self, callback: Callable) -> None:
         """Remove a previously added global pad listener."""
-        with self._lock:
-            listeners = self.pad_listeners.get("global")
-            if listeners:
-                try:
-                    listeners.remove(callback)
-                except ValueError:
-                    pass
+        self._remove_registered_listener(self.pad_listeners, "global", callback)
 
     def remove_button_listener(self, button_id: int, callback: Callable) -> None:
         """Remove a previously added button listener."""
-        with self._lock:
-            listeners = self.button_listeners.get(button_id)
-            if listeners:
-                try:
-                    listeners.remove(callback)
-                except ValueError:
-                    pass
+        self._remove_registered_listener(self.button_listeners, button_id, callback)
 
     def remove_rotary_listener(self, rotary_id: int, callback: Callable) -> None:
         """Remove a previously added rotary-turn listener."""
-        with self._lock:
-            listeners = self.rotary_listeners.get(rotary_id)
-            if listeners:
-                try:
-                    listeners.remove(callback)
-                except ValueError:
-                    pass
+        self._remove_registered_listener(self.rotary_listeners, rotary_id, callback)
 
     def remove_rotary_touch_listener(self, rotary_id: int, callback: Callable) -> None:
         """Remove a previously added rotary-touch listener."""
-        with self._lock:
-            listeners = self.rotary_touch_listeners.get(rotary_id)
-            if listeners:
-                try:
-                    listeners.remove(callback)
-                except ValueError:
-                    pass
+        self._remove_registered_listener(
+            self.rotary_touch_listeners, rotary_id, callback
+        )
 
     # --------------------------------------------------------------
     # Modifier-key state
@@ -411,19 +424,21 @@ class AkaiFireDevice(abc.ABC):
 
     def is_shift_pressed(self) -> bool:
         """True while SHIFT is currently latched."""
-        return self._shift_pressed
+        modifiers = getattr(self._handler_context, "modifiers", None)
+        return modifiers[0] if modifiers is not None else self._shift_pressed
 
     def is_alt_pressed(self) -> bool:
         """True while ALT is currently latched."""
-        return self._alt_pressed
+        modifiers = getattr(self._handler_context, "modifiers", None)
+        return modifiers[1] if modifiers is not None else self._alt_pressed
 
     @property
     def shift_pressed(self) -> bool:
-        return self._shift_pressed
+        return self.is_shift_pressed()
 
     @property
     def alt_pressed(self) -> bool:
-        return self._alt_pressed
+        return self.is_alt_pressed()
 
     # --------------------------------------------------------------
     # Pad geometry utilities
