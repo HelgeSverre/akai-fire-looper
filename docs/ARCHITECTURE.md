@@ -1,6 +1,6 @@
 # Architecture
 
-The repository has three installed packages and a set of runnable examples. Root GUI/TUI modules and `screen_manager.py` are development utilities; they are not included in the wheel.
+The project is a Python toolkit for controlling the AKAI Fire and building custom applications. It has three installed packages: the device library, an optional application framework, and headless testing tools. Runnable example apps demonstrate how to combine them. Root GUI/TUI modules and `screen_manager.py` are development utilities; they are not included in the wheel.
 
 ```text
 examples/apps/circuit        musical clock, tracks, MIDI, modes
@@ -32,7 +32,7 @@ The frame loop is an interface refresh loop. It is not a musical clock. Circuit 
 - `examples/apps/`: maintained applications and small framework teaching demos.
 - `examples/legacy/`: earlier overlapping standalone experiments, retained for reference.
 - `akai_fire_testing`: headless mocks and assertions, usable without a GUI.
-- `mock_gui_pygame.py` and `mock_tui.py`: repository-only interactive backends.
+- `mock_gui_pygame.py` and `mock_gui_tui.py`: repository-only interactive backends.
 
 Run examples with `uv run python -m examples.<module>` so root utilities and package-relative imports resolve consistently. Small procedural animations use `examples._runtime.wait` to pump foreground mock events while waiting; worker threads only sleep. Framework applications get event pumping from `run()`.
 

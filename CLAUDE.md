@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Python library for interfacing with the AKAI Fire MIDI controller, designed for FL Studio. The library provides low-level hardware control (pads, buttons, LEDs, OLED screen) and event handling for building creative applications like sequencers and grooveboxes.
+This project provides a Python device library, an optional application framework, and testing tools for building custom AKAI Fire controller applications. It controls the hardware directly over MIDI without requiring FL Studio. The sequencer, synth editor, diagnostics and looper demos are examples built on these packages. Keep reusable device/framework behavior in the packages and application-specific behavior in `examples/apps/`.
 
 ## Development Commands
 

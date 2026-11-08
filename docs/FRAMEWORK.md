@@ -1,6 +1,8 @@
 # Building an application
 
-`AkaiFireApp` is a sensible foundation for a controller application: it owns the connection lifecycle and display loop so each app can focus on its controls. Add mixins only when they remove work your app actually needs. Circuit uses the base runtime while keeping its musical clock and domain-specific modes; the synth editor and MIDI Scope use the base runtime directly.
+`akai_fire_framework` is the optional application layer above the `akai_fire` device library. Its `AkaiFireApp` base class owns the connection lifecycle, input subscriptions and display loop so your app can define what the controller does. Use the device library directly when integrating with an existing program; use the framework when you want these application services provided for you.
+
+Mixins add modes, screen layouts, grid helpers and transport state as needed. The example apps demonstrate these choices: Circuit keeps its musical clock and domain-specific modes; the synth editor and MIDI Scope use the base runtime directly.
 
 ## Lifecycle and ownership
 

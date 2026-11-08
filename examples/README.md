@@ -1,5 +1,10 @@
 # Examples
 
+These examples demonstrate the `akai_fire` device library, the optional
+`akai_fire_framework` application layer and the mock/testing tools. Start with a
+single-feature example to learn an API, or use an app as a starting point for your
+own controller software. Each app's behavior belongs to that example.
+
 Run from the repository root after `uv sync --all-extras`:
 
 ```sh
@@ -10,7 +15,7 @@ uv run python -m examples.apps.synth_editor
 
 Names describe the device feature: `pads_*`, `oled_*`, `events_*`, `leds_*`, `midi_*`, `mock_*`, and `benchmark_*`. Multi-file or application-sized demos live in `apps/`. Use module commands, not direct `.py` paths; examples no longer patch `sys.path`.
 
-## Applications
+## Example applications
 
 | Module | Purpose and status |
 | --- | --- |

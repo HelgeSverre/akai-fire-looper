@@ -8,6 +8,10 @@ For a runnable first application, start with the [README](../README.md). These s
 
 `get_akai_fire()` tries hardware first, then falls back to the pygame mock:
 
+The interactive pygame/TUI backends require a repository checkout. In an
+installed-library project, use `AkaiFire()` for hardware or
+`akai_fire_testing.MockAkaiFire` for headless tests.
+
 ```python
 from akai_fire import get_akai_fire
 

@@ -1,34 +1,26 @@
 # AKAI Fire for Python
 
-[![JT-4000 editor running in the interactive Fire mock](docs/images/mock-demo.gif)](docs/images/mock-demo.png)
+A **Python library and application framework** for controlling the AKAI Fire and building your own controller applications.
 
-The actual JT-4000 editor in preview mode: moving pad faders, OLED graphs and note activity. [Still PNG](docs/images/mock-demo.png) · [Mock controls and hardware comparison](docs/MOCK_GUI.md)
+Read pads, buttons and encoders; control RGB LEDs; draw on the 128×64 OLED; and give the hardware whatever behavior your application needs. Build custom control surfaces, interactive displays, MIDI tools, sequencers or other integrations. The library communicates directly over USB MIDI—FL Studio is not required.
 
-Turn the AKAI Fire into a sequencer, synth controller, or a custom control surface. Drive its 64 RGB pads and 128×64 OLED, handle buttons and encoders, and develop against a mock when the controller is unplugged.
+[![An example application built with the framework, running in the interactive Fire mock](docs/images/mock-demo.gif)](docs/images/mock-demo.png)
 
-```python
-from akai_fire_framework import AkaiFireApp
+*One example of the framework in use: the JT-4000 editor running in the pygame mock, with pad faders, OLED graphs and note activity. [Still PNG](docs/images/mock-demo.png) · [Mock controls and hardware comparison](docs/MOCK_GUI.md)*
 
+## Library, framework and testing tools
 
-class PadCounter(AkaiFireApp):
-    def on_init(self):
-        self.count = 0
+Use the device library inside an existing program, or build an application with the optional framework. All three packages ship together:
 
-    def on_pad_press(self, pad, velocity):
-        self.count += 1
-        self.fire.set_pad_color(pad, 0, 100, 30)
-        self.canvas.clear()
-        self.canvas.draw_text(f"Pad {pad} / count {self.count}", 4, 24)
+| Package | Use it to |
+| --- | --- |
+| `akai_fire` | Connect to the controller, handle input events, set pad/button/track LEDs, and draw on the OLED with `Canvas` |
+| `akai_fire_framework` | Build apps with `AkaiFireApp`: lifecycle hooks, a display loop, input routing, cleanup, and optional mode/screen/grid/transport helpers |
+| `akai_fire_testing` | Test your code without hardware using headless controller/MIDI mocks, simulated input and output assertions |
 
+The repository also includes clickable pygame and terminal mocks, small API examples, and example applications. You can develop and test controller behavior before connecting a physical Fire.
 
-if __name__ == "__main__":
-    with PadCounter() as app:
-        app.run()
-```
-
-The framework runs the display loop, pumps mock events, removes its handlers on shutdown, and closes connections it owns. Your app supplies the behavior.
-
-## Try it
+## Get started
 
 Use Python 3.12 and [uv](https://docs.astral.sh/uv/). The repository pins 3.12 because pygame's font support was problematic on 3.14 during development.
 
@@ -39,21 +31,53 @@ uv sync --all-extras
 uv run python -m examples.apps.pad_counter
 ```
 
-With a Fire connected, this uses its MIDI ports. Otherwise it opens the clickable pygame mock. Close the window or press Ctrl+C to exit. Run examples as modules from the repository root; the GUI mocks and examples are repository tools, not installed library packages.
+With a Fire connected, the example uses its MIDI ports. Otherwise it opens the clickable pygame mock. Close the window or press Ctrl+C to exit.
 
-## Choose an app
+To open the mock on its own:
 
-| App | What you can do | Run |
-| --- | --- | --- |
-| [Circuit](examples/apps/circuit/README.md) | Build four-track MIDI patterns, record notes, edit steps, mix and chain patterns | `uv run python -m examples.apps.circuit` |
-| [JT-4000 editor](examples/apps/synth_editor/README.md) | Edit 16 synth parameters, use pad faders, audition notes, save CC snapshots | `uv run python -m examples.apps.synth_editor` |
-| [MIDI Scope](examples/apps/MIDI_SCOPE.md) | Inspect controller input, graph encoder movement, freeze and export an event log | `uv run python -m examples.apps.midi_scope` |
+```sh
+uv run python mock_gui_pygame.py
+```
 
-Circuit needs an explicitly selected instrument output for sound. The editor connects automatically only when exactly one JT-4000 output is present; otherwise it runs in preview mode. Neither app generates audio on the computer. The editor's mappings come from Behringer's JT-4000 MICRO manual; physical synth behavior still needs hardware validation.
+## Build your own application
 
-Smaller [examples](examples/README.md) cover OLED graphics, pad animation, LED control, events, batching, and mocks. The clip looper and modal demo teach state management; their menus and MIDI integration have explicit limits. Earlier overlapping sequencer experiments live under `examples/legacy`.
+Save this as `my_fire_app.py` in the repository root and run `uv run python my_fire_app.py`:
 
-## Use the driver directly
+```python
+from akai_fire_framework import AkaiFireApp
+
+
+class PadLights(AkaiFireApp):
+    def on_init(self):
+        self.canvas.draw_text("Press a pad", 28, 20)
+        self.canvas.draw_text("STOP to exit", 24, 38)
+
+    def on_pad_press(self, pad, velocity):
+        self.fire.set_pad_color(pad, 0, 100, 30)
+
+    def on_button_press(self, button, event):
+        if button == self.fire.BUTTON_STOP and event == "press":
+            self.quit()
+
+
+if __name__ == "__main__":
+    with PadLights() as app:
+        app.run()
+```
+
+Your app defines the behavior. The framework runs the display loop, pumps mock events, removes its handlers on shutdown, and closes connections it owns. Use `on_update(dt)` for ongoing UI changes and `on_encoder_turn(...)` for knob input. The [framework guide](docs/FRAMEWORK.md) covers these hooks, optional mixins, threading and resource ownership.
+
+## Use the library in another project
+
+Add the packages from this repository to an existing uv project:
+
+```sh
+uv add "akai-fire-looper @ git+https://github.com/HelgeSverre/akai-fire-looper.git"
+```
+
+The repository and distribution retain the original `akai-fire-looper` name. Import the Python APIs from `akai_fire`, `akai_fire_framework` and `akai_fire_testing`.
+
+For direct hardware control:
 
 ```python
 from akai_fire import AkaiFire
@@ -66,17 +90,29 @@ with AkaiFire() as fire:
     input("Press Enter to close the hardware connection...")
 ```
 
-`AkaiFire()` requires hardware. `get_akai_fire()` chooses hardware or a repository mock. Pads use indices 0–63 and RGB channels 0–127. OLED pixels use `0` for lit and `1` for unlit. The driver context manager clears the display and closes MIDI; call `clear_all()` yourself when you also want LEDs cleared.
+`AkaiFire()` requires hardware. Pads use indices 0–63 and RGB channels 0–127. OLED pixels use `0` for lit and `1` for unlit. The device context manager clears the display and closes MIDI; call `clear_all()` when you also want LEDs cleared.
 
-## What is included?
+The installed distribution includes all three library packages. Interactive GUI/TUI mocks and examples are repository tools; run them from a checkout. In the checkout, `get_akai_fire()` can select hardware or an interactive mock. For hardware-free tests in any project, use `akai_fire_testing.MockAkaiFire`. You can also pass a controller explicitly to a framework app, for example `PadLights(AkaiFire())`; the caller owns that connection.
 
-| Package | Responsibility |
-| --- | --- |
-| `akai_fire` | MIDI transport, event subscriptions, LEDs, OLED canvas, reconnect and error handling |
-| `akai_fire_framework` | Application lifecycle, frame loop, modes, screen/grid helpers, transport state |
-| `akai_fire_testing` | Headless controller/MIDI mocks, event simulation, drawing and output assertions |
+## Explore the examples
 
-This is an early library for building controller software. The application framework is a useful runtime, but it is not an audio engine or a real-time MIDI scheduler. Device callbacks can run on worker threads; the framework does not automatically serialize application state onto its frame thread. See the [framework guide](docs/FRAMEWORK.md) for ownership, threading, and feature boundaries.
+The examples show ways to use the library and framework, from a single input callback to a multi-mode application. Start with the [example catalog](examples/README.md) for pad colors, OLED graphics, buttons, encoders, LEDs, batching and mocks.
+
+| Example app | What it demonstrates | Run from the checkout |
+| --- | --- | --- |
+| [Circuit](examples/apps/circuit/README.md) | A four-track MIDI sequencer with a separate musical clock, step editing and mode-based controls | `uv run python -m examples.apps.circuit` |
+| [JT-4000 editor](examples/apps/synth_editor/README.md) | Parameter pages, pad faders, OLED visualizations, MIDI CC output and local snapshots | `uv run python -m examples.apps.synth_editor` |
+| [MIDI Scope](examples/apps/MIDI_SCOPE.md) | Input handling, encoder traces, live/frozen views and CSV export | `uv run python -m examples.apps.midi_scope` |
+
+Circuit needs an explicitly selected instrument output for sound. The editor connects automatically only when exactly one JT-4000 output is present; otherwise it runs in preview mode. These apps send MIDI and do not generate computer audio. Their README files cover controls, prerequisites and limitations.
+
+The clip looper and modal demo teach state management. Earlier standalone sequencer experiments live in `examples/legacy`. Instrument profiles, musical clocks, recording logic and persistence belong to the apps that need them.
+
+## Project status
+
+The library and framework are under active development. Hardware callbacks can run on worker threads; applications must coordinate shared state with the display thread. The framework provides a UI frame loop; musical scheduling belongs to the application. Pad-release events and app-level reconnect notifications are current gaps. See the [framework guide](docs/FRAMEWORK.md) and [roadmap](docs/ROADMAP.md).
+
+Automated tests exercise mocked MIDI ports and controller implementations. Physical Fire/JT-4000 behavior for the example apps still needs hardware validation.
 
 ## Documentation
 
@@ -86,7 +122,7 @@ This is an early library for building controller software. The application frame
 - [Interactive mock](docs/MOCK_GUI.md): hardware comparison, screenshots and mouse controls
 - [Architecture](docs/ARCHITECTURE.md): package boundaries and resource ownership
 - [Troubleshooting](docs/TROUBLESHOOTING.md): ports, mock windows, displays and silent instruments
-- [Roadmap](docs/ROADMAP.md): implemented capabilities and remaining priorities
+- [Roadmap](docs/ROADMAP.md): library/framework priorities and example-app follow-ups
 
 ## Development
 
@@ -98,10 +134,10 @@ uv run ruff format --check .
 uv build
 ```
 
-Discovery includes driver/framework tests and Circuit's app tests. MIDI ports are mocked in automated tests. Ruff's full lint gate currently reports existing repository-wide style debt; see the [cleanup evidence](docs/code-cleanup.md) for the measured baseline and verification limits.
+Discovery includes library, framework, mock and example-app tests. Ruff's full lint gate currently reports existing repository-wide style debt; see the [cleanup evidence](docs/code-cleanup.md) for the measured baseline and verification limits.
 
 With [just](https://github.com/casey/just), use `just test`, `just example oled_wave`, or `just app synth_editor`.
 
 ## Credits
 
-Built by [Helge Sverre](https://github.com/HelgeSverre). The Fire is an AKAI controller; the JT-4000 is a Behringer synthesizer. Circuit is an independent example inspired by a four-track hardware workflow, not a Novation product or an implementation of every Circuit Tracks feature.
+Built by [Helge Sverre](https://github.com/HelgeSverre). This is an independent Python project for the AKAI Fire. AKAI, FL Studio and Behringer product names identify the hardware and software used by the examples.

@@ -1,22 +1,36 @@
 # Roadmap
 
-## Implemented
+The project's focus is a reusable Python device library, application framework
+and testing toolkit for custom AKAI Fire applications. Example apps exercise
+those APIs and demonstrate patterns for users to build on.
+
+## Available building blocks
 
 - Driver and mocks share device callbacks, LED operations and canvas rendering.
 - The app framework owns lifecycle, input subscriptions, frame timing and shutdown.
 - Optional modes, screen/grid helpers and transport state are available.
-- Circuit runs through the framework and has a separate musical clock/note scheduler.
-- The JT-4000 editor sends documented CCs and saves local CC snapshots.
-- MIDI Scope records controller events, graphs movement and exports CSV.
-- The default test discovery includes the Circuit suite and application contracts.
+- Headless mocks support simulated input and assertions about controller/MIDI output.
+- Interactive pygame and terminal mocks support development from a checkout.
+- Tests cover the packages, mocks and maintained example applications.
 
-## Next priorities
+## Library and framework priorities
 
 1. Foreground input dispatch with consistent ordering across hardware and mocks.
-2. Pad-release events, followed by a held-note keyboard example.
-3. Disconnect notifications and explicit recovery behavior in applications.
-4. Physical Fire/JT-4000 verification of the maintained apps and their controls.
-5. Circuit timing look-ahead for negative micro offsets and full per-pattern sync-rate scheduling. Current negative offsets clamp to the step boundary; sync rate scales gates, not the track clock.
-6. Decide whether to build a full MIDI clip looper. The current looper is a clip-state teaching demo with no instrument I/O.
+2. Pad-release events with parity across controller implementations.
+3. Disconnect notifications and explicit application recovery hooks.
+4. A small ownership API for app-created resources and subscriptions.
+5. Broader physical-hardware validation of device behavior and mock parity.
 
-The legacy sequencer/groovebox scripts are reference experiments. New features should go into the maintained apps rather than another overlapping sequencer.
+## Example-app follow-ups
+
+- Add a held-note keyboard example once pad-release events are available.
+- Validate Circuit and the JT-4000 editor against physical instruments.
+- Add Circuit timing look-ahead for negative micro offsets and full per-pattern
+  sync-rate scheduling. Current negative offsets clamp to the step boundary;
+  sync rate scales gates, not the track clock.
+- Decide whether to extend the clip-state teaching demo into a MIDI clip looper.
+  It currently has no instrument I/O.
+
+Synth profiles, musical clocks and recording/persistence formats stay with the
+applications until several real consumers justify a shared abstraction. Legacy
+sequencer/groovebox scripts remain reference experiments.
