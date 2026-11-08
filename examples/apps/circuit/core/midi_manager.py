@@ -54,7 +54,8 @@ class MidiManager:
         self.channel_velocities: Dict[int, int] = {}  # Channel -> last_velocity
 
         # Thread safety
-        self.lock = threading.Lock()
+        # Sending a note also updates activity under this same lock.
+        self.lock = threading.RLock()
 
         self._initialize_midi()
 

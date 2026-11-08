@@ -149,7 +149,9 @@ class MidiLooper:
     def _setup_controls(self):
         """Set up all hardware controls."""
         # Pad matrix (64 pads total)
-        self.fire.add_listener(range(64), self._handle_pad)
+        self.fire.add_global_listener(
+            lambda pad, velocity: self._handle_pad(pad) if velocity > 0 else None
+        )
 
         # Transport controls
         self.fire.add_button_listener(self.fire.BUTTON_PLAY, self._handle_play)
@@ -160,7 +162,7 @@ class MidiLooper:
         for i in range(4):
             self.fire.add_button_listener(
                 getattr(self.fire, f"BUTTON_SOLO_{i + 1}"),
-                lambda btn, evt, track=i: self._handle_solo(track, evt),
+                lambda evt, track=i: self._handle_solo(track, evt),
             )
 
         # Navigation
@@ -749,28 +751,28 @@ class MidiLooper:
         """Draw the MIDI monitor screen."""
         # Header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-        self.canvas.draw_text("MIDI Monitor", 2, 2, color=1)
+        self.canvas.draw_text_fitted("MIDI Monitor", 2, 2, color=1)
 
         # Show MIDI messages
         y = 15
         for i, message in enumerate(
             self.midi_monitor_messages[:4]
         ):  # Show last 4 messages
-            self.canvas.draw_text(message[:21], 2, y)  # Truncate to fit screen
+            self.canvas.draw_text_fitted(message[:21], 2, y)  # Truncate to fit screen
             y += 12
 
         if not self.midi_monitor_messages:
-            self.canvas.draw_text("Waiting for MIDI...", 2, y)
+            self.canvas.draw_text_fitted("Waiting for MIDI...", 2, y)
 
     def _draw_midi_input_select_screen(self):
         """Draw the MIDI input selection screen with channel."""
         # Header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-        self.canvas.draw_text("MIDI In (1/2)", 2, 2, color=1)
+        self.canvas.draw_text_fitted("MIDI In (1/2)", 2, 2, color=1, width=74)
 
         # Show channel
-        channel_text = f"Channel: {self.selected_midi_input_channel + 1}"
-        self.canvas.draw_text(channel_text, 80, 2, color=1)
+        channel_text = f"Ch: {self.selected_midi_input_channel + 1}"
+        self.canvas.draw_text_fitted(channel_text, 80, 2, color=1)
 
         # Show current and adjacent inputs with channel prefix
         y = 15
@@ -787,21 +789,21 @@ class MidiLooper:
                     f"{prefix} ch{self.selected_midi_input_channel + 1} - {port_name}"
                 )
                 self.canvas.fill_rect(0, y, self.canvas.WIDTH, 10, color=0)
-                self.canvas.draw_text(text, 2, y, color=1)
+                self.canvas.draw_text_fitted(text, 2, y, color=1)
             else:
                 text = f"{prefix} {port_name}"
-                self.canvas.draw_text(text, 2, y)
+                self.canvas.draw_text_fitted(text, 2, y)
             y += 12
 
     def _draw_midi_output_select_screen(self):
         """Draw the MIDI output selection screen with channel."""
         # Header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-        self.canvas.draw_text("MIDI Out (2/2)", 2, 2, color=1)
+        self.canvas.draw_text_fitted("MIDI Out (2/2)", 2, 2, color=1, width=74)
 
         # Show channel
         channel_text = f"Ch: {self.selected_midi_output_channel + 1}"
-        self.canvas.draw_text(channel_text, 80, 2, color=1)
+        self.canvas.draw_text_fitted(channel_text, 80, 2, color=1)
 
         # Show current and adjacent outputs with channel prefix
         y = 15
@@ -818,21 +820,23 @@ class MidiLooper:
                     f"{prefix} ch{self.selected_midi_output_channel + 1} - {port_name}"
                 )
                 self.canvas.fill_rect(0, y, self.canvas.WIDTH, 10, color=0)
-                self.canvas.draw_text(text, 2, y, color=1)
+                self.canvas.draw_text_fitted(text, 2, y, color=1)
             else:
                 text = f"{prefix} {port_name}"
-                self.canvas.draw_text(text, 2, y)
+                self.canvas.draw_text_fitted(text, 2, y)
             y += 12
 
     def _draw_main_screen(self):
         """Draw the main looper screen."""
         # Header with BPM and transport
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-        self.canvas.draw_text(f"BPM: {self.bpm:.1f}", 2, 2, color=1)
+        self.canvas.draw_text_fitted(f"BPM {self.bpm:.0f}", 2, 2, color=1, width=58)
 
         # Draw transport status
         status = "REC" if self.is_recording else "PLAY" if self.is_playing else "STOP"
-        self.canvas.draw_text(f"Bar: {self.current_bar + 1}  {status}", 64, 2, color=1)
+        self.canvas.draw_text_fitted(
+            f"B{self.current_bar + 1} {status}", 64, 2, color=1
+        )
 
         # Debug info: show last pressed pad
         if self.last_pressed_pad is not None:
@@ -841,7 +845,7 @@ class MidiLooper:
             debug_text = (
                 f"Debug: Pad {self.last_pressed_pad} -> T{debug_track}L{debug_loop}"
             )
-            self.canvas.draw_text(debug_text, 2, 50, color=1)
+            self.canvas.draw_text_fitted(debug_text, 2, 50, color=0)
 
         # Current state info
         y = 15
@@ -853,8 +857,8 @@ class MidiLooper:
                     f"Track {track + 1} Loop {loop + 1}: {self.recording.state.name}"
                 )
                 length_text = f"Length: {loop_obj.length} bars"
-                self.canvas.draw_text(state_text, 2, y)
-                self.canvas.draw_text(length_text, 2, y + 12)
+                self.canvas.draw_text_fitted(state_text, 2, y)
+                self.canvas.draw_text_fitted(length_text, 2, y + 12)
             else:
                 # Invalid recording state, reset it
                 self.recording = None
@@ -865,8 +869,8 @@ class MidiLooper:
                 state_text = f"Track {track + 1} Loop {loop + 1}: {loop_obj.state.name}"
                 if loop_obj.state != LoopState.EMPTY:
                     length_text = f"Length: {loop_obj.length} bars"
-                    self.canvas.draw_text(state_text, 2, y)
-                    self.canvas.draw_text(length_text, 2, y + 12)
+                    self.canvas.draw_text_fitted(state_text, 2, y)
+                    self.canvas.draw_text_fitted(length_text, 2, y + 12)
             else:
                 # Invalid selected clip, reset it
                 self.selected_clip = None

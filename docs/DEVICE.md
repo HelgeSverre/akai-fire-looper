@@ -6,17 +6,15 @@ For a runnable first application, start with the [README](../README.md). These s
 
 ### Auto-detection (recommended)
 
-`get_akai_fire()` tries hardware first, then falls back to the pygame mock:
+From a repository checkout, `get_akai_fire()` tries hardware first, then falls back to the pygame mock. Install the interactive backends with `uv sync --all-extras`.
 
-The interactive pygame/TUI backends require a repository checkout. In an
-installed-library project, use `AkaiFire()` for hardware or
-`akai_fire_testing.MockAkaiFire` for headless tests.
+In an installed-library project, use `AkaiFire()` for hardware or `akai_fire_testing.MockAkaiFire` for headless tests. The pygame/TUI modules are not included in the wheel.
 
 ```python
 from akai_fire import get_akai_fire
 
 with get_akai_fire() as fire:
-    ...  # identical code path for hardware and mock
+    fire.set_pad_color(0, 127, 0, 0)
 ```
 
 Force a specific backend with `use_mock`:
@@ -36,7 +34,8 @@ The library matches ports whose name *contains* the given string (default `"FL S
 ```python
 from akai_fire import AkaiFire
 
-fire = AkaiFire(port_name="FIRE")
+with AkaiFire(port_name="FIRE") as fire:
+    fire.set_pad_color(0, 127, 0, 0)
 ```
 
 ## Device Control
@@ -54,7 +53,9 @@ fire.clear_pad(0)
 fire.clear_all_pads()
 ```
 
-Invalid indices raise `InvalidParameterError`. Values are clamped to valid ranges.
+On hardware, `set_pad_color()` requires an integer index in 0–63 and integer RGB values; it raises `InvalidParameterError` for invalid arguments and clamps RGB to 0–127. `set_multiple_pad_colors()` skips entries with the wrong length or an out-of-range index and returns `False` when nothing can be sent. Pass valid integer tuples: batch validation is not identical across backends. `set_pad_color_fast()` assumes valid inputs and skips those checks.
+
+Pad setters return a boolean indicating whether the update succeeded. An unchanged cached hardware pad color also returns `True` without another MIDI send.
 
 Geometry helpers treat the grid as 16 columns × 4 rows:
 
@@ -72,11 +73,11 @@ fire.set_button_led(fire.BUTTON_PLAY, fire.LED_OFF)
 fire.clear_all_button_leds()
 ```
 
-LED values: `LED_OFF` (0), `LED_DULL_RED`/`LED_DULL_GREEN`/`LED_DULL_YELLOW` (1), `LED_HIGH_RED`/`LED_HIGH_GREEN`/`LED_HIGH_YELLOW` (2).
+Button values select brightness, not hue: `LED_OFF` is 0, all `LED_DULL_*` aliases are 1, and all `LED_HIGH_*` aliases are 2. The physical button determines the color. For example, `LED_HIGH_RED` on PLAY still lights its green LED.
 
 ### Track LEDs
 
-The four rectangular LEDs take values `0–4` (`RECTANGLE_LED_*` constants):
+Tracks are numbered **1–4**. Their rectangular LEDs take values `0–4` (`RECTANGLE_LED_*` constants). The hardware setter returns `False` for an invalid track number:
 
 ```python
 fire.set_track_led(1, fire.RECTANGLE_LED_HIGH_GREEN)
@@ -100,8 +101,10 @@ Note: `CONTROL_BANK_USER2` is a documented hardware exception (`0x03`, not `FIEL
 ### Everything at once
 
 ```python
-fire.clear_all()  # pads + button LEDs + track LEDs + control bank + OLED
+fire.clear_all()  # all LEDs, plus the OLED on hardware
 ```
+
+`clear_all()` on the headless testing mock clears LEDs but leaves its canvas intact. Use `clear_display()` explicitly when your code needs to clear the OLED on every backend. The hardware context manager clears the display and closes MIDI ports; it does not clear LEDs. `close()` alone releases the connection without clearing outputs.
 
 ## Event Handling
 
@@ -147,24 +150,40 @@ with get_akai_fire() as fire:
         pass
 ```
 
-Non-decorator equivalents, plus removal — safe to call from inside a handler; takes effect on the next event:
+Global decorators prepend the control ID: `on_button()` receives `(button_id, event)`, `on_rotary_turn()` receives `(rotary_id, direction, velocity)`, `on_rotary_touch()` receives `(rotary_id, event)`, and `on_solo()` receives `(solo_index, event)`. Solo indices are 1–4. Rotary touch is available for the four main knobs; SELECT has a button press instead.
+
+Plain listener calls use the following signatures. Unlike `on_pad([0, 1])`, `add_listener([0, 1], callback)` passes only velocity:
 
 ```python
-def handler(velocity): ...
+def on_pad_velocity(velocity):
+    print(velocity)
 
 
-fire.add_listener(0, handler)  # specific pad(s)
-fire.add_global_listener(handler)  # every pad
-fire.add_button_listener(fire.BUTTON_PLAY, handler)
-fire.add_rotary_listener(fire.ROTARY_VOLUME, handler)
-fire.add_rotary_touch_listener(fire.ROTARY_VOLUME, handler)
+def on_any_pad(pad, velocity):
+    print(pad, velocity)
 
-fire.remove_listener(0, handler)
-fire.remove_global_listener(handler)
-fire.remove_button_listener(fire.BUTTON_PLAY, handler)
-fire.remove_rotary_listener(fire.ROTARY_VOLUME, handler)
-fire.remove_rotary_touch_listener(fire.ROTARY_VOLUME, handler)
+
+def on_play(event):
+    print(event)
+
+
+def on_volume(direction, velocity):
+    print(direction, velocity)
+
+
+fire.add_listener([0, 1], on_pad_velocity)
+fire.add_global_listener(on_any_pad)
+fire.add_button_listener(fire.BUTTON_PLAY, on_play)
+fire.add_rotary_listener(fire.ROTARY_VOLUME, on_volume)
+
+# Remove the same callbacks when their owner stops using the device.
+fire.remove_listener([0, 1], on_pad_velocity)
+fire.remove_global_listener(on_any_pad)
+fire.remove_button_listener(fire.BUTTON_PLAY, on_play)
+fire.remove_rotary_listener(fire.ROTARY_VOLUME, on_volume)
 ```
+
+Registration/removal is safe inside a handler. Changes affect later dispatch snapshots; removal does not cancel callbacks already queued by the hardware executor. Rotary-touch listeners likewise have matching `add_rotary_touch_listener` and `remove_rotary_touch_listener` methods and receive a single event string.
 
 ### Modifier keys
 
@@ -185,7 +204,7 @@ The screen is a 128×64 monochrome canvas. Convention: pixel value `0` is **lit*
 canvas = fire.get_canvas()
 
 canvas.clear()
-canvas.draw_text("Hello Fire", 20, 20)
+canvas.draw_text_fitted("Hello Fire", 20, 20)
 canvas.draw_rect(0, 0, 128, 64)  # outline
 canvas.fill_rect(10, 10, 20, 20)  # filled
 canvas.draw_circle(64, 32, 15)
@@ -199,19 +218,30 @@ canvas.get_pixel(64, 32)  # None when out of bounds
 fire.render_to_display()  # push to device/mock
 ```
 
-Higher-level layouts are built in:
+`draw_text_fitted(text, x, y, width=...)` shortens a single line with an ellipsis using the actual font width. Without `width`, it leaves a two-pixel right margin. Raw `draw_text()` keeps its unbounded behavior for scrolling and custom layouts. Neither method wraps text.
+
+Higher-level layouts are built in. These are alternatives for a screen; clear the canvas before drawing a new layout and render it afterward:
 
 ```python
+canvas.clear()
 canvas.draw_page("Title", ["line one", "line two"])
+fire.render_to_display()
+
+# Other available layouts:
 canvas.draw_menu("Settings", ["BPM", "Swing", "MIDI"], selected_index=1)
 canvas.draw_value_page("Volume", 64, min_val=0, max_val=127)
 canvas.draw_split_screen("Title", ["a", "b"], ["c", "d"])
 canvas.draw_grid_info("Grid", rows=4, cols=16, cell_info=[(0, 0, "C")])
 ```
 
+Pages and menus fit three full content rows below their header. Menus scroll around the selected item; split screens fit four lines per column. Grid labels are fitted to their cells and omitted when a cell is too short for text. Layout methods do not clear previous content automatically.
+
 Render to a file instead of hardware (useful for development and visual regression tests):
 
 ```python
+from pathlib import Path
+
+Path("_screens").mkdir(exist_ok=True)
 fire.render_to_bmp("_screens/test.bmp")
 ```
 
@@ -227,15 +257,19 @@ The MIDI polling loop runs on a daemon thread (~1 ms poll). Every decoded event 
 Tune it:
 
 ```python
-fire = AkaiFire(async_handlers=False)  # strict serial dispatch on the polling thread
-fire = AkaiFire(max_workers=1)  # async offload, FIFO ordering preserved
+from akai_fire import AkaiFire
+
+with AkaiFire(max_workers=1) as fire:
+    ...  # Async offload with FIFO ordering.
+
+# Alternatively, async_handlers=False runs callbacks on the MIDI polling thread.
 ```
 
-Keep handlers short (<5 ms); offload heavy work to your own threads.
+Keep handlers short; offload blocking I/O or expensive work. Multiple workers do not guarantee arrival-order execution. See the [framework guide](FRAMEWORK.md#input) for moving state changes to the frame thread.
 
 ## Mocks
 
-Three interchangeable implementations share the same base class and are covered by contract tests, so code written against one runs against all:
+Four implementations share a device base class. Contract tests cover common operations, but rendering, threading, validation and cleanup differ:
 
 | Implementation | Import | Use case |
 |---|---|---|
@@ -245,6 +279,8 @@ Three interchangeable implementations share the same base class and are covered 
 | Testing mock | `from akai_fire_testing import MockAkaiFire` | Headless; event recording, `simulate_*` injection, assertions |
 
 Pygame mock controls: click pads/buttons to press them, drag rotaries to turn them. On macOS it must run on the main thread — the examples handle this.
+
+The testing mock's `MockCanvas` records drawing operations and supports pixel assertions, but it does not reproduce all Pillow drawing. For pixel-accurate rendering tests, assign a real `Canvas` to `fire.canvas` before constructing the app. A mock test does not verify MIDI encoding, callback concurrency or physical hardware behavior.
 
 Testing mock in action:
 
@@ -265,21 +301,22 @@ fire.assert_pad_color(5, (127, 0, 0))
 
 ## Error Handling
 
-All exceptions derive from `akai_fire.AkaiFireError`:
+The device library exports the following `AkaiFireError` subclasses. Not every failure raises: hardware pad and LED setters generally return `False` on send failure, while OLED sends raise `MIDISendError`. Check return values where delivery matters.
 
 | Exception | Raised when |
 |---|---|
 | `MIDIConnectionError` | Ports can't be found or opened |
 | `MIDISendError` | An OLED SysEx send fails |
-| `InvalidParameterError` | Bad pad index or button ID |
+| `InvalidParameterError` | Invalid single-pad setter arguments or button ID |
 | `HardwareError` | Port enumeration fails |
-| `StateError` | Operation invalid for current state |
+| `StateError` | Exported state-error type; the application runtime uses `RuntimeError` for a repeated or post-shutdown `run()` |
 
 ```python
 from akai_fire import AkaiFire, MIDIConnectionError
 
 try:
-    fire = AkaiFire()
+    with AkaiFire() as fire:
+        fire.set_pad_color(0, 127, 0, 0)
 except MIDIConnectionError as e:
     print(f"No device: {e}")
 ```
@@ -304,7 +341,7 @@ except MIDIConnectionError as e:
 
 ### Canvas
 
-Primitives: `clear(color=1)`, `set_pixel(x, y, color=0)`, `get_pixel(x, y)`, `draw_text(text, x, y, font=None, color=0)`, `draw_rect`, `fill_rect`, `draw_rectangle`, `fill_rectangle`, `draw_border(thickness=1)`, `draw_line`, `draw_horizontal_line`, `draw_vertical_line`, `draw_circle`, `fill_circle`, `clone()`
+Primitives: `clear(color=1)`, `set_pixel(x, y, color=0)`, `get_pixel(x, y)`, `draw_text(text, x, y, font=None, color=0)`, `draw_text_fitted(text, x, y, font=None, color=0, *, width=None)`, `fit_text(text, width, font=None)`, `draw_rect`, `fill_rect`, `draw_rectangle`, `fill_rectangle`, `draw_border(thickness=1)`, `draw_line`, `draw_horizontal_line`, `draw_vertical_line`, `draw_circle`, `fill_circle`, `clone()`
 
 Layouts: `draw_page(title, lines, header_inverted=True)`, `draw_menu(title, items, selected_index)`, `draw_value_page(title, value, min_val=None, max_val=None, show_bar=True)`, `draw_grid_info(title, rows, cols, cell_info)`, `draw_split_screen(title, left_content, right_content)`
 

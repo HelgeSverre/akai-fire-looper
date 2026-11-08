@@ -5,9 +5,15 @@ Kept in its own module so importing ``akai_fire`` (or
 pull in Pillow. PIL is only loaded when Canvas is actually used.
 """
 
+from functools import lru_cache
 from typing import Optional, Union
 
 from PIL import Image, ImageDraw, ImageFont
+
+
+@lru_cache(maxsize=1)
+def _default_font():
+    return ImageFont.load_default()
 
 
 class Canvas:
@@ -61,9 +67,33 @@ class Canvas:
     def draw_text(self, text, x, y, font=None, color: int = 0):
         """Draw text."""
         if font is None:
-            font = ImageFont.load_default()
+            font = _default_font()
 
         self.draw.text((x, y), text, fill=color, font=font)
+
+    @staticmethod
+    def fit_text(text, width, font=None):
+        """Fit one line to a pixel width, marking shortened text with an ellipsis."""
+        font = font or _default_font()
+        text = str(text).replace("\n", " ")
+        if width <= 0:
+            return ""
+        if font.getbbox(text)[2] <= width:
+            return text
+        suffix = "..."
+        while suffix and font.getbbox(suffix)[2] > width:
+            suffix = suffix[:-1]
+        while text and font.getbbox(text + suffix)[2] > width:
+            text = text[:-1]
+        return text + suffix
+
+    def draw_text_fitted(self, text, x, y, font=None, color=0, *, width=None):
+        """Draw a single line within a width (default: remaining screen space)."""
+        font = font or _default_font()
+        width = self.WIDTH - x - 2 if width is None else width
+        text = Canvas.fit_text(text, width, font)
+        if text:
+            self.draw_text(text, x, y, font=font, color=color)
 
     def draw_border(self, thickness: int = 1, color: int = 0):
         """Draw a border around the entire canvas."""
@@ -136,9 +166,9 @@ class Canvas:
         # Header with optional inversion
         if header_inverted:
             self.fill_rect(0, 0, self.WIDTH, self.HEADER_HEIGHT, color=0)
-            self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
+            self.draw_text_fitted(title, 2, self.TEXT_MARGIN_Y, color=1)
         else:
-            self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=0)
+            self.draw_text_fitted(title, 2, self.TEXT_MARGIN_Y, color=0)
             self.draw_horizontal_line(0, self.HEADER_HEIGHT, self.WIDTH, color=0)
 
         # Content lines with proper spacing
@@ -146,9 +176,9 @@ class Canvas:
         line_height = 12  # Standard line height
 
         for i, line in enumerate(lines):
-            if y_offset + line_height > self.HEIGHT:
+            if y_offset + (i + 1) * line_height > self.HEIGHT:
                 break  # Don't draw beyond screen bounds
-            self.draw_text(line, 2, y_offset + (i * line_height))
+            self.draw_text_fitted(line, 2, y_offset + (i * line_height))
 
     def draw_value_page(
         self,
@@ -170,11 +200,11 @@ class Canvas:
         """
         # Header
         self.fill_rect(0, 0, self.WIDTH, self.HEADER_HEIGHT, color=0)
-        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
+        self.draw_text_fitted(title, 2, self.TEXT_MARGIN_Y, color=1)
 
         # Large value display
         value_text = str(value)
-        self.draw_text(value_text, 2, 20, color=0)
+        self.draw_text_fitted(value_text, 2, 20, color=0)
 
         # Optional bar visualization
         if show_bar and min_val is not None and max_val is not None:
@@ -204,13 +234,13 @@ class Canvas:
         """
         # Header
         self.fill_rect(0, 0, self.WIDTH, self.HEADER_HEIGHT, color=0)
-        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
+        self.draw_text_fitted(title, 2, self.TEXT_MARGIN_Y, color=1)
 
         # Menu items
         y_offset = self.CONTENT_START
         line_height = 12
 
-        visible_items = min(4, len(items))  # Show max 4 items at once
+        visible_items = min((self.HEIGHT - y_offset) // line_height, len(items))
         start_idx = max(0, min(selected_index - 1, len(items) - visible_items))
 
         for i in range(visible_items):
@@ -223,9 +253,11 @@ class Canvas:
                 self.fill_rect(
                     0, y_offset + (i * line_height), self.WIDTH, line_height, color=0
                 )
-                self.draw_text(items[idx], 4, y_offset + (i * line_height), color=1)
+                self.draw_text_fitted(
+                    items[idx], 4, y_offset + (i * line_height), color=1
+                )
             else:
-                self.draw_text(items[idx], 4, y_offset + (i * line_height))
+                self.draw_text_fitted(items[idx], 4, y_offset + (i * line_height))
 
     def draw_grid_info(
         self, title: str, rows: int, cols: int, cell_info: list[tuple[int, int, str]]
@@ -241,7 +273,10 @@ class Canvas:
         """
         # Header
         self.fill_rect(0, 0, self.WIDTH, 12, color=0)
-        self.draw_text(title, 2, 2, color=1)
+        self.draw_text_fitted(title, 2, 2, color=1)
+
+        if rows <= 0 or cols <= 0:
+            return
 
         # Draw grid outline
         cell_width = (self.WIDTH - 4) // cols
@@ -255,11 +290,13 @@ class Canvas:
             x = 2 + (col * cell_width)
             self.draw_vertical_line(x, 16, (rows * cell_height))
 
-        # Draw cell contents
+        # Cells narrower/shorter than a glyph remain graphical cells.
         for row, col, text in cell_info:
+            if not (0 <= row < rows and 0 <= col < cols) or cell_height < 12:
+                continue
             x = 2 + (col * cell_width) + 2
             y = 16 + (row * cell_height) + 2
-            self.draw_text(text, x, y)
+            self.draw_text_fitted(text, x, y, width=cell_width - 4)
 
     def draw_split_screen(
         self, title: str, left_content: list[str], right_content: list[str]
@@ -274,7 +311,7 @@ class Canvas:
         """
         # Header
         self.fill_rect(0, 0, self.WIDTH, 12, color=0)
-        self.draw_text(title, 2, 2, color=1)
+        self.draw_text_fitted(title, 2, 2, color=1)
 
         # Split line
         mid_x = self.WIDTH // 2
@@ -286,10 +323,14 @@ class Canvas:
         for i, line in enumerate(left_content):
             if y_offset + (i * line_height) + line_height > self.HEIGHT:
                 break
-            self.draw_text(line, 2, y_offset + (i * line_height))
+            self.draw_text_fitted(
+                line, 2, y_offset + (i * line_height), width=mid_x - 4
+            )
 
         # Right content
         for i, line in enumerate(right_content):
             if y_offset + (i * line_height) + line_height > self.HEIGHT:
                 break
-            self.draw_text(line, mid_x + 2, y_offset + (i * line_height))
+            self.draw_text_fitted(
+                line, mid_x + 2, y_offset + (i * line_height), width=mid_x - 4
+            )

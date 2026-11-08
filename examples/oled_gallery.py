@@ -14,7 +14,8 @@ def draw_matrix_rain(canvas, frame):
         length = random.randint(5, 15)
         for i in range(length):
             if 0 <= y - i < 64:
-                intensity = 1 if i == 0 else random.random() > 0.5
+                # OLED zero is lit; keep the leading pixel visible.
+                intensity = 0 if i == 0 else int(random.random() > 0.5)
                 canvas.set_pixel(x, int(y - i), intensity)
 
 
@@ -124,15 +125,16 @@ def draw_demoscene(canvas, frame):
 
 def draw_particle_explosion(canvas, frame):
     canvas.clear()
+    radius = frame % 48  # Repeat before every particle leaves the display.
     particles = [
-        (math.cos(i * 0.7) * frame, math.sin(i * 0.7) * frame) for i in range(20)
+        (math.cos(i * 0.7) * radius, math.sin(i * 0.7) * radius) for i in range(20)
     ]
     center_x, center_y = 64, 32
     for dx, dy in particles:
         x = int(center_x + dx * math.cos(frame * 0.05))
         y = int(center_y + dy * math.sin(frame * 0.05))
         if 0 <= x < 128 and 0 <= y < 64:
-            canvas.fill_circle(x, y, 2, 1)
+            canvas.fill_circle(x, y, 2)
             # Add trailing lines
             canvas.draw_line(center_x, center_y, x, y)
 
@@ -254,7 +256,7 @@ def draw_tron_humanoid(canvas, frame):
             if 0 <= x_transformed < 128:
                 y_bottom = min(63, y_pos + grid_spacing)
                 canvas.draw_line(
-                    x_transformed, int(y_pos), x_transformed, int(y_bottom), 1
+                    x_transformed, int(y_pos), x_transformed, int(y_bottom)
                 )
 
     # Humanoid figure
@@ -266,9 +268,7 @@ def draw_tron_humanoid(canvas, frame):
     canvas.fill_circle(int(center_x), int(center_y - 12), head_size)
 
     # Body with energy core
-    canvas.draw_line(
-        int(center_x), int(center_y - 8), int(center_x), int(center_y + 6), 1
-    )
+    canvas.draw_line(int(center_x), int(center_y - 8), int(center_x), int(center_y + 6))
     core_y = center_y - 2
     core_size = 2 + math.sin(t * 3) * 1  # Pulsing core
     canvas.fill_circle(int(center_x), int(core_y), int(core_size))

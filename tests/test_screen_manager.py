@@ -1,5 +1,7 @@
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
+
+from akai_fire import Canvas
 import sys
 import os
 
@@ -16,16 +18,18 @@ from screen_manager import (
 )
 
 
+def recording_canvas():
+    canvas = Canvas()
+    for name in ("clear", "draw_text", "draw_rect", "fill_rect", "draw_line"):
+        setattr(canvas, name, Mock(wraps=getattr(canvas, name)))
+    return canvas
+
+
 class MockAkaiFire:
     """Mock AkaiFire for testing"""
 
     def __init__(self):
-        self.canvas = MagicMock()
-        self.canvas.clear = Mock()
-        self.canvas.draw_text = Mock()
-        self.canvas.draw_rect = Mock()
-        self.canvas.fill_rect = Mock()
-        self.canvas.draw_line = Mock()
+        self.canvas = recording_canvas()
         self.canvas.WIDTH = 128
         self.canvas.HEIGHT = 64
         self.render_to_display = Mock()
@@ -93,7 +97,7 @@ class TestScreenManager(unittest.TestCase):
 
 class TestTextScreen(unittest.TestCase):
     def setUp(self):
-        self.canvas = MagicMock()
+        self.canvas = recording_canvas()
         self.canvas.WIDTH = 128
         self.canvas.HEIGHT = 64
         self.screen = TextScreen(
@@ -124,7 +128,7 @@ class TestTextScreen(unittest.TestCase):
 
 class TestMenuScreen(unittest.TestCase):
     def setUp(self):
-        self.canvas = MagicMock()
+        self.canvas = recording_canvas()
         self.canvas.WIDTH = 128
         self.canvas.HEIGHT = 64
         self.items = ["Option 1", "Option 2", "Option 3"]
@@ -179,7 +183,7 @@ class TestMenuScreen(unittest.TestCase):
 
 class TestProgressScreen(unittest.TestCase):
     def setUp(self):
-        self.canvas = MagicMock()
+        self.canvas = recording_canvas()
         self.canvas.WIDTH = 128
         self.canvas.HEIGHT = 64
         self.screen = ProgressScreen(self.canvas, "Loading")
@@ -214,7 +218,7 @@ class TestProgressScreen(unittest.TestCase):
 
 class TestGridScreen(unittest.TestCase):
     def setUp(self):
-        self.canvas = MagicMock()
+        self.canvas = recording_canvas()
         self.canvas.WIDTH = 128
         self.canvas.HEIGHT = 64
         self.screen = GridScreen(self.canvas, title="Grid", rows=4, cols=16)
@@ -245,7 +249,7 @@ class TestGridScreen(unittest.TestCase):
 
 class TestValueScreen(unittest.TestCase):
     def setUp(self):
-        self.canvas = MagicMock()
+        self.canvas = recording_canvas()
         self.canvas.WIDTH = 128
         self.canvas.HEIGHT = 64
         self.screen = ValueScreen(self.canvas, label="Volume", value=75, unit="%")

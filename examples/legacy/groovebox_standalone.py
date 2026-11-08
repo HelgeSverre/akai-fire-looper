@@ -980,20 +980,29 @@ class Groovebox:
 
         # Draw header
         self.canvas.fill_rect(0, 0, self.canvas.WIDTH, 12, color=0)
-        self.canvas.draw_text(screen_data.title, 2, 2, color=1)
+        self.canvas.draw_text_fitted(screen_data.title, 2, 2, color=1)
 
         # Draw parameters
         y_offset = 15
-        for param in screen_data.parameters:
-            self.canvas.draw_text(param, 2, y_offset)
+        for param in screen_data.parameters[: 2 if screen_data.grid else 4]:
+            self.canvas.draw_text_fitted(param, 2, y_offset)
             y_offset += 12
 
         # Draw grid if applicable
         if screen_data.grid:
-            for y, row in enumerate(screen_data.grid):
-                for x, value in enumerate(row):
-                    if value:  # 1 = filled pixel, 0 = empty
-                        self.canvas.set_pixel(10 + x * 5, 40 + y * 5)
+            rows = len(screen_data.grid)
+            cols = max((len(row) for row in screen_data.grid), default=0)
+            if cols:
+                cell_width, cell_height = max(1, 124 // cols), max(1, 24 // rows)
+                for row, cells in enumerate(screen_data.grid[:24]):
+                    for col, value in enumerate(cells[:124]):
+                        if value:
+                            self.canvas.fill_rect(
+                                2 + col * cell_width,
+                                40 + row * cell_height,
+                                max(1, cell_width - 1),
+                                max(1, cell_height - 1),
+                            )
 
         # Draw waveform if applicable
         # if screen_data.waveform:
@@ -1007,6 +1016,8 @@ class Groovebox:
 
     def update_display(self):
         """Update OLED display with current mode-specific content"""
+        self.canvas.clear()
+        self.canvas.draw_page(self.edit_mode.name, [])
         # Draw mode-specific content
         if self.edit_mode == EditMode.CLIP:
             self._draw_clip_display()
@@ -1023,14 +1034,14 @@ class Groovebox:
 
     def _draw_clip_display(self):
         """Draw clip overview display"""
-        y = 15
+        y = 18
 
         # Show current track/clip info
         if 0 <= self.selected_track < 4 and 0 <= self.selected_clip < 16:
             clip = self.tracks[self.selected_track][self.selected_clip]
-            self.canvas.draw_text(f"Track {self.selected_track + 1}", 2, y)
+            self.canvas.draw_text_fitted(f"Track {self.selected_track + 1}", 2, y)
             y += 12
-            self.canvas.draw_text(
+            self.canvas.draw_text_fitted(
                 f"Clip {self.selected_clip + 1}: {clip.type.name}", 2, y
             )
             y += 12
@@ -1038,7 +1049,7 @@ class Groovebox:
         # Show playback position
         beat = (self.current_step // 4) + 1
         tick = (self.current_step % 4) + 1
-        self.canvas.draw_text(f"Beat {beat}.{tick}", 2, y)
+        self.canvas.draw_text_fitted(f"Beat {beat}.{tick}", 2, y)
 
     def _draw_step_display(self):
         """Draw step sequencer display"""
@@ -1049,12 +1060,12 @@ class Groovebox:
         if not clip.step_sequence:
             return
 
-        y = 15
-        self.canvas.draw_text(f"Step Edit: Page {self.step_edit_page + 1}", 2, y)
+        y = 18
+        self.canvas.draw_text_fitted(f"Step Edit: Page {self.step_edit_page + 1}", 2, y)
         y += 12
-        self.canvas.draw_text(f"Param: {self.step_edit_param}", 2, y)
+        self.canvas.draw_text_fitted(f"Param: {self.step_edit_param}", 2, y)
         y += 12
-        self.canvas.draw_text(
+        self.canvas.draw_text_fitted(
             f"Value: {self.step_param_values[self.step_edit_param]}", 2, y
         )
 
@@ -1067,13 +1078,13 @@ class Groovebox:
         if not clip.euclidean:
             return
 
-        y = 15
+        y = 18
         pattern = clip.euclidean
-        self.canvas.draw_text(f"Steps: {pattern.steps}", 2, y)
+        self.canvas.draw_text_fitted(f"Steps: {pattern.steps}", 2, y)
         y += 12
-        self.canvas.draw_text(f"Pulses: {pattern.pulses}", 2, y)
+        self.canvas.draw_text_fitted(f"Pulses: {pattern.pulses}", 2, y)
         y += 12
-        self.canvas.draw_text(f"Offset: {pattern.offset}", 2, y)
+        self.canvas.draw_text_fitted(f"Offset: {pattern.offset}", 2, y)
 
     def _draw_generative_display(self):
         """Draw OLED visualization for generative mode"""
@@ -1084,13 +1095,15 @@ class Groovebox:
         if not clip.generative:
             return
 
-        y = 15
+        y = 18
         pattern = clip.generative
-        self.canvas.draw_text(f"Steps: {pattern.steps} Pulses: {pattern.pulses}", 2, y)
+        self.canvas.draw_text_fitted(
+            f"Steps: {pattern.steps} Pulses: {pattern.pulses}", 2, y
+        )
         y += 12
-        self.canvas.draw_text(f"Prob: {int(pattern.probability * 100)}%", 2, y)
+        self.canvas.draw_text_fitted(f"Prob: {int(pattern.probability * 100)}%", 2, y)
         y += 12
-        self.canvas.draw_text(
+        self.canvas.draw_text_fitted(
             f"Mod: {pattern.modulation_type} Depth: {int(pattern.modulation_depth * 100)}%",
             2,
             y,

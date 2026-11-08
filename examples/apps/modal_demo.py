@@ -177,8 +177,7 @@ class ModalDemoApp(
                 [
                     f"Track: {info['track']}",
                     f"BPM: {info['bpm']}",
-                    "",
-                    "NOTE=Main, BROWSER=Settings",
+                    "BROWSER: settings",
                 ]
             )
 

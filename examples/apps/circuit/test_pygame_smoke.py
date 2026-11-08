@@ -35,8 +35,8 @@ def main():
         # Draw on OLED screen
         canvas = fire.get_canvas()
         canvas.clear()
-        canvas.draw_text("Pygame Smoke Test", 10, 10)
-        canvas.draw_text("All systems OK!", 20, 30)
+        canvas.draw_text_fitted("Pygame Smoke Test", 10, 10)
+        canvas.draw_text_fitted("All systems OK!", 20, 30)
         canvas.draw_rect(5, 5, 118, 54, 1)  # Border
         print("✓ Canvas drawn")
 

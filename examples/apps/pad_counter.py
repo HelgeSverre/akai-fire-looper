@@ -26,8 +26,8 @@ class PadCounterApp(AkaiFireApp):
     def on_start(self):
         """Show initial screen."""
         self.canvas.clear()
-        self.canvas.draw_text("Press any pad!", 15, 25)
-        self.canvas.draw_text("Count: 0", 35, 45)
+        self.canvas.draw_text_fitted("Press any pad!", 15, 25)
+        self.canvas.draw_text_fitted("Count: 0", 35, 45)
 
     def on_pad_press(self, pad, velocity):
         """Handle pad press - increment counter and light pad."""
@@ -43,9 +43,9 @@ class PadCounterApp(AkaiFireApp):
 
         # Update display
         self.canvas.clear()
-        self.canvas.draw_text("Pad Counter", 25, 10)
-        self.canvas.draw_text(f"Pad: {pad}", 40, 28)
-        self.canvas.draw_text(f"Count: {self.count}", 35, 45)
+        self.canvas.draw_text_fitted("Pad Counter", 25, 10)
+        self.canvas.draw_text_fitted(f"Pad: {pad}", 40, 28)
+        self.canvas.draw_text_fitted(f"Count: {self.count}", 35, 45)
 
     def on_button_press(self, button_id, event):
         """Handle button press - quit on STOP."""

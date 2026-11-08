@@ -58,20 +58,11 @@ class TextScreen(Screen):
         """Render the text screen."""
         self.clear()
 
-        y = 2
-
-        # Title
         if self.title:
-            self.canvas.fill_rect(0, 0, self.width, 10, color=0)
-            self.canvas.draw_text(self.title, 2, 1, color=1)
-            y = 12
-
-        # Lines
-        line_height = 9
-        for i, line in enumerate(self.lines):
-            if y + line_height > self.height:
-                break
-            self.canvas.draw_text(line, 2, y + i * line_height)
+            self.canvas.draw_page(self.title, self.lines)
+        else:
+            for index, line in enumerate(self.lines[:5]):
+                self.canvas.draw_text_fitted(line, 2, 2 + index * 12)
 
 
 class MenuScreen(Screen):
@@ -82,7 +73,7 @@ class MenuScreen(Screen):
         self.title = title
         self.items = items or []
         self.selected_index = 0
-        self.visible_items = 5  # Number of items visible at once
+        self.visible_items = 3  # Number of items visible at once
 
     def add_item(
         self, label: str, value: Any = None, action: Optional[Callable] = None
@@ -116,45 +107,12 @@ class MenuScreen(Screen):
         """Render the menu screen."""
         self.clear()
 
-        # Title
-        if self.title:
-            self.canvas.fill_rect(0, 0, self.width, 10, color=0)
-            self.canvas.draw_text(self.title, 2, 1, color=1)
-            y_offset = 12
-        else:
-            y_offset = 2
-
-        # Calculate visible range
-        if len(self.items) <= self.visible_items:
-            start_idx = 0
-            end_idx = len(self.items)
-        else:
-            # Scroll to keep selected item visible
-            if self.selected_index < self.visible_items // 2:
-                start_idx = 0
-            elif self.selected_index >= len(self.items) - self.visible_items // 2:
-                start_idx = len(self.items) - self.visible_items
-            else:
-                start_idx = self.selected_index - self.visible_items // 2
-            end_idx = start_idx + self.visible_items
-
-        # Draw items
-        line_height = 10
-        for i, idx in enumerate(range(start_idx, min(end_idx, len(self.items)))):
-            y = y_offset + i * line_height
-
-            # Highlight selected
-            if idx == self.selected_index:
-                self.canvas.fill_rect(0, y - 1, self.width, line_height, color=0)
-                self.canvas.draw_text(f"> {self.items[idx].label}", 2, y, color=1)
-            else:
-                self.canvas.draw_text(f"  {self.items[idx].label}", 2, y)
-
-        # Scroll indicators
-        if start_idx > 0:
-            self.canvas.draw_text("^", self.width - 8, y_offset - 2)
-        if end_idx < len(self.items):
-            self.canvas.draw_text("v", self.width - 8, self.height - 8)
+        labels = [item.label for item in self.items]
+        visible = max(1, min(self.visible_items, 3))
+        start = max(0, min(self.selected_index - 1, len(labels) - visible))
+        self.canvas.draw_menu(
+            self.title, labels[start : start + visible], self.selected_index - start
+        )
 
 
 class ProgressScreen(Screen):
@@ -186,7 +144,7 @@ class ProgressScreen(Screen):
         # Title
         y = 2
         if self.title:
-            self.canvas.draw_text(self.title, 2, y)
+            self.canvas.draw_text_fitted(self.title, 2, y)
             y += 12
 
         # Progress bar
@@ -212,11 +170,13 @@ class ProgressScreen(Screen):
             percentage = int(progress * 100) if self.max_val > self.min_val else 0
             percent_text = f"{percentage}%"
             text_x = bar_x + bar_width // 2 - len(percent_text) * 3
-            self.canvas.draw_text(percent_text, text_x, bar_y + bar_height + 3)
+            self.canvas.draw_text_fitted(percent_text, text_x, bar_y + bar_height + 3)
 
         # Additional text
         if self.additional_text:
-            self.canvas.draw_text(self.additional_text, 2, bar_y + bar_height + 15)
+            self.canvas.draw_text_fitted(
+                self.additional_text, 2, bar_y + bar_height + 15
+            )
 
 
 class GridScreen(Screen):
@@ -250,8 +210,8 @@ class GridScreen(Screen):
         # Title
         y_offset = 2
         if self.title:
-            self.canvas.draw_text(self.title, 2, y_offset)
-            y_offset += 10
+            self.canvas.draw_text_fitted(self.title, 2, y_offset)
+            y_offset += 14
 
         # Calculate cell size
         available_width = self.width - 4
@@ -296,7 +256,7 @@ class ValueScreen(Screen):
 
         # Label at top
         if self.label:
-            self.canvas.draw_text(self.label, 4, 4)
+            self.canvas.draw_text_fitted(self.label, 4, 4)
 
         # Value in center
         value_str = f"{self.value}"
@@ -305,10 +265,10 @@ class ValueScreen(Screen):
 
         # Center the value
         text_width = len(value_str) * 6  # Approximate
-        x = (self.width - text_width) // 2
+        x = max(4, (self.width - text_width) // 2)
         y = self.height // 2 - 4
 
-        self.canvas.draw_text(value_str, x, y)
+        self.canvas.draw_text_fitted(value_str, x, y)
 
 
 class ScreenManager:

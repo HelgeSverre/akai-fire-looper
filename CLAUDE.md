@@ -31,7 +31,7 @@ uv run python -m unittest discover -v
 ### Code Formatting
 ```bash
 just format        # Format all Python files
-just check         # format-check + test (pre-commit gate)
+just check         # lint + format-check + tests
 
 # Manual with uv
 uv run ruff check .
@@ -116,33 +116,11 @@ importing `akai_fire` pulls neither rtmidi nor Pillow until an
 
 ### Event Dispatch Threading
 
-The MIDI polling loop runs on a dedicated daemon thread, reading messages
-roughly every 1 ms via `rtmidi.MidiIn.get_message()`. Every decoded event
-passes through `_process_message`, which:
+Hardware callbacks normally run on a bounded executor; the app's frame loop runs on the foreground thread. Keep handlers short and coordinate shared state with a lock or queue. `async_handlers=False` runs callbacks on the MIDI polling thread, not the frame thread.
 
-1. **Latches modifier state inline.** `_shift_pressed` / `_alt_pressed`
-   are updated *before* any user handler runs, so `is_shift_pressed()`
-   inside a pad handler always returns a coherent value.
-2. **Dispatches user handlers via a thread pool** (`async_handlers=True`
-   by default, `max_workers=4`). A slow handler can no longer stall MIDI
-   input or starve other handlers.
-3. **Isolates exceptions per handler.** A raised exception is logged via
-   `logger.exception` and never prevents sibling handlers from running.
-4. **Applies caller-runs backpressure.** When the bounded submit queue is
-   full (`handler_queue_size=64` by default), the MIDI thread runs the
-   handler inline and logs a warning. No event is ever dropped.
+When the callback queue fills, multiple workers allow caller-runs backpressure; one worker waits for capacity to preserve FIFO order. Either can delay polling. Closing/reconnecting retires the executor and may cancel queued callbacks. Modifier snapshots belong to the dispatched event. Listener removal affects later dispatch snapshots, not callbacks already queued.
 
-Opt out of async dispatch with `AkaiFire(async_handlers=False)` if you
-need strict serial ordering on the polling thread. Use `max_workers=1`
-if you want async offload but preserve FIFO ordering.
-
-**Handler contract:**
-
-- Keep handlers short (target <5 ms). Offload heavy work (file I/O,
-  long OLED redraws, network calls) to your own thread.
-- Registering or removing listeners from inside a handler is safe; the
-  change takes effect on the next event.
-- Exceptions are logged, not swallowed silently; check your logger.
+See [Device threading](docs/DEVICE.md#threading) for constructor options and [Application input](docs/FRAMEWORK.md#input) for application-level coordination.
 
 ### Key Design Patterns
 
@@ -164,9 +142,9 @@ if you want async offload but preserve FIFO ordering.
 Tests use Python's built-in `unittest` framework with mocked MIDI ports. The test suite includes:
 - Hardware communication, dispatch threading, and reconnect behavior (`test_akai_fire.py`)
 - OLED SysEx encoder golden vectors (`test_sysex_encoder.py`)
-- Cross-implementation parity contract (`test_device_contract.py`) — every
-  AkaiFire implementation (hardware, pygame mock, TUI mock, testing mock)
-  must expose the same surface, return types, and error contracts
+- Cross-implementation contracts (`test_device_contract.py`) cover common
+  operations on hardware, pygame, TUI and testing mocks. Do not assume full
+  rendering, validation or cleanup parity; see `docs/DEVICE.md`
 - Canvas drawing operations (`test_canvas.py`)
 - Screen manager and screen types (`test_screen_manager.py`)
 

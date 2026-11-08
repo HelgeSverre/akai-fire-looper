@@ -1,5 +1,7 @@
 # Code cleanup evidence
 
+This is a historical audit log. Scope, test counts, permissions and unresolved findings below describe their recorded checkpoints, not current instructions or a current API reference. Use the [device guide](DEVICE.md), [framework guide](FRAMEWORK.md) and [example catalog](../examples/README.md) for supported behavior.
+
 ## Original scope and baseline
 
 - Target: `akai_fire/`, `akai_fire_framework/`, and their tests. Approved by Helge on 2026-11-08.

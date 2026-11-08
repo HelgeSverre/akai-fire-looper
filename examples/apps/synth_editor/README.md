@@ -6,7 +6,7 @@ Use the Fire's four knobs and pad rows as a parameter surface for a Behringer JT
 uv run python -m examples.apps.synth_editor
 ```
 
-The app connects automatically only if exactly one MIDI output contains `JT-4000`. Otherwise it stays in `DEMO` mode so you can explore with the pygame mock. Explicit routing:
+The app connects automatically only if exactly one MIDI output contains `JT-4000`. Otherwise it stays in `DEMO` mode without instrument output. The Fire connection is selected separately: the app uses a connected controller or falls back to pygame. Explicit instrument routing:
 
 ```sh
 SYNTH_MIDI_OUTPUT="JT-4000 MICRO" SYNTH_MIDI_CHANNEL=1 \
@@ -15,7 +15,13 @@ SYNTH_MIDI_OUTPUT="JT-4000 MICRO" SYNTH_MIDI_CHANNEL=1 \
 
 The Fire and synth need separate MIDI connections to the computer. Listen through the synth's audio output. This app sends MIDI; it does not generate audio.
 
-## OLED preview
+## Preview
+
+[![JT-4000 editor: pad faders, OLED graphs and auditions](../../../docs/images/mock-demo.gif)](../../../docs/images/mock-demo.png)
+
+*The running app in preview mode, driven through its input handlers. [Still PNG](../../../docs/images/mock-demo.png).*
+
+### OLED detail
 
 ![Parameter overview rendered from the app canvas](../../../docs/images/synth-overview.png)
 ![Normalized envelope rendered from the app canvas](../../../docs/images/synth-envelope.png)

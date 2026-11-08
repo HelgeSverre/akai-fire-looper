@@ -315,13 +315,14 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
             lines = [
                 f"Track {info['track']} / Slot {info['slot']}",
                 f"State: {info['clip_state']}",
-                f"Events: {info['events']}",
             ]
 
             if info["clip_state"] == "EMPTY":
                 lines.append("Press pad to arm")
             elif info["clip_state"] == "ARMED":
-                lines.append("PLAY=record REC=cancel")
+                lines.append("PLAY:rec REC:cancel")
+            else:
+                lines.append(f"Events: {info['events']}")
 
             self.draw_content_lines(lines)
 

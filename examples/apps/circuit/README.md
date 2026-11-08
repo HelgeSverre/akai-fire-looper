@@ -2,11 +2,15 @@
 
 A four-track MIDI sequencer controlled from the Fire. It has a scale keyboard, step editor, mixer, pattern chains, scenes, and settings. It sends MIDI to external instruments; it does not synthesize audio.
 
+[![Circuit playback and mode changes in the pygame mock](../../../docs/images/circuit-demo.gif)](../../../docs/images/circuit-note.png)
+
+*Actual app capture: a three-track pattern playing while switching through Note, Step, Mixer and Pattern views. Input is scripted and instrument ports are mocked; the GIF contains no audio.*
+
 ```sh
 uv run python -m examples.apps.circuit
 ```
 
-The first run prints MIDI ports and starts in preview mode. Select exact port names to send/record MIDI:
+Each launch prints the available MIDI ports. Without `CIRCUIT_MIDI_OUTPUT`, the app runs in preview mode. Select exact port names to send/record MIDI:
 
 ```sh
 CIRCUIT_MIDI_OUTPUT="Your instrument" CIRCUIT_MIDI_INPUT="Your keyboard" \
@@ -39,6 +43,18 @@ The step editor currently addresses the first 16 steps; patterns can store/play 
 | SELECT button | Execute selected Settings action |
 
 In Settings, VOLUME/SELECT navigates and FILTER/PAN changes the value. Save/Load Settings stores configuration at `~/.circuit_sequencer_settings.json`; it does not save a full song. Mixer solo uses the track's persisted `soloed` state. External keyboard note-ons record into the selected recording track; input is not forwarded as general MIDI-through.
+
+## Screen views
+
+Playback and edit views use a separate header and four content rows; Settings shows three full menu items at a time. NOTE shows track/channel, pattern, swing/quantization and scale or active notes. STEP shows notes, velocity/gate, probability/microtiming and the selected edit parameter. MIXER reserves one row per track; `+` means enabled, `-` muted and `S` soloed.
+
+| Note keyboard and playback | Step editing |
+| --- | --- |
+| ![Circuit Note view](../../../docs/images/circuit-note.png) | ![Circuit Step view](../../../docs/images/circuit-step.png) |
+
+![Circuit Mixer view](../../../docs/images/circuit-mixer.png)
+
+Long labels and pattern chains are shortened with an ellipsis. Settings scrolls to keep the selected item visible.
 
 ## Automated demo and tests
 

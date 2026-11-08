@@ -31,14 +31,13 @@ class ScreenLayoutDemo:
             ScreenDemo.BASIC_PAGE: {
                 "title": "Basic Page Demo",
                 "lines": [
-                    "This is a basic page layout",
-                    "with multiple lines of text",
-                    "Press any pad to continue",
-                    "to the next demo screen",
+                    "Header and three rows",
+                    "128 x 64 pixels",
+                    "Press a pad for next",
                 ],
             },
             ScreenDemo.VALUE_PAGE: {
-                "title": "Parameter: Filter Cutoff",
+                "title": "Filter cutoff",
                 "value": 64,
                 "min_val": 0,
                 "max_val": 127,
@@ -70,8 +69,8 @@ class ScreenLayoutDemo:
             },
             ScreenDemo.SPLIT_SCREEN: {
                 "title": "Track Compare",
-                "left": ["Track 1:", "Volume: 100", "Pan: C", "FX: Reverb"],
-                "right": ["Track 2:", "Volume: 85", "Pan: R15", "FX: Delay"],
+                "left": ["Track 1:", "Vol: 100", "Pan: C", "FX: Reverb"],
+                "right": ["Track 2:", "Vol: 85", "Pan: R15", "FX: Delay"],
             },
         }
 

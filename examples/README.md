@@ -22,6 +22,7 @@ Names describe the device feature: `pads_*`, `oled_*`, `events_*`, `leds_*`, `mi
 | `apps.circuit` | [Four-track sequencer](apps/circuit/README.md). Real MIDI output/recording, explicit ports; timing limitations documented. |
 | `apps.synth_editor` | [JT-4000 CC editor](apps/synth_editor/README.md). Parameter pages, OLED shapes, auditions, snapshots. Replaces the unfinished modular Groovebox. |
 | `apps.midi_scope` | [Controller diagnostics](apps/MIDI_SCOPE.md). Event log, graphs, pad activity, CSV. |
+| `apps.snake` | [Snake game](apps/snake/README.md). One 16×4 board rendered on pads and OLED, with directional buttons, pause and restart. |
 | `apps.pad_counter` | Smallest framework app: count pads, STOP to exit. |
 | `apps.modal_demo` | Mode/transport/screen teaching demo. Settings menu demonstrates navigation, not persistent configuration. |
 | `apps.looper` | Clip-state teaching demo. Arm/record/play state and normalized event timing; no external MIDI input/output. |

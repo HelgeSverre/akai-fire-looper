@@ -6,6 +6,10 @@ Provides helper methods for common screen drawing patterns.
 
 from typing import List, Optional
 
+from PIL import ImageFont
+
+from akai_fire import Canvas
+
 
 class ScreenMixin:
     """
@@ -42,18 +46,21 @@ class ScreenMixin:
         # Inverted header background
         self.canvas.fill_rect(0, 0, self.SCREEN_WIDTH, self.HEADER_HEIGHT, 0)
 
-        # Title (left-aligned, inverted color)
-        self.canvas.draw_text(title, 4, self.TEXT_MARGIN_Y, color=1)
-
-        # Status (right-aligned, inverted color)
+        # Reserve separate measured regions so a long title cannot meet status.
+        font = ImageFont.load_default()
+        status = Canvas.fit_text(status, self.SCREEN_WIDTH // 2 - 4, font)
+        status_width = font.getbbox(status)[2] if status else 0
+        title_width = self.SCREEN_WIDTH - 8 - (status_width + 6 if status else 0)
+        self.canvas.draw_text_fitted(
+            title, 4, self.TEXT_MARGIN_Y, color=1, width=title_width
+        )
         if status:
-            # Approximate character width for positioning
-            status_width = len(status) * 6
-            self.canvas.draw_text(
+            self.canvas.draw_text_fitted(
                 status,
                 self.SCREEN_WIDTH - status_width - 4,
                 self.TEXT_MARGIN_Y,
                 color=1,
+                width=status_width,
             )
 
         # Bottom border line
@@ -77,7 +84,7 @@ class ScreenMixin:
         for line in lines:
             if y + self.LINE_HEIGHT > self.SCREEN_HEIGHT:
                 break
-            self.canvas.draw_text(line, indent, y)
+            self.canvas.draw_text_fitted(line, indent, y)
             y += self.LINE_HEIGHT
 
     def draw_startup_screen(self, version: Optional[str] = None):
@@ -92,13 +99,13 @@ class ScreenMixin:
         # Center app name
         app_name = getattr(self, "APP_NAME", "AKAI Fire App")
         name_x = (self.SCREEN_WIDTH - len(app_name) * 6) // 2
-        self.canvas.draw_text(app_name, max(0, name_x), 20)
+        self.canvas.draw_text_fitted(app_name, max(0, name_x), 20)
 
         # Version below
         ver = version or getattr(self, "VERSION", "1.0")
         ver_text = f"v{ver}"
         ver_x = (self.SCREEN_WIDTH - len(ver_text) * 6) // 2
-        self.canvas.draw_text(ver_text, max(0, ver_x), 36)
+        self.canvas.draw_text_fitted(ver_text, max(0, ver_x), 36)
 
         # Border
         self.canvas.draw_rect(2, 2, self.SCREEN_WIDTH - 4, self.SCREEN_HEIGHT - 4)
@@ -122,6 +129,14 @@ class ScreenMixin:
         self.canvas.clear()
         self.draw_header(title)
 
+        visible_items = max(
+            1,
+            min(
+                visible_items,
+                (self.SCREEN_HEIGHT - self.CONTENT_START) // self.LINE_HEIGHT,
+            ),
+        )
+
         # Calculate scroll offset
         start_idx = max(0, selected_index - visible_items // 2)
         if start_idx + visible_items > len(items):
@@ -137,17 +152,19 @@ class ScreenMixin:
             if idx == selected_index:
                 # Highlight selected item
                 self.canvas.fill_rect(0, y - 1, self.SCREEN_WIDTH, self.LINE_HEIGHT, 0)
-                self.canvas.draw_text(f"> {items[idx]}", 4, y, color=1)
+                self.canvas.draw_text_fitted(
+                    f"> {items[idx]}", 4, y, color=1, width=110
+                )
             else:
-                self.canvas.draw_text(f"  {items[idx]}", 4, y)
+                self.canvas.draw_text_fitted(f"  {items[idx]}", 4, y, width=110)
 
             y += self.LINE_HEIGHT
 
         # Scroll indicators
         if start_idx > 0:
-            self.canvas.draw_text("^", 120, self.CONTENT_START)
+            self.canvas.draw_text_fitted("^", 120, self.CONTENT_START)
         if start_idx + visible_items < len(items):
-            self.canvas.draw_text("v", 120, self.SCREEN_HEIGHT - 10)
+            self.canvas.draw_text_fitted("v", 120, self.SCREEN_HEIGHT - 10)
 
     def draw_value_display(
         self,
@@ -172,7 +189,7 @@ class ScreenMixin:
 
         # Large value display
         value_x = (self.SCREEN_WIDTH - len(value) * 8) // 2
-        self.canvas.draw_text(value, max(4, value_x), 26)
+        self.canvas.draw_text_fitted(value, max(4, value_x), 26)
 
         # Optional progress bar
         if min_val is not None and max_val is not None and current_val is not None:
@@ -221,7 +238,7 @@ class ScreenMixin:
             if y + self.LINE_HEIGHT > self.SCREEN_HEIGHT:
                 break
             # Truncate to fit half screen
-            self.canvas.draw_text(line[:10], 4, y)
+            self.canvas.draw_text_fitted(line, 4, y, width=mid_x - 8)
             y += self.LINE_HEIGHT
 
         # Right content
@@ -229,5 +246,5 @@ class ScreenMixin:
         for line in right_content[:4]:
             if y + self.LINE_HEIGHT > self.SCREEN_HEIGHT:
                 break
-            self.canvas.draw_text(line[:10], mid_x + 4, y)
+            self.canvas.draw_text_fitted(line, mid_x + 4, y, width=mid_x - 8)
             y += self.LINE_HEIGHT

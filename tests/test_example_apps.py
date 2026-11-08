@@ -498,6 +498,18 @@ class CircuitContracts(unittest.TestCase):
             step, _ = timing.get_current_step_info()
         self.assertEqual(step, 2)
 
+    def test_note_entry_demo_records_content_and_stops(self):
+        from examples.apps.circuit.demo_e2e import DemoRunner
+
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app:
+            demo = DemoRunner()
+            demo.fire, demo.app = fire, app
+            demo.wait = Mock()
+            demo.demo_note_entry()
+            self.assertTrue(app.sequencer.tracks[0].has_content())
+            self.assertEqual(app.sequencer.transport_state, CircuitState.STOPPED)
+
     def test_demo_dispatch_reaches_framework_global_handlers(self):
         from examples.apps.circuit.demo_e2e import DemoRunner
 

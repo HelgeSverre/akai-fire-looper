@@ -2,7 +2,7 @@
 
 `akai_fire_framework` is the optional application layer above the `akai_fire` device library. Its `AkaiFireApp` base class owns the connection lifecycle, input subscriptions and display loop so your app can define what the controller does. Use the device library directly when integrating with an existing program; use the framework when you want these application services provided for you.
 
-Mixins add modes, screen layouts, grid helpers and transport state as needed. The example apps demonstrate these choices: Circuit keeps its musical clock and domain-specific modes; the synth editor and MIDI Scope use the base runtime directly.
+Mixins add modes, screen layouts, grid helpers and transport state as needed. The example apps demonstrate these choices: Circuit keeps its musical clock and domain-specific modes; the synth editor, MIDI Scope and Snake use the base runtime directly.
 
 ## Lifecycle and ownership
 
@@ -10,18 +10,21 @@ Mixins add modes, screen layouts, grid helpers and transport state as needed. Th
 | --- | --- | --- |
 | `on_init()` | During construction, before default subscriptions are installed | Initialize state, mixins and app resources |
 | `on_start()` | At the start of `run()` | Draw the first screen, initialize LEDs |
-| `on_update(dt)` | At `FPS` (default 30), with elapsed monotonic seconds | Update UI state and draw the canvas |
+| `on_update(dt)` | Up to `FPS` (default 30), with elapsed monotonic seconds | Update UI state and draw the canvas |
 | `on_stop()` | Once during shutdown | Stop app workers, silence instruments, close app-owned resources |
 
 `run(duration=2)` is a bounded run for a smoke test. `quit()` asks the loop to exit; `shutdown()` performs cleanup immediately. Shutdown is idempotent. An app cannot run again after shutdown. The optional startup banner is disabled by default; set `STARTUP_SECONDS` to enable it. The banner runs before `on_start()` so it cannot erase the app's first screen.
 
-The base renders the canvas after each update and handles pygame events on the foreground thread. It removes the subscriptions it created. Removal errors are reported after every owned handler has been disabled/attempted; app stop and controller cleanup still run. If you pass `fire=...`, you own that controller and must close it yourself. Without an injected controller, the app owns and closes the connection. The app clears controller LEDs on shutdown, including when the controller was borrowed.
+The base renders the canvas after each update and handles pygame events on the foreground thread. It removes the subscriptions it created. Removal errors are reported after every owned handler has been disabled/attempted; app stop and controller cleanup still run. If you pass `fire=...`, you own that controller and must close it yourself. Without an injected controller, the app owns and closes the connection. The app clears controller LEDs and renders a goodbye screen on shutdown, including when the controller was borrowed.
 
 Resources acquired inside `on_init()` need local rollback if initialization fails. `on_stop()` is not a constructor rollback hook. App-created raw `fire.on_*` subscriptions also need explicit removal; prefer the base event hooks for ordinary input.
 
 ## Input
 
 ```python
+from akai_fire_framework import AkaiFireApp
+
+
 class MyApp(AkaiFireApp):
     def on_pad_press(self, pad, velocity):
         # Only positive-velocity presses reach this hook.
@@ -40,6 +43,34 @@ Hardware callbacks normally run on the driver's executor, while `on_update()` ru
 
 The hardware driver currently exposes pad presses, not pad releases. Use bounded auditions when driving a synth, as in [the editor](../examples/apps/synth_editor/midi.py), rather than starting indefinitely held notes. Button press/release and encoder turns are available; rotary-touch callbacks are available through the driver.
 
+For state that belongs to the frame thread, enqueue input and draw from `on_update()`. Capture modifier state inside the callback, where it belongs to that event:
+
+```python
+from queue import Empty, SimpleQueue
+from akai_fire_framework import AkaiFireApp
+
+
+class PadLog(AkaiFireApp):
+    def on_init(self):
+        self.inputs = SimpleQueue()
+        self.last = "Press a pad"
+
+    def on_pad_press(self, pad, velocity):
+        self.inputs.put((pad, self.fire.is_shift_pressed()))
+
+    def on_update(self, dt):
+        for _ in range(64):  # Leave time to render during a burst of input.
+            try:
+                pad, shifted = self.inputs.get_nowait()
+            except Empty:
+                break
+            self.last = f"Pad {pad}" + (" + SHIFT" if shifted else "")
+        self.canvas.clear()
+        self.canvas.draw_text_fitted(self.last, 4, 24)
+```
+
+This queue transfers state safely to the frame thread; it does not reorder concurrently dispatched hardware callbacks. Inject a controller configured with `max_workers=1` if FIFO dispatch is required. For a model protected by a lock and rendered through two views, see [Snake](../examples/apps/snake/README.md).
+
 ## Optional building blocks
 
 | Building block | What it owns | What the app still supplies |
@@ -57,19 +88,17 @@ Mode handlers receive encoder names after mixin mapping, while the base app rece
 
 ```python
 from akai_fire_testing import MockAkaiFire
-from examples.apps.pad_counter import PadCounterApp
 
-fire = MockAkaiFire()
-with PadCounterApp(fire) as app:
+# MyApp is the class defined in the Input example above.
+with MockAkaiFire() as fire, MyApp(fire) as app:
     fire.simulate_pad_press(3, 100)
-    assert app.count == 1
+    fire.assert_pad_color(3, (0, 100, 0))
     app.run(duration=0)
-fire.close()
 ```
 
 Use a separate fake instrument output for MIDI apps. Assert the emitted bytes, not only the displayed label. The [app tests](../tests/test_example_apps.py) cover routing, cancellation, snapshot validation and exported data. Test the hardware driver with mocked MIDI ports as well, because mocks do not reproduce its callback executor.
 
-## Is it feature-complete?
+## Current limits
 
 For small controller tools, the foundation is enough. For larger applications, these are the most valuable missing capabilities:
 

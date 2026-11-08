@@ -87,7 +87,7 @@ def demo_display_caching(fire):
     # Render same content multiple times
     def render_same():
         canvas.clear()
-        canvas.draw_text("Static Text", 10, 20)
+        canvas.draw_text_fitted("Static Text", 10, 20)
         fire.render_to_display(canvas)
 
     # Render changing content
@@ -95,7 +95,7 @@ def demo_display_caching(fire):
 
     def render_changing():
         canvas.clear()
-        canvas.draw_text(f"Counter: {counter[0]}", 10, 20)
+        canvas.draw_text_fitted(f"Counter: {counter[0]}", 10, 20)
         counter[0] += 1
         fire.render_to_display(canvas)
 

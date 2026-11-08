@@ -8,87 +8,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- JT-4000 MICRO controller app with 16 documented CC parameters, OLED parameter/envelope views, bounded auditions, and validated local snapshots.
-- MIDI Scope app with input history, encoder traces, freeze/clear controls, and CSV export.
-- `AkaiFireApp.run(duration=...)` for bounded runs and application-level regression tests.
-- **Package split** — the monolithic `akai_fire.py` is now the
-  `akai_fire/` package (`constants`, `errors`, `canvas`, `device`,
-  `hardware`) with a lazy `__init__` so importing the library pulls
-  neither rtmidi nor Pillow until used
-- **Listener removal API** — `remove_listener`, `remove_global_listener`,
-  `remove_button_listener`, `remove_rotary_listener`,
-  `remove_rotary_touch_listener` on every implementation
-- **OLED SysEx encoder golden-vector tests** (`test_sysex_encoder.py`)
-- **Cross-implementation contract tests** pinning return types, error
-  contracts, canvas signatures, and the `(row, col)` pad convention
+- JT-4000 MICRO CC editor with parameter pages, OLED graphs, short auditions and validated local snapshots.
+- MIDI Scope with input history, encoder traces, freeze/clear controls and CSV export.
+- Snake with a shared 16×4 game model, pad/OLED views and Pattern/Grid directional controls.
+- `AkaiFireApp.run(duration=...)` for bounded runs.
+- `Canvas.fit_text()` and `draw_text_fitted()` for labels constrained by pixel width.
+- Animated app previews, screenshots and the original bundled Clawd GIF.
+- Callback/lifecycle, OLED encoding, app behavior and text-layout regression tests.
 
 ### Changed
 
-- Circuit now lives under `examples/apps/circuit` and uses the application runtime. The unfinished modular Groovebox is replaced by `examples/apps/synth_editor`.
-- Example modules use feature prefixes and module launch commands; see the [catalog](../examples/README.md). Older standalone music experiments moved to `examples/legacy`.
-- Default test discovery includes Circuit; just recipes use Ruff for lint/format and expose `just app NAME`.
-- README and guides distinguish implemented behavior, hardware prerequisites, and remaining framework/app limits.
-- `pad_position()` now returns `(row, col)`, matching GridMixin and
-  the example apps (was `(col, row)` on the device base)
-- LED setters return `bool` on all implementations; invalid pad/button
-  arguments raise `InvalidParameterError` everywhere (previously some
-  mocks returned `False` or ignored silently)
-- MockCanvas pixel convention aligned with real Canvas (0 = lit);
-  screenshots now match device output; high-level draw methods share
-  real Canvas signatures and geometry
-- Project is pip-installable (`[build-system]` + explicit packages);
-  dev Python pinned to 3.12 via `.python-version`
+- Project documentation now describes the device library, optional application framework and headless testing package separately from the example apps.
+- Circuit moved to `examples/apps/circuit` and uses the application runtime. The unfinished modular Groovebox was replaced by the synth editor. Older standalone experiments remain under `examples/legacy`.
+- Example names use feature prefixes and module commands; see the [catalog](../examples/README.md).
+- Pygame mock uses a 1120×640 hardware-inspired panel, native 128×64 OLED, consistent hit targets and button-specific LED hues.
+- Circuit OLED screens use bounded rows and separate header regions. Shared pages/menus fit three complete rows; split screens bound each column. Long labels use an ellipsis.
+- `akai_fire` is a package with lazy public imports. The wheel includes the device, framework and testing packages; interactive root mocks and examples require a checkout.
+- `pad_position()` returns `(row, col)`. Common single-pad/button validation and setter return types have cross-backend contract coverage.
+- Development uses uv, Python 3.12 and Ruff. Default unittest discovery includes Circuit.
 
 ### Fixed
 
-- Application initialization/shutdown and subscription rollback/teardown preserve resource ownership even when a callback/remover fails.
-- Circuit clock progression beyond four bars, scheduled note gates and cancellation, mute/solo phase, step parameter writes, settings routing, MIDI recording input, and pattern-range shrinking.
-- Looper record-button double registration and recording BPM normalization.
-- Procedural mock event pumping, example import paths, empty MIDI menus, and several cleanup/error paths.
-- Track-LED clamp degraded `RECTANGLE_LED_HIGH_GREEN` (4) to 2 on
-  hardware and mocks; range is now 0-4 everywhere
-- `clear_all()` sent the track-LED clear twice
-- `reconnect()` rebuilt the async dispatcher only when listening,
-  silently degrading later `start_listening()` to inline dispatch
-- `Canvas.draw_value_page` crashed on `min_val == max_val` and drew
-  out-of-range bars
-- pygame mock no longer permanently swallows Ctrl-C or tears down
-  process-global pygame state on close
+- Application initialization/shutdown and subscription teardown preserve ownership when callbacks or removers fail.
+- Circuit clock progression, note gates/cancellation, mute/solo phase, step writes, settings routing, recording input and pattern shrinking.
+- Circuit automated demos run the normal frame hook and arm recording before entering notes.
+- Circuit note output no longer deadlocks when recording activity under the MIDI lock.
+- Looper record-button double registration and BPM normalization; legacy looper listener signatures now permit startup and input dispatch.
+- OLED header/body overlap, off-screen menu rows, overflowing labels and stale content in example views, including legacy displays.
+- Gallery rain, particles and the humanoid body use the correct lit-pixel polarity; particle explosions repeat before disappearing.
+- Legacy Circuit FX rendering no longer redraws 32 times per refresh; Tempo mode updates its display.
+- Pad color-cycle demo reaches visible MIDI brightness instead of using only values 0–3.
+- Mock encoder drag capture, SELECT click/drag distinction and focus-loss input cleanup.
+- Track-LED range includes high green (4), reconnect restores async dispatch, and value bars handle degenerate ranges.
 
-### Added
-
-#### Circuit Sequencer Example
-- **E2E Visual Demo** (`demo_e2e.py`) - Automated visual testing with DemoRunner class
-- **Pygame Smoke Test** (`test_pygame_smoke.py`) - Quick 3-second GUI verification
-- **Comprehensive Core Tests** - Pattern, Step, Sequencer, Track test coverage
-- **Settings Mode** - Full settings menu with BPM, swing, quantization, MIDI config
-- **Pattern Mode Improvements** - Pattern chain editing, copy/paste/clear operations
-- **Enhanced Pattern System** - PlayOrder (forward/reverse/ping-pong/random), SyncRate
-- **SOLO Button Track Selection** - Use SOLO_1-4 buttons instead of pads for track selection
-- **Track LED Display** - Visual feedback for selected track via track LEDs
-
-#### Mock GUI (Pygame)
-- **Larger Window** - Increased from 900x350 to 1100x500 pixels
-- **2x OLED Scaling** - 256x128 display for better visibility
-- **Repositioned Elements** - OLED above pads, buttons without overlap
-- **Improved API Compatibility** - Better match with real AkaiFire interface
-
-#### Testing Infrastructure
-- Testing utilities module (`akai_fire_testing.py`)
-- Comprehensive test suite for Canvas and ScreenManager
-- Mock MIDI ports for hardware-free testing
-
-### Changed
-- Refactored examples to use context managers
-- Applied black formatting across codebase
-- Improved error handling with specific exception types
-
-### Fixed
-- MockAkaiFire API compatibility issues
-- Button listener registration after decorator changes
-- Import issues in examples
-
----
+Older entries retain their original version labels and describe earlier project states. The current distribution version is defined in `pyproject.toml`.
 
 ## [0.2.0] - 2024-09-01
 

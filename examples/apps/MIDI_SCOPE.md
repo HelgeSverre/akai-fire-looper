@@ -2,6 +2,10 @@
 
 A diagnostic surface for the Fire's interpreted input events. Use it to check pad positions, encoder direction/speed, modifier buttons and callback processing order while developing an app.
 
+[![MIDI Scope capturing pads and encoder turns](../../docs/images/midi-scope-demo.gif)](../../docs/images/midi-scope-gui.png)
+
+*Actual GUI capture with scripted pad and encoder events, followed by frozen graph and log views. [Still PNG](../../docs/images/midi-scope-gui.png).*
+
 ```sh
 uv run python -m examples.apps.midi_scope
 ```
@@ -14,6 +18,8 @@ Pads flash and retain a blue count indicator. Turning a knob selects its trace; 
 | BROWSER | Switch between encoder trace and recent event log |
 | STOP | Clear history, traces and pad counts |
 | REC | Export the retained events to CSV |
+
+STOP retains accumulated encoder values and the selected encoder. Capture continues unless frozen, so a subsequent button release can immediately appear in the cleared log.
 
 The log keeps the most recent 512 events and the graph keeps 64 values. CSV columns are elapsed seconds, kind, control ID, and value. Export defaults to `midi-scope.csv`; set `MIDI_SCOPE_CSV` to change the path. Exports overwrite that file.
 

@@ -30,7 +30,11 @@ For headless tests use `akai_fire_testing.MockAkaiFire`. For pygame integration 
 
 ## The OLED is blank or inverted
 
-Draw onto `fire.get_canvas()` and then call `fire.render_to_display()`. The framework does the render after `on_update()`. Pixel `0` is lit; pixel `1` is unlit. Coordinates outside 128×64 do not appear. Keep a text line within about 21 characters at the default font size; use short labels or scrolling for longer content.
+Draw onto `fire.get_canvas()` and then call `fire.render_to_display()`. The framework does the render after `on_update()`. Pixel `0` is lit; pixel `1` is unlit. Coordinates outside 128×64 do not appear. Use `draw_text_fitted()` for labels: fonts have variable widths, so a character-count limit does not guarantee a fit. Standard pages and menus show three full content rows. Clear the canvas before drawing a different page; use raw `draw_text()` only when handling positioning or scrolling yourself.
+
+## Pads look dim or nearly white in the mock
+
+Pad channels use the full MIDI range 0–127. Values such as `(3, 0, 0)` are very dim; `(127, 0, 0)` is full red. Run `uv run python -m examples.pads_color_cycle` to check the three primary colors. Button brightness values 0–2 are a different API; the button itself determines its hue.
 
 ## Circuit is silent
 

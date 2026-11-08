@@ -8,6 +8,8 @@ from collections import deque
 from itertools import pairwise
 from pathlib import Path
 
+from PIL import ImageFont
+
 from akai_fire_framework import AkaiFireApp
 
 from .midi import SynthOutput
@@ -176,15 +178,16 @@ class SynthEditorApp(AkaiFireApp):
 
     def _draw(self):
         canvas = self.canvas
+        row_font = ImageFont.load_default(size=9)
         canvas.clear()
         title, parameters = PAGES[self.page]
         mode = "MIDI" if self.output.port_name else "DEMO"
-        canvas.draw_text(f"{title} {mode}", 1, 0)
+        canvas.draw_text_fitted(f"{title} {mode}", 1, 0)
         canvas.draw_horizontal_line(0, 12, 128)
         if self.detail:
             parameter = parameters[self.selected]
             value = self.values[parameter.cc]
-            canvas.draw_text(
+            canvas.draw_text_fitted(
                 f"{parameter.name}: {value if value is not None else '?'}", 1, 15
             )
             if self.page in (1, 2):
@@ -207,13 +210,19 @@ class SynthEditorApp(AkaiFireApp):
         else:
             for index, parameter in enumerate(parameters):
                 value = self.values[parameter.cc]
-                y = 15 + index * 9
-                canvas.draw_text(
-                    f"{parameter.name[:9]} {value if value is not None else '?'}", 1, y
+                y = 14 + index * 10
+                canvas.draw_text_fitted(
+                    f"{parameter.name} {value if value is not None else '?'}",
+                    1,
+                    y,
+                    font=row_font,
+                    width=80,
                 )
                 if value is not None:
                     canvas.fill_rect(86, y + 3, max(1, value * 40 // 127), 4)
-        canvas.draw_text(f"CH{self.output.channel} {self.notice}"[:24], 1, 54)
+        canvas.draw_text_fitted(
+            f"CH{self.output.channel} {self.notice}", 1, 53, font=row_font
+        )
         colors = []
         for pad in range(64):
             row, column = divmod(pad, 16)

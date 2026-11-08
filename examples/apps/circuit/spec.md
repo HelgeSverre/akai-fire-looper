@@ -1,5 +1,7 @@
 # Circuit Tracks-Inspired MIDI Sequencer - Specification
 
+Historical design notes: this document includes proposed behavior that is not implemented. The [Circuit README](README.md) describes current controls, setup and limitations.
+
 ## Project Overview
 
 A professional 4-track **MIDI-only sequencer** for the AKAI Fire controller, inspired by the Novation Circuit Tracks workflow. This is a **pure MIDI orchestration system** designed to control external hardware synthesizers, drum machines, and DAWs through MIDI messages. The AKAI Fire serves as a dedicated hardware controller interface, providing immediate tactile control over MIDI sequences with real-time visual feedback on the controller's pads and OLED screen.

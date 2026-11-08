@@ -190,6 +190,11 @@ class MockCanvas:
         self.text_drawn.append((text, x, y))
         self._render_simple_text(text, x, y, color)
 
+    def draw_text_fitted(self, text, x, y, font=None, color=0, *, width=None):
+        from akai_fire.canvas import Canvas
+
+        return Canvas.draw_text_fitted(self, text, x, y, font, color, width=width)
+
     def _render_simple_text(self, text: str, x: int, y: int, color: int = 0):
         """Render text using a simple bitmap representation for screenshots."""
         char_width = 5
@@ -352,19 +357,9 @@ class MockCanvas:
     # =========================================================================
 
     def draw_page(self, title: str, lines: list, header_inverted: bool = True):
-        """Draw a page layout (mirrors real Canvas geometry and colors)."""
-        if header_inverted:
-            self.fill_rect(0, 0, self.width, self.HEADER_HEIGHT, color=0)
-            self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
-        else:
-            self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=0)
-            self.draw_horizontal_line(0, self.HEADER_HEIGHT, self.width, color=0)
-        y_offset = self.CONTENT_START
-        line_height = 12
-        for i, line in enumerate(lines):
-            if y_offset + line_height > self.height:
-                break
-            self.draw_text(line, 2, y_offset + (i * line_height))
+        from akai_fire.canvas import Canvas
+
+        Canvas.draw_page(self, title, lines, header_inverted)
 
     def draw_value_page(
         self,
@@ -374,81 +369,26 @@ class MockCanvas:
         max_val: Optional[int] = None,
         show_bar: bool = True,
     ):
-        """Draw a value display page (mirrors real Canvas signature)."""
-        self.fill_rect(0, 0, self.width, self.HEADER_HEIGHT, color=0)
-        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
-        self.draw_text(str(value), 2, 20, color=0)
-        if show_bar and min_val is not None and max_val is not None:
-            bar_y = 40
-            bar_height = 8
-            if max_val == min_val:
-                normalized = 1.0 if float(value) >= float(max_val) else 0.0
-            else:
-                normalized = (float(value) - min_val) / (max_val - min_val)
-            normalized = max(0.0, min(1.0, normalized))
-            bar_width = int(normalized * (self.width - 4))
-            self.draw_rect(2, bar_y, self.width - 4, bar_height)
-            self.fill_rect(2, bar_y, bar_width, bar_height)
+        from akai_fire.canvas import Canvas
+
+        Canvas.draw_value_page(self, title, value, min_val, max_val, show_bar)
 
     def draw_menu(self, title: str, items: list, selected_index: int):
-        """Draw a menu with a highlighted selection (mirrors real Canvas)."""
-        self.fill_rect(0, 0, self.width, self.HEADER_HEIGHT, color=0)
-        self.draw_text(title, 2, self.TEXT_MARGIN_Y, color=1)
-        y_offset = self.CONTENT_START
-        line_height = 12
-        visible_items = min(4, len(items))
-        start_idx = max(0, min(selected_index - 1, len(items) - visible_items))
-        for i in range(visible_items):
-            idx = start_idx + i
-            if idx >= len(items):
-                break
-            if idx == selected_index:
-                self.fill_rect(
-                    0, y_offset + (i * line_height), self.width, line_height, color=0
-                )
-                self.draw_text(items[idx], 4, y_offset + (i * line_height), color=1)
-            else:
-                self.draw_text(items[idx], 4, y_offset + (i * line_height))
+        from akai_fire.canvas import Canvas
+
+        Canvas.draw_menu(self, title, items, selected_index)
 
     def draw_grid_info(
-        self,
-        title: str,
-        rows: int,
-        cols: int,
-        cell_info: Optional[list] = None,
+        self, title: str, rows: int, cols: int, cell_info: Optional[list] = None
     ):
-        """Draw a grid outline plus ``(row, col, text)`` cells
-        (mirrors real Canvas signature)."""
-        cell_info = cell_info or []
-        self.fill_rect(0, 0, self.width, 12, color=0)
-        self.draw_text(title, 2, 2, color=1)
-        cell_width = (self.width - 4) // cols
-        cell_height = (self.height - 20) // rows
-        for row in range(rows + 1):
-            self.draw_horizontal_line(2, 16 + (row * cell_height), self.width - 4)
-        for col in range(cols + 1):
-            self.draw_vertical_line(2 + (col * cell_width), 16, rows * cell_height)
-        for row, col, text in cell_info:
-            self.draw_text(
-                text, 2 + (col * cell_width) + 2, 16 + (row * cell_height) + 2
-            )
+        from akai_fire.canvas import Canvas
+
+        Canvas.draw_grid_info(self, title, rows, cols, cell_info or [])
 
     def draw_split_screen(self, title: str, left_content: list, right_content: list):
-        """Draw a split-screen layout (mirrors real Canvas signature)."""
-        self.fill_rect(0, 0, self.width, 12, color=0)
-        self.draw_text(title, 2, 2, color=1)
-        mid_x = self.width // 2
-        self.draw_vertical_line(mid_x, 15, self.height - 15)
-        y_offset = 15
-        line_height = 12
-        for i, line in enumerate(left_content):
-            if y_offset + (i * line_height) + line_height > self.height:
-                break
-            self.draw_text(line, 2, y_offset + (i * line_height))
-        for i, line in enumerate(right_content):
-            if y_offset + (i * line_height) + line_height > self.height:
-                break
-            self.draw_text(line, mid_x + 2, y_offset + (i * line_height))
+        from akai_fire.canvas import Canvas
+
+        Canvas.draw_split_screen(self, title, left_content, right_content)
 
     # =========================================================================
     # Screenshot / BMP Export

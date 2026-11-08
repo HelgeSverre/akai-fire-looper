@@ -8,6 +8,8 @@ from collections import deque
 from itertools import pairwise
 from pathlib import Path
 
+from PIL import ImageFont
+
 from akai_fire_framework import AkaiFireApp
 
 
@@ -97,8 +99,9 @@ class MidiScopeApp(AkaiFireApp):
             if not self.frozen:
                 self.activity = [max(0, level - dt * 1.5) for level in self.activity]
             canvas = self.canvas
+            row_font = ImageFont.load_default(size=9)
             canvas.clear()
-            canvas.draw_text(
+            canvas.draw_text_fitted(
                 f"SCOPE {'HOLD' if self.frozen else 'LIVE'} {len(self.events)}", 1, 0
             )
             canvas.draw_horizontal_line(0, 12, 128)
@@ -106,11 +109,14 @@ class MidiScopeApp(AkaiFireApp):
                 for index, (timestamp, kind, control, value) in enumerate(
                     list(self.events)[-4:]
                 ):
-                    canvas.draw_text(
-                        f"{kind[:3]} {control} {value}"[:24], 1, 15 + index * 9
+                    canvas.draw_text_fitted(
+                        f"{kind[:3]} {control} {value}",
+                        1,
+                        14 + index * 10,
+                        font=row_font,
                     )
             else:
-                canvas.draw_text(
+                canvas.draw_text_fitted(
                     f"Encoder {self.selected_encoder + 1}: {self.values[self.selected_encoder]}",
                     1,
                     15,
@@ -122,7 +128,7 @@ class MidiScopeApp(AkaiFireApp):
                 for first, second in pairwise(points):
                     canvas.draw_line(*first, *second)
                 canvas.draw_horizontal_line(0, 49, 128)
-            canvas.draw_text(self.notice[:24], 1, 54)
+            canvas.draw_text_fitted(self.notice, 1, 53, font=row_font)
             self.fire.set_multiple_pad_colors(
                 [
                     (

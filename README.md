@@ -94,6 +94,44 @@ with AkaiFire() as fire:
 
 Interactive mocks and examples run from a repository checkout, where `get_akai_fire()` selects hardware or a mock. Use `akai_fire_testing.MockAkaiFire` for headless tests in any project. Apps also accept an explicit controller, such as `PadLights(fire)`; the caller owns and closes that connection.
 
+## Common tasks
+
+List MIDI ports without opening a controller connection:
+
+```python
+from akai_fire import AkaiFire
+
+ports = AkaiFire.list_midi_ports()
+print("Inputs:", ports["input"])
+print("Outputs:", ports["output"])
+```
+
+Draw an OLED layout and save a preview without hardware:
+
+```python
+from akai_fire import Canvas
+
+canvas = Canvas()
+canvas.draw_menu("Choose a tool", ["Synth editor", "MIDI Scope", "Snake"], 2)
+canvas.image.save("oled-preview.png")
+```
+
+The saved image uses black for lit pixels. Use `fire.render_to_display(canvas)` to send the same canvas to a connected Fire. Layouts fit labels to their available width; use `draw_text_fitted()` for bounded labels and `draw_text()` for custom drawing or scrolling.
+
+Test the `PadLights` class above by injecting a headless controller:
+
+```python
+from akai_fire_testing import MockAkaiFire
+from my_fire_app import PadLights
+
+with MockAkaiFire() as fire, PadLights(fire) as app:
+    fire.simulate_pad_press(17, velocity=100)
+    fire.assert_pad_color(17, (0, 100, 30))
+    app.run(duration=0)  # Exercise startup and shutdown without a GUI.
+```
+
+The [device guide](docs/DEVICE.md) covers callback signatures, batched pad updates, LED values and display primitives.
+
 ## Explore the examples
 
 The [example catalog](examples/README.md) covers pad colors, OLED graphics, input events, LEDs, batching and mocks.
@@ -102,6 +140,7 @@ The [example catalog](examples/README.md) covers pad colors, OLED graphics, inpu
 | --- | --- | --- |
 | [Circuit](examples/apps/circuit/README.md) | A four-track MIDI sequencer with a separate musical clock, step editing and mode-based controls | `uv run python -m examples.apps.circuit` |
 | [JT-4000 editor](examples/apps/synth_editor/README.md) | Parameter pages, pad faders, OLED visualizations, MIDI CC output and local snapshots | `uv run python -m examples.apps.synth_editor` |
+| [Snake](examples/apps/snake/README.md) | One game model, synchronized pad/OLED views and button-driven movement | `uv run python -m examples.apps.snake` |
 | [MIDI Scope](examples/apps/MIDI_SCOPE.md) | Input handling, encoder traces, live/frozen views and CSV export | `uv run python -m examples.apps.midi_scope` |
 
 Circuit needs an explicitly selected instrument output for sound. The editor connects automatically only when exactly one JT-4000 output is present; otherwise it runs in preview mode. These apps send MIDI and do not generate computer audio. Their README files cover controls, prerequisites and limitations.

@@ -74,26 +74,29 @@ class DemoRunner:
             seconds: Time to wait (adjusted by speed multiplier)
         """
         adjusted_time = seconds / self.speed
-        start = time.time()
+        start = time.monotonic()
+        previous = start
 
-        while self.running and (time.time() - start) < adjusted_time:
+        while self.running and (time.monotonic() - start) < adjusted_time:
             # Process pygame events
             if not self.fire.process_events():
                 self.running = False
                 return
 
-            # Update display
-            self.app._update_transport_leds()
-            self.app._update_display()
+            # Use the app frame hook so previews expire and playhead state updates.
+            now = time.monotonic()
+            self.app.on_update(now - previous)
+            self.fire.render_to_display()
+            previous = now
 
             time.sleep(0.016)  # ~60 FPS
 
     def annotate(self, text: str):
         """
-        Show annotation on the OLED screen.
+        Log the current demo action.
 
         Args:
-            text: Text to display at top of screen
+            text: Action description printed to the console
         """
         self.annotation = text
         print(f"[DEMO] {text}")
@@ -109,13 +112,6 @@ class DemoRunner:
             velocity: Press velocity (0-127)
             hold_time: How long to "hold" the pad
         """
-        # Save original color
-        original_color = (
-            self.fire.pad_colors[pad].copy()
-            if hasattr(self.fire, "pad_colors")
-            else (0, 0, 0)
-        )
-
         # Flash white to show press
         self.fire.set_pad_color(pad, 127, 127, 127)
         self.wait(0.05)
@@ -212,8 +208,7 @@ class DemoRunner:
     def demo_note_entry(self):
         """Demonstrate entering notes."""
         self.annotate("Note Entry Demo")
-        self.simulate_button_press(self.fire.BUTTON_REC)
-        self.simulate_button_press(self.fire.BUTTON_REC)
+        self.simulate_button_press(self.fire.BUTTON_STOP)
         self.wait(0.5)
 
         # Make sure we're in NOTE mode
@@ -227,12 +222,15 @@ class DemoRunner:
 
         # Add some notes using the keyboard area (rows 2-3, pads 32-63)
         self.annotate("Adding notes to pattern...")
+        self.simulate_button_press(self.fire.BUTTON_REC)
         keyboard_pads = [32, 34, 36, 37, 39, 41, 43, 44]  # C major scale positions
         for pad in keyboard_pads:
             self.simulate_pad_press(pad)
             self.wait(0.2)
 
         self.wait(0.5)
+
+        self.simulate_button_press(self.fire.BUTTON_STOP)
 
         # Show the pattern on step row
         self.annotate("Notes added to steps!")
@@ -338,10 +336,14 @@ class DemoRunner:
 
         # Add notes to pattern
         self.annotate("Creating a melody...")
+        self.simulate_button_press(self.fire.BUTTON_STOP)
+        self.simulate_button_press(self.fire.BUTTON_REC)
         melody_pads = [32, 34, 36, 39, 41, 39, 36, 34]
         for pad in melody_pads:
             self.simulate_pad_press(pad)
             self.wait(0.15)
+
+        self.simulate_button_press(self.fire.BUTTON_STOP)
 
         # Play the sequence
         self.annotate("Playing sequence...")

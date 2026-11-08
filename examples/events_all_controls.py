@@ -143,7 +143,7 @@ class EventMonitor:
             c.clear()
             visible = list(self.stats.log)[:LOG_LINES_ON_OLED]
             for line, y in zip(visible, LINE_Y):
-                c.draw_text(line, 2, y, font=self.font)
+                c.draw_text_fitted(line, 2, y, font=self.font)
             self.fire.render_to_display()
 
     # -- handler registration ---------------------------------------------

@@ -1037,8 +1037,8 @@ class CircuitTracks:
 
         # Update display
         self.canvas.clear()
-        self.canvas.draw_text("Click Level", 5, 10)
-        self.canvas.draw_text(f"Level: {self.click_level}", 5, 25)
+        self.canvas.draw_text_fitted("Click Level", 5, 10)
+        self.canvas.draw_text_fitted(f"Level: {self.click_level}", 5, 25)
         self.fire.render_to_display()
 
     def draw_side_chain_view(self):
@@ -1114,10 +1114,10 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Side Chain View", 5, 10)
-        self.canvas.draw_text("Top row: Synth 1 SC presets", 5, 25)
-        self.canvas.draw_text("2nd row: Synth 2 SC presets", 5, 40)
-        self.canvas.draw_text("Bottom row: SC source (Drums 1-4)", 5, 55)
+        self.canvas.draw_text_fitted("Side Chain View", 5, 10)
+        self.canvas.draw_text_fitted("Row 1: Synth 1 SC", 5, 25)
+        self.canvas.draw_text_fitted("Row 2: Synth 2 SC", 5, 40)
+        self.canvas.draw_text_fitted("Row 4: SC drums 1-4", 5, 52)
 
         self.fire.render_to_display()
 
@@ -1586,11 +1586,11 @@ class CircuitTracks:
         self.canvas.clear()
 
         # Display tempo
-        self.canvas.draw_text(f"Tempo: {self.tempo:.1f} BPM", 5, 10)
+        self.canvas.draw_text_fitted(f"Tempo: {self.tempo:.1f} BPM", 5, 10)
 
         # Display swing
         swing_percent = int((self.swing - 0.5) * 100 * 2)
-        self.canvas.draw_text(f"Swing: {swing_percent}%", 5, 25)
+        self.canvas.draw_text_fitted(f"Swing: {swing_percent}%", 5, 25)
 
         # Render to display
         self.fire.render_to_display()
@@ -1629,6 +1629,8 @@ class CircuitTracks:
             self.draw_fx_view()
         elif self.view_mode == ViewMode.SIDE_CHAIN:
             self.draw_side_chain_view()
+        elif self.view_mode == ViewMode.TEMPO:
+            self.draw_tempo_display()
         elif self.view_mode == ViewMode.PATTERN_SETTINGS:
             self.draw_pattern_settings_view()
         elif self.view_mode == ViewMode.PROBABILITY:
@@ -1870,13 +1872,13 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Expanded Note View", 5, 10)
+        self.canvas.draw_text_fitted("Expanded Note View", 5, 10)
         if self.current_track_index < 4:
-            self.canvas.draw_text(f"Track: {track.name}", 5, 25)
+            self.canvas.draw_text_fitted(f"Track: {track.name}", 5, 25)
             scale_name = list(self.scales.keys())[self.current_scale]
-            self.canvas.draw_text(f"Scale: {scale_name}", 5, 40)
+            self.canvas.draw_text_fitted(f"Scale: {scale_name}", 5, 40)
         else:
-            self.canvas.draw_text("Drum tracks: 1-4", 5, 25)
+            self.canvas.draw_text_fitted("Drum tracks: 1-4", 5, 25)
         self.fire.render_to_display()
 
     def draw_velocity_view(self):
@@ -1941,17 +1943,17 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Velocity View", 5, 10)
+        self.canvas.draw_text_fitted("Velocity View", 5, 10)
 
         if (
             0 <= self.selected_step < pattern.length
             and pattern.steps[self.selected_step].active
         ):
             vel = pattern.steps[self.selected_step].velocity
-            self.canvas.draw_text(f"Step: {self.selected_step + 1}", 5, 25)
-            self.canvas.draw_text(f"Velocity: {vel}", 5, 40)
+            self.canvas.draw_text_fitted(f"Step: {self.selected_step + 1}", 5, 25)
+            self.canvas.draw_text_fitted(f"Velocity: {vel}", 5, 40)
         else:
-            self.canvas.draw_text("No step selected", 5, 25)
+            self.canvas.draw_text_fitted("No step selected", 5, 25)
 
         self.fire.render_to_display()
 
@@ -2015,17 +2017,17 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Gate View", 5, 10)
+        self.canvas.draw_text_fitted("Gate View", 5, 10)
 
         if (
             0 <= self.selected_step < pattern.length
             and pattern.steps[self.selected_step].active
         ):
             gate = pattern.steps[self.selected_step].gate
-            self.canvas.draw_text(f"Step: {self.selected_step + 1}", 5, 25)
-            self.canvas.draw_text(f"Gate: {gate:.2f}", 5, 40)
+            self.canvas.draw_text_fitted(f"Step: {self.selected_step + 1}", 5, 25)
+            self.canvas.draw_text_fitted(f"Gate: {gate:.2f}", 5, 40)
         else:
-            self.canvas.draw_text("No step selected", 5, 25)
+            self.canvas.draw_text_fitted("No step selected", 5, 25)
 
         self.fire.render_to_display()
 
@@ -2070,14 +2072,14 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Pattern View", 5, 10)
-        self.canvas.draw_text(f"Track: {track.name}", 5, 25)
+        self.canvas.draw_text_fitted("Pattern View", 5, 10)
+        self.canvas.draw_text_fitted(f"Track: {track.name}", 5, 25)
 
         if track.chain:
             chain_str = " > ".join(str(p + 1) for p in track.chain)
-            self.canvas.draw_text(f"Chain: {chain_str}", 5, 40)
+            self.canvas.draw_text_fitted(f"Chain: {chain_str}", 5, 40)
         else:
-            self.canvas.draw_text(f"Pattern: {track.current_pattern + 1}", 5, 40)
+            self.canvas.draw_text_fitted(f"Pattern: {track.current_pattern + 1}", 5, 40)
 
         self.fire.render_to_display()
 
@@ -2145,14 +2147,14 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Pattern Settings", 5, 10)
-        self.canvas.draw_text(
+        self.canvas.draw_text_fitted("Pattern Settings", 5, 10)
+        self.canvas.draw_text_fitted(
             f"Length: {pattern.end_point - pattern.start_point + 1}", 5, 25
         )
 
         play_orders = ["Forward", "Reverse", "Ping-pong", "Random"]
-        self.canvas.draw_text(f"Play: {play_orders[pattern.play_order]}", 5, 40)
-        self.canvas.draw_text(f"Sync: 1/{pattern.sync_rate}", 5, 55)
+        self.canvas.draw_text_fitted(f"Play: {play_orders[pattern.play_order]}", 5, 40)
+        self.canvas.draw_text_fitted(f"Sync: 1/{pattern.sync_rate}", 5, 52)
 
         self.fire.render_to_display()
 
@@ -2216,17 +2218,17 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Probability View", 5, 10)
+        self.canvas.draw_text_fitted("Probability View", 5, 10)
 
         if (
             0 <= self.selected_step < pattern.length
             and pattern.steps[self.selected_step].active
         ):
             prob = pattern.steps[self.selected_step].probability
-            self.canvas.draw_text(f"Step: {self.selected_step + 1}", 5, 25)
-            self.canvas.draw_text(f"Probability: {int(prob * 100)}%", 5, 40)
+            self.canvas.draw_text_fitted(f"Step: {self.selected_step + 1}", 5, 25)
+            self.canvas.draw_text_fitted(f"Probability: {int(prob * 100)}%", 5, 40)
         else:
-            self.canvas.draw_text("No step selected", 5, 25)
+            self.canvas.draw_text_fitted("No step selected", 5, 25)
 
         self.fire.render_to_display()
 
@@ -2314,17 +2316,17 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Micro Step View", 5, 10)
+        self.canvas.draw_text_fitted("Micro Step View", 5, 10)
 
         if (
             0 <= self.selected_step < pattern.length
             and pattern.steps[self.selected_step].active
         ):
             micro = pattern.steps[self.selected_step].micro_step
-            self.canvas.draw_text(f"Step: {self.selected_step + 1}", 5, 25)
-            self.canvas.draw_text(f"Micro step: {micro}", 5, 40)
+            self.canvas.draw_text_fitted(f"Step: {self.selected_step + 1}", 5, 25)
+            self.canvas.draw_text_fitted(f"Micro step: {micro}", 5, 40)
         else:
-            self.canvas.draw_text("No step selected", 5, 25)
+            self.canvas.draw_text_fitted("No step selected", 5, 25)
 
         self.fire.render_to_display()
 
@@ -2384,7 +2386,7 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Scales View", 5, 10)
+        self.canvas.draw_text_fitted("Scales View", 5, 10)
 
         # Get root note name
         root_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -2411,8 +2413,8 @@ class CircuitTracks:
         ]
         scale_name = scale_names[self.current_scale]
 
-        self.canvas.draw_text(f"Root: {root_name}", 5, 25)
-        self.canvas.draw_text(f"Scale: {scale_name}", 5, 40)
+        self.canvas.draw_text_fitted(f"Root: {root_name}", 5, 25)
+        self.canvas.draw_text_fitted(f"Scale: {scale_name}", 5, 40)
 
         self.fire.render_to_display()
 
@@ -2439,10 +2441,12 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Projects View", 5, 10)
-        self.canvas.draw_text(f"Current project: {self.current_project + 1}", 5, 25)
-        self.canvas.draw_text("Press pad to load", 5, 40)
-        self.canvas.draw_text("Shift+pad to save", 5, 55)
+        self.canvas.draw_text_fitted("Projects View", 5, 10)
+        self.canvas.draw_text_fitted(
+            f"Current project: {self.current_project + 1}", 5, 25
+        )
+        self.canvas.draw_text_fitted("Press pad to load", 5, 40)
+        self.canvas.draw_text_fitted("Shift+pad to save", 5, 52)
 
         self.fire.render_to_display()
 
@@ -2495,9 +2499,9 @@ class CircuitTracks:
 
         # Update OLED display
         self.canvas.clear()
-        self.canvas.draw_text("Mixer View", 5, 10)
-        self.canvas.draw_text("Use Macros to adjust levels", 5, 25)
-        self.canvas.draw_text("Shift+Macros for pan", 5, 40)
+        self.canvas.draw_text_fitted("Mixer View", 5, 10)
+        self.canvas.draw_text_fitted("Macros: track levels", 5, 25)
+        self.canvas.draw_text_fitted("Shift+Macros for pan", 5, 40)
 
         self.fire.render_to_display()
 
@@ -2521,134 +2525,75 @@ class CircuitTracks:
 
             colors.append((i, *color))
 
-            # Third row: Reverb presets (8)
-            for i in range(32, 48):
-                idx = i - 32
+        # Third row: Reverb presets (8)
+        for i in range(32, 48):
+            idx = i - 32
 
-                if idx < 8:
-                    if idx == self.reverb_preset:
-                        # Selected reverb preset: bright
-                        color = (127, 127, 80)  # Light yellow
-                    else:
-                        # Other reverb presets: dim
-                        color = (50, 50, 30)
+            if idx < 8:
+                if idx == self.reverb_preset:
+                    # Selected reverb preset: bright
+                    color = (127, 127, 80)  # Light yellow
                 else:
-                    color = (0, 0, 0)  # Off
+                    # Other reverb presets: dim
+                    color = (50, 50, 30)
+            else:
+                color = (0, 0, 0)  # Off
 
-                colors.append((i, *color))
+            colors.append((i, *color))
 
-            # Fourth row: not used
-            for i in range(48, 64):
-                colors.append((i, 0, 0, 0))
+        # Fourth row: not used
+        for i in range(48, 64):
+            colors.append((i, 0, 0, 0))
 
-            # Send colors to the grid
-            self.fire.set_multiple_pad_colors(colors)
+        # Send colors to the grid
+        self.fire.set_multiple_pad_colors(colors)
 
-            # Update OLED display
-            self.canvas.clear()
-            self.canvas.draw_text("FX View", 5, 10)
-            self.canvas.draw_text("Use Macros to adjust sends", 5, 25)
+        # Update OLED display
+        self.canvas.clear()
+        self.canvas.draw_text_fitted("FX View", 5, 10)
+        self.canvas.draw_text_fitted("Macros: FX sends", 5, 25)
 
-            # Display delay preset name
-            delay_names = [
-                "Slapback Fast",
-                "Slapback Slow",
-                "32nd Triplets",
-                "32nd",
-                "16th Triplets",
-                "16th",
-                "16th Ping Pong",
-                "16th Ping Pong Swung",
-                "8th Triplets",
-                "8th Dotted",
-                "8th",
-                "8th Ping Pong",
-                "8th Ping Pong Swung",
-                "4th Triplets",
-                "4th Dotted",
-                "4th Triplets Wide",
-            ]
-            if 0 <= self.delay_preset < len(delay_names):
-                self.canvas.draw_text(f"Delay: {delay_names[self.delay_preset]}", 5, 40)
+        # Display delay preset name
+        delay_names = [
+            "Slapback Fast",
+            "Slapback Slow",
+            "32nd Triplets",
+            "32nd",
+            "16th Triplets",
+            "16th",
+            "16th Ping Pong",
+            "16th Ping Pong Swung",
+            "8th Triplets",
+            "8th Dotted",
+            "8th",
+            "8th Ping Pong",
+            "8th Ping Pong Swung",
+            "4th Triplets",
+            "4th Dotted",
+            "4th Triplets Wide",
+        ]
+        if 0 <= self.delay_preset < len(delay_names):
+            self.canvas.draw_text_fitted(
+                f"Delay: {delay_names[self.delay_preset]}", 5, 40
+            )
 
-            # Display reverb preset name
-            reverb_names = [
-                "Chamber",
-                "Small Room",
-                "Large Room",
-                "Small Hall",
-                "Large Hall",
-                "Great Hall",
-                "Hall - Long",
-                "Hall - Large Long",
-            ]
-            if 0 <= self.reverb_preset < len(reverb_names):
-                self.canvas.draw_text(
-                    f"Reverb: {reverb_names[self.reverb_preset]}", 5, 55
-                )
+        # Display reverb preset name
+        reverb_names = [
+            "Chamber",
+            "Small Room",
+            "Large Room",
+            "Small Hall",
+            "Large Hall",
+            "Great Hall",
+            "Hall - Long",
+            "Hall - Large Long",
+        ]
+        if 0 <= self.reverb_preset < len(reverb_names):
+            self.canvas.draw_text_fitted(
+                f"Reverb: {reverb_names[self.reverb_preset]}", 5, 52
+            )
 
-            self.fire.render_to_display()
-
-        def draw_side_chain_view(self):
-            """Draw the Side Chain View grid."""
-            colors = []
-
-            # First two rows: Synth side chain presets
-            for i in range(32):
-                row = i // 16
-                col = i % 16
-
-                if col < 8:
-                    # Only first 8 columns used for side chain presets
-                    preset_idx = col
-
-                    if row == 0:
-                        # First row: Synth 1 side chain
-                        # Show currently selected preset
-                        # This is placeholder logic - actual implementation would reference
-                        # track-specific side chain settings
-                        color = (127, 80, 0) if preset_idx == 0 else (50, 30, 0)
-                    elif row == 1:
-                        # Second row: Synth 2 side chain
-                        color = (127, 80, 0) if preset_idx == 0 else (50, 30, 0)
-                    else:
-                        color = (0, 0, 0)  # Off
-                else:
-                    color = (0, 0, 0)  # Off
-
-                colors.append((i, *color))
-
-            # Fourth row: Side chain source
-            for i in range(48, 64):
-                col = i - 48
-
-                if col < 4:
-                    # First 4 columns: select drum source (Drums 1-4)
-                    drum_idx = col
-
-                    # This is placeholder logic - actual implementation would reference
-                    # track-specific side chain settings
-                    color = (127, 0, 0) if drum_idx == 0 else (50, 0, 0)
-                else:
-                    color = (0, 0, 0)  # Off
-
-                colors.append((i, *color))
-
-            # Third row: not used
-            for i in range(32, 48):
-                colors.append((i, 0, 0, 0))
-
-            # Send colors to the grid
-            self.fire.set_multiple_pad_colors(colors)
-
-            # Update OLED display
-            self.canvas.clear()
-            self.canvas.draw_text("Side Chain View", 5, 10)
-            self.canvas.draw_text("Top row: Synth 1 SC presets", 5, 25)
-            self.canvas.draw_text("2nd row: Synth 2 SC presets", 5, 40)
-            self.canvas.draw_text("Bottom row: SC source (Drums 1-4)", 5, 55)
-
-            self.fire.render_to_display()
+        self.fire.render_to_display()
 
     def draw_note_view_display(self):
         """Update OLED display for Note View."""
@@ -2658,8 +2603,8 @@ class CircuitTracks:
         self.canvas.clear()
 
         # Show track name and pattern info
-        self.canvas.draw_text(f"{track.name}", 5, 10)
-        self.canvas.draw_text(
+        self.canvas.draw_text_fitted(f"{track.name}", 5, 10)
+        self.canvas.draw_text_fitted(
             f"Pattern {track.current_pattern + 1} ({pattern.length} steps)", 5, 25
         )
 
@@ -2701,10 +2646,10 @@ class CircuitTracks:
             root_name = root_names[self.root_note % 12]
 
             scale_name = scale_names[self.current_scale]
-            self.canvas.draw_text(f"{root_name} {scale_name}", 5, 40)
+            self.canvas.draw_text_fitted(f"{root_name} {scale_name}", 5, 40)
 
         # Show tempo
-        self.canvas.draw_text(f"Tempo: {self.tempo:.1f}", 5, 55)
+        self.canvas.draw_text_fitted(f"Tempo: {self.tempo:.1f}", 5, 52)
 
         self.fire.render_to_display()
 
