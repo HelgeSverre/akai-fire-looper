@@ -31,9 +31,9 @@ class MeasuredCanvas(Canvas):
 
     def draw_text(self, text, x, y, font=None, color=0):
         font = font or ImageFont.load_default()
-        left, top, right, bottom = font.getbbox(text)
+        left, top, right, bottom = self.draw.textbbox((x, y), text, font=font)
         if text.strip():
-            self.text_boxes.append((text, (x + left, y + top, x + right, y + bottom)))
+            self.text_boxes.append((text, (left, top, right, bottom)))
         super().draw_text(text, x, y, font, color)
 
 
@@ -106,6 +106,26 @@ class OledLayouts(unittest.TestCase):
         menu.render()
         self.assert_readable(canvas)
         self.assertIn("Item 9", [text for text, _ in canvas.text_boxes])
+
+    def test_header_text_keeps_both_edges_clear_in_rendered_pixels(self):
+        for screen_type in (ScreenMixin, ScreenManager):
+            for status in ("STOP 120", "PLAY 300", "RECORDING 300 BPM"):
+                with self.subTest(screen=screen_type.__name__, status=status):
+                    canvas = Canvas()
+                    screen = (
+                        ScreenManager(canvas)
+                        if screen_type is ScreenManager
+                        else ScreenMixin()
+                    )
+                    screen.canvas = canvas
+                    screen.draw_header("NOTE T2", status)
+                    for y in range(screen.HEADER_HEIGHT):
+                        for x in (*range(4), *range(124, 128)):
+                            self.assertEqual(
+                                canvas.image.getpixel((x, y)),
+                                0,
+                                f"Header text entered the inset at {(x, y)}",
+                            )
 
     def test_all_circuit_modes_with_long_dynamic_values(self):
         canvas = MeasuredCanvas()

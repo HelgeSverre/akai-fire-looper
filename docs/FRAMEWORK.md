@@ -80,6 +80,8 @@ This queue transfers state safely to the frame thread; it does not reorder concu
 | `GridMixin` | Pad coordinates, row/column colors, batched patterns | Meaning of the grid |
 | `TransportMixin` | Stopped/armed/playing/recording state and LEDs | A clock, recording engine and MIDI output |
 
+`ScreenMixin.draw_header()` reserves four pixels on both horizontal edges by default. Override `HEADER_PADDING_X` on your app or screen class to change that inset. Header alignment and fitted canvas text use monochrome font measurements, matching the OLED's actual glyph spacing.
+
 `setup_transport_buttons()` installs standard PLAY/STOP/REC behavior and removes it with the app's subscriptions. If the app has custom record semantics, route those buttons once in `on_button_press()` instead of stacking another REC callback. The [clip-state demo](../examples/apps/looper/looper_app.py) shows that pattern.
 
 Mode handlers receive encoder names after mixin mapping, while the base app receives numeric device constants. Mode switching does not provide rollback if a custom entry/exit hook fails. Keep hooks small and acquire resources outside mode transitions where possible.

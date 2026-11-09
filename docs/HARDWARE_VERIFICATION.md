@@ -18,6 +18,7 @@ Checks performed on 9 November 2026 with a USB-connected AKAI Fire on macOS. Bot
 | USER 2 bank selection | `CONTROL_BANK_USER2` (`0x03`) lit USER 2 on this Fire. The existing constant was retained; this observation differs from the selector table in the [SEGGER reference](https://blog.segger.com/decoding-the-akai-fire-part-2/), which labels `0x03` as USER 1. |
 | Snake app | The observer reported responsive play, matching pad/OLED views and no visual problem. Recorded events include all four direction buttons, four pauses, four STOP resets, crash/retry transitions and a highest score of 3. |
 | Circuit preview after batching | Recorded mode changes cover NOTE, STEP EDIT, MIXER, PATTERN and SETTINGS, plus PLAY/STOP, across 124.5 seconds. The observer reported that most controls responded. No SOLO track-selection events were captured in this run, and detailed OLED readability was not explicitly confirmed. |
+| Circuit NOTE layout and track selection | A later focused check confirmed SOLO 2 selected `NOTE T2` and the four content rows were readable. The observer found the right-aligned status against the screen edge. Measurement used grayscale glyph advances, which underestimated `STOP 120` by four pixels on the monochrome canvas; fitting and header alignment now use monochrome metrics, with a shared four-pixel horizontal inset. The observer reported that the updated layout looked better. |
 | Static OLED without refresh | A freshly sent image blanked after approximately eight seconds while the probe remained connected and sent no further display updates. |
 | Repeated identical OLED image | Sending the same nonblank frame every two seconds kept it visible for at least 30 seconds; the observer reported no problem. Packet hashes confirmed unchanged image data. |
 | Default driver keepalive | A separate probe called `render_to_display()` once. The driver then refreshed identical frames every two seconds, and the observer confirmed the screen stayed visible without a reported problem. |
@@ -37,7 +38,7 @@ The [keepalive tests](../tests/test_oled_keepalive.py) exercise real driver code
 - SHIFT and ALT held together, remaining buttons, and inputs from every pad.
 - Full button color/brightness range and the remaining individual control-bank indicators.
 - Circuit playback and synth-editor output with a receiving instrument explicitly selected.
-- Circuit track selection and detailed OLED readability in each mode.
+- Detailed Circuit OLED readability in the remaining modes.
 - Live reconnect of an existing driver instance after physical unplug/replug.
 
 No JT-4000 was connected during these checks, and no MIDI was sent to the other instrument ports.

@@ -28,6 +28,7 @@ class ScreenMixin:
 
     # Typography constants (matching Canvas class)
     HEADER_HEIGHT = 16
+    HEADER_PADDING_X = 4
     TEXT_MARGIN_Y = 3
     CONTENT_GAP = 2
     CONTENT_START = 18  # HEADER_HEIGHT + CONTENT_GAP
@@ -48,17 +49,21 @@ class ScreenMixin:
 
         # Reserve separate measured regions so a long title cannot meet status.
         font = ImageFont.load_default()
-        status = Canvas.fit_text(status, self.SCREEN_WIDTH // 2 - 4, font)
-        status_width = font.getbbox(status)[2] if status else 0
-        title_width = self.SCREEN_WIDTH - 8 - (status_width + 6 if status else 0)
+        padding = self.HEADER_PADDING_X
+        status = Canvas.fit_text(status, self.SCREEN_WIDTH // 2 - padding, font)
+        status_width = font.getbbox(status, mode="1")[2] if status else 0
+        title_width = (
+            self.SCREEN_WIDTH - 2 * padding - (status_width + 6 if status else 0)
+        )
         self.canvas.draw_text_fitted(
-            title, 4, self.TEXT_MARGIN_Y, color=1, width=title_width
+            title, padding, self.TEXT_MARGIN_Y, font=font, color=1, width=title_width
         )
         if status:
             self.canvas.draw_text_fitted(
                 status,
-                self.SCREEN_WIDTH - status_width - 4,
+                self.SCREEN_WIDTH - status_width - padding,
                 self.TEXT_MARGIN_Y,
+                font=font,
                 color=1,
                 width=status_width,
             )

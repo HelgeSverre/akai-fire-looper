@@ -78,12 +78,14 @@ class Canvas:
         text = str(text).replace("\n", " ")
         if width <= 0:
             return ""
-        if font.getbbox(text)[2] <= width:
+        # Match ImageDraw's monochrome glyph advances. The default grayscale
+        # metrics can underestimate a line and consume its reserved padding.
+        if font.getbbox(text, mode="1")[2] <= width:
             return text
         suffix = "..."
-        while suffix and font.getbbox(suffix)[2] > width:
+        while suffix and font.getbbox(suffix, mode="1")[2] > width:
             suffix = suffix[:-1]
-        while text and font.getbbox(text + suffix)[2] > width:
+        while text and font.getbbox(text + suffix, mode="1")[2] > width:
             text = text[:-1]
         return text + suffix
 
