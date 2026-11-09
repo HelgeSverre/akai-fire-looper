@@ -41,6 +41,8 @@ uv run python mock_gui_pygame.py
 
 ## Build your own application
 
+Follow the [pixel editor tutorial](docs/BUILDING_AN_APP.md) to build a complete app with queued input, pad/OLED views, press-to-edit settings, JSON persistence and tests. For a smaller starting point:
+
 Save this as `my_fire_app.py` in the repository root and run `uv run python my_fire_app.py`:
 
 ```python
@@ -140,6 +142,7 @@ The [example catalog](examples/README.md) covers pad colors, OLED graphics, inpu
 
 | Example app | What it demonstrates | Run from the checkout |
 | --- | --- | --- |
+| [Pixel editor](examples/apps/pixel_editor/README.md) | The end-to-end tutorial: shared state, pad/OLED views, menus, saving and tests; defaults to pygame | `uv run python -m examples.apps.pixel_editor` |
 | [Circuit](examples/apps/circuit/README.md) | A four-track MIDI sequencer with a separate musical clock, step editing and mode-based controls | `uv run python -m examples.apps.circuit` |
 | [JT-4000 editor](examples/apps/synth_editor/README.md) | Parameter pages, pad faders, OLED visualizations, MIDI CC output and local snapshots | `uv run python -m examples.apps.synth_editor` |
 | [Snake](examples/apps/snake/README.md) | One game model, synchronized pad/OLED views and button-driven movement | `uv run python -m examples.apps.snake` |
@@ -153,12 +156,13 @@ The clip looper and modal demo teach state management. Earlier sequencer experim
 
 Hardware callbacks can run on worker threads; applications must coordinate shared state with the display thread. The framework provides a UI frame loop; applications handle musical scheduling. Pad-release events and app-level reconnect notifications are current gaps. See the [framework guide](docs/FRAMEWORK.md) and [roadmap](docs/ROADMAP.md).
 
-Automated tests exercise mocked MIDI ports and controller implementations. Initial [Fire hardware checks](docs/HARDWARE_VERIFICATION.md) confirm RGB output, OLED rendering, corner-pad inputs and several button pairs. Complete example-app and JT-4000 hardware validation is still pending.
+Automated tests exercise mocked MIDI ports and controller implementations. [Fire hardware checks](docs/HARDWARE_VERIFICATION.md) cover RGB output, OLED rendering/keepalive, encoders, several button/pad inputs, LED values and explicit reconnection on the same driver instance. Complete example-app and JT-4000 hardware validation is still pending.
 
 ## Documentation
 
 - [Device API](docs/DEVICE.md): connections, callbacks, LED values, canvas and errors
-- [Build an application](docs/FRAMEWORK.md): lifecycle, mixins, testing and current gaps
+- [Build an application tutorial](docs/BUILDING_AN_APP.md): a complete pixel editor, from first light to persistence and tests
+- [Framework reference](docs/FRAMEWORK.md): lifecycle, mixins, testing and current gaps
 - [Example catalog](examples/README.md): commands, prerequisites, status and naming
 - [Interactive mock](docs/MOCK_GUI.md): hardware comparison, screenshots and mouse controls
 - [Architecture](docs/ARCHITECTURE.md): package boundaries and resource ownership

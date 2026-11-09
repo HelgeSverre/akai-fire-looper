@@ -1,4 +1,6 @@
-# Building an application
+# Application framework reference
+
+For a step-by-step introduction, follow [Build an application: a pixel editor](BUILDING_AN_APP.md). It starts with a runnable pad-toggle app, then adds shared state, an OLED view, settings, persistence and tests. This page is the reference for lifecycle, ownership and reusable framework pieces.
 
 `akai_fire_framework` is the optional application layer above the `akai_fire` device library. Its `AkaiFireApp` base class owns the connection lifecycle, input subscriptions and display loop so your app can define what the controller does. Use the device library directly when integrating with an existing program; use the framework when you want these application services provided for you.
 
