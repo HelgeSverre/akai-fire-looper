@@ -1,6 +1,8 @@
 # Eight Track: an MMT-8-inspired Fire application
 
-Design exploration, 10 November 2026. This application is proposed, not implemented.
+Design direction, 10 November 2026. The first [control prototype](../examples/apps/eight_track/README.md)
+is implemented: seeded playback, tracks, part switching and preview audio. Recording,
+project storage, song arrangement and Fire keyboard input below remain planned.
 The working assumption is that “Alesis MT8” means the **Alesis MMT-8** MIDI recorder.
 
 ## The experience
@@ -42,8 +44,9 @@ OLED spells out its state so color is not the only cue.
 
 This layout needs a usability prototype: an unlabeled pad grid cannot explain
 “Select · Mute” by itself. Show that legend on entry, repeat the selected action
-on the OLED, and ship a one-page control map. The acceptance check is whether
-someone can select, mute and record a second track after one demonstration.
+on the OLED, and ship a one-page control map. Prototype acceptance checks selection,
+muting and queued part changes after one demonstration. The later recorder stage
+adds recording a second track to that check.
 
 The OLED would reserve fixed regions for transport/tempo, selected track and
 route, a small timeline, and one status or instruction line. For example:
@@ -160,5 +163,5 @@ Before calling it functional, exercise long-held and repeated notes, sustain at
 stop, muted tracks sharing channels, undo during playback, slow OLED rendering,
 MIDI output loss and shutdown. Use deterministic engine tests for musical
 boundaries and hardware checks for controls, readability, responsiveness and
-measured timing. Keep the first demo focused on recording and performing eight
+measured timing. Keep the first demo focused on playing and performing eight
 tracks; extend the framework only where an actual second application benefits.
