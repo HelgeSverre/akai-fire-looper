@@ -32,6 +32,16 @@ For headless tests use `akai_fire_testing.MockAkaiFire`. For pygame integration 
 
 Draw onto `fire.get_canvas()` and then call `fire.render_to_display()`. The framework does the render after `on_update()`. Pixel `0` is lit; pixel `1` is unlit. Coordinates outside 128×64 do not appear. Use `draw_text_fitted()` for labels: fonts have variable widths, so a character-count limit does not guarantee a fit. Standard pages and menus show three full content rows. Clear the canvas before drawing a different page; use raw `draw_text()` only when handling positioning or scrolling yourself.
 
+## The OLED goes blank after several seconds
+
+The Fire can put its OLED to sleep when it receives no display updates. During a hardware check on 9 November 2026, an image sent once disappeared after approximately eight seconds while the probe remained connected and idle. Treat that timing as an observation from one device, not a guaranteed firmware timeout.
+
+The driver now keeps the display awake by default, resending the last successfully displayed image after two idle seconds. In the hardware check, resending identical image data every two seconds prevented the observed blanking. The [DrivenByMoss Fire driver](https://github.com/git-moss/DrivenByMoss/blob/f9aca50b97efb9d5273e1384b697677b55e309d9/src/main/java/de/mossgrabers/controller/akai/fire/controller/FireDisplay.java) also handles display sleep by resending unchanged data, using a three-second interval.
+
+To allow sleep or handle refresh yourself, construct `AkaiFire(oled_keepalive=False)`. The same option works through `get_akai_fire()`. `render_to_display()` still sends an image on every call. `AkaiFireApp.run()` renders every frame, so its normal loop keeps the display awake even when driver keepalive is disabled. Disabling keepalive does not suppress explicit renders. The mocks do not simulate hardware idle sleep.
+
+Blanking at shutdown is separate: the hardware context manager clears the display, and example cleanup generally clears all outputs. `oled_clawd` intentionally closes after its five-second preview.
+
 ## Pads look dim or nearly white in the mock
 
 Pad channels use the full MIDI range 0–127. Values such as `(3, 0, 0)` are very dim; `(127, 0, 0)` is full red. Run `uv run python -m examples.pads_color_cycle` to check the three primary colors. Button brightness values 0–2 are a different API; the button itself determines its hue.

@@ -200,6 +200,10 @@ def on_pad(pad_index, velocity):
 
 The screen is a 128×64 monochrome canvas. Convention: pixel value `0` is **lit** on hardware (a black PIL pixel = an ON OLED pixel); a fresh canvas starts all-unlit.
 
+The hardware OLED can sleep without periodic display updates. By default, the driver resends the last successfully displayed image after two idle seconds. Keepalive starts on the first successful render, works without input listeners, and stops when the connection closes. It resends the submitted image rather than reading the canvas, so unfinished edits stay off the screen. Regular rendering postpones the next keepalive; clearing the display replaces the saved image with a blank one.
+
+Use `AkaiFire(oled_keepalive=False)` or `get_akai_fire(oled_keepalive=False)` to disable automatic refresh. You can then manage periodic renders yourself or allow the display to sleep. The factory accepts this option for mocks but ignores it because their displays do not sleep. The setting persists across `reconnect()`, but the saved frame does not: explicitly render after reconnecting. See [OLED idle sleep](TROUBLESHOOTING.md#the-oled-goes-blank-after-several-seconds) for hardware observations and a reference implementation.
+
 ```python
 canvas = fire.get_canvas()
 

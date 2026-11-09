@@ -21,6 +21,8 @@ examples/apps/snake          game rules, pad and OLED views
 
 Callbacks are copied before dispatch so handlers can add/remove subscriptions. Exceptions are logged per handler. The default executor uses four workers, so completion can be concurrent. Configure one worker when FIFO ordering is needed. Modifier state is captured for each dispatch, not read later from an unrelated input event.
 
+The hardware OLED needs periodic traffic to remain awake. With the default `oled_keepalive=True`, the first successful render starts a worker that resends the last encoded frame after two idle seconds. Explicit renders reset its deadline. Both paths use the same I/O lock, and the worker never reads the mutable canvas. Background send failures are logged and retried after the interval. Closing retires the worker and discards its frame before releasing the ports; reconnecting needs an explicit render to start a new worker. Mocks have no idle sleep or refresh worker.
+
 ## Application boundary
 
 `AkaiFireApp` creates or borrows a controller, calls initialization hooks, owns its default input subscriptions, runs a monotonic frame loop, and shuts down once. `_EventSubscriptions` is the shared private owner for framework and standard transport callbacks. A failed registration batch rolls back its own listeners. A borrowed controller survives app shutdown; owned hardware is closed even when an app stop hook fails.

@@ -26,6 +26,9 @@ from akai_fire.errors import (
 
 logger = logging.getLogger(__name__)
 
+# The Fire OLED sleeps after roughly eight idle seconds on tested hardware.
+_OLED_KEEPALIVE_INTERVAL = 2.0
+
 
 class _HandlerDispatcher:
     """Dispatches user handlers on a worker thread pool so slow or
@@ -166,6 +169,46 @@ class AkaiFire(AkaiFireDevice):
                 self.midi_out.send_message(sysex_data)
             except Exception as e:
                 raise MIDISendError(f"Failed to send display SysEx message: {e}") from e
+            # Keep the submitted frame, not the mutable drawing canvas. Pending
+            # canvas edits must remain invisible until the next explicit render.
+            self._oled_packet = tuple(sysex_data)
+            self._oled_last_send = time.monotonic()
+            if self._oled_keepalive and self._oled_thread is None:
+                stop_event = threading.Event()
+                self._oled_stop_event = stop_event
+                thread = threading.Thread(
+                    target=self._keep_oled_awake,
+                    args=(stop_event,),
+                    name="akai-fire-oled",
+                    daemon=True,
+                )
+                thread.start()
+                self._oled_thread = thread
+
+    def _keep_oled_awake(self, stop_event):
+        """Resend the last frame only after display traffic has been idle."""
+        delay = _OLED_KEEPALIVE_INTERVAL
+        while not stop_event.wait(delay):
+            with self._io_lock:
+                # close() retires this event under the same lock as MIDI sends.
+                # An old worker can never send to a replacement connection.
+                if stop_event.is_set():
+                    return
+                delay = _OLED_KEEPALIVE_INTERVAL - (
+                    time.monotonic() - self._oled_last_send
+                )
+                if delay > 0:
+                    continue
+                if self.midi_out is not None and self._oled_packet is not None:
+                    try:
+                        self.midi_out.send_message(self._oled_packet)
+                    except Exception as exc:
+                        logger.warning(
+                            "OLED keepalive send failed: %s", exc, exc_info=True
+                        )
+                    # Failed background sends also wait before retrying.
+                    self._oled_last_send = time.monotonic()
+                delay = _OLED_KEEPALIVE_INTERVAL
 
     def new_canvas(self) -> Canvas:
         """Create a new blank canvas."""
@@ -192,6 +235,7 @@ class AkaiFire(AkaiFireDevice):
         handler_queue_size: int = 64,
         send_retry_delay: float = 0.01,
         send_max_retries: int = 2,
+        oled_keepalive: bool = True,
     ):
         """Initialize AKAI Fire controller.
 
@@ -212,6 +256,9 @@ class AkaiFire(AkaiFireDevice):
                 from that worker queues without waiting on its own capacity.
             send_retry_delay: Seconds to wait between MIDI send retries.
             send_max_retries: Max MIDI send retry attempts.
+            oled_keepalive: Resend the last displayed frame after two idle
+                seconds to prevent OLED sleep. Set False to manage refresh
+                yourself. Starts on the first successful render; stops on close.
         """
         # Base class installs self._lock + modifier flags.
         super().__init__()
@@ -219,6 +266,11 @@ class AkaiFire(AkaiFireDevice):
         self._io_lock = threading.RLock()
         self.midi_in = None
         self.midi_out = None
+        self._oled_keepalive = oled_keepalive
+        self._oled_packet = None
+        self._oled_last_send = 0.0
+        self._oled_stop_event = threading.Event()
+        self._oled_thread = None
 
         # _stop_event replaces the old ``self.listening`` bool; Event
         # acquires no lock on is_set(), so the polling loop doesn't spin
@@ -430,6 +482,10 @@ class AkaiFire(AkaiFireDevice):
                 dispatcher.shutdown()
 
             with self._io_lock:
+                self._oled_stop_event.set()
+                oled_thread = self._oled_thread
+                self._oled_thread = None
+                self._oled_packet = None
                 for name in ("midi_in", "midi_out"):
                     port = getattr(self, name, None)
                     setattr(self, name, None)
@@ -441,6 +497,9 @@ class AkaiFire(AkaiFireDevice):
                 self._last_pad_states.clear()
                 self._shift_pressed = False
                 self._alt_pressed = False
+
+            if oled_thread and oled_thread is not threading.current_thread():
+                oled_thread.join(timeout=2.0)
 
     def reconnect(self) -> bool:
         """Attempt to reconnect to MIDI ports.
@@ -875,7 +934,10 @@ def discover_akai_fire() -> Optional[str]:
 
 
 def get_akai_fire(
-    use_mock: Optional[Union[bool, str]] = None, **kwargs
+    use_mock: Optional[Union[bool, str]] = None,
+    *,
+    oled_keepalive: bool = True,
+    **kwargs,
 ) -> Union[AkaiFire, Any]:
     """Get an AKAI Fire instance (hardware or mock).
 
@@ -886,6 +948,8 @@ def get_akai_fire(
             - ``"tui"`` — force the terminal-UI mock (``mock_gui_tui``).
             - ``"pygame"`` — explicit alias for the pygame mock.
             - ``None`` — auto-detect: try hardware, fall back to the pygame mock.
+        oled_keepalive: Enable hardware OLED idle refresh. Ignored by mocks,
+            whose displays do not sleep.
         **kwargs: Additional arguments passed to the selected constructor.
 
     Returns:
@@ -908,11 +972,11 @@ def get_akai_fire(
             logger.error("Mock GUI not available")
             raise
     if use_mock is False:
-        return AkaiFire(**kwargs)
+        return AkaiFire(oled_keepalive=oled_keepalive, **kwargs)
 
     # Auto-detect
     try:
-        return AkaiFire(**kwargs)
+        return AkaiFire(oled_keepalive=oled_keepalive, **kwargs)
     except (MIDIConnectionError, Exception) as e:
         logger.info(f"Hardware not available ({e}), trying mock...")
         try:

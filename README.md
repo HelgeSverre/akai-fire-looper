@@ -92,6 +92,8 @@ with AkaiFire() as fire:
 
 `AkaiFire()` requires hardware. Pads use indices 0–63 and RGB channels 0–127. OLED pixels use `0` for lit and `1` for unlit. The device context manager clears the display and closes MIDI; call `clear_all()` when you also want LEDs cleared.
 
+The driver keeps static OLED images visible by refreshing the last submitted frame after two idle seconds. Use `AkaiFire(oled_keepalive=False)` to allow display sleep or manage refresh yourself. See [display behavior](docs/DEVICE.md#oled-display).
+
 Interactive mocks and examples run from a repository checkout, where `get_akai_fire()` selects hardware or a mock. Use `akai_fire_testing.MockAkaiFire` for headless tests in any project. Apps also accept an explicit controller, such as `PadLights(fire)`; the caller owns and closes that connection.
 
 ## Common tasks
@@ -151,7 +153,7 @@ The clip looper and modal demo teach state management. Earlier sequencer experim
 
 Hardware callbacks can run on worker threads; applications must coordinate shared state with the display thread. The framework provides a UI frame loop; applications handle musical scheduling. Pad-release events and app-level reconnect notifications are current gaps. See the [framework guide](docs/FRAMEWORK.md) and [roadmap](docs/ROADMAP.md).
 
-Automated tests exercise mocked MIDI ports and controller implementations. Physical Fire/JT-4000 behavior for the example apps still needs hardware validation.
+Automated tests exercise mocked MIDI ports and controller implementations. Initial [Fire hardware checks](docs/HARDWARE_VERIFICATION.md) confirm RGB output, OLED rendering, corner-pad inputs and several button pairs. Complete example-app and JT-4000 hardware validation is still pending.
 
 ## Documentation
 
