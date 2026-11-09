@@ -101,9 +101,22 @@ class ScreenManager(ScreenMixin):
                 self.canvas.fill_rect(108, y + 3, width, 5)
 
     def _draw_pattern_mode(self, status: dict[str, Any], **kwargs):
-        self._draw_header("PATTERNS", f"Scene {status.get('current_scene', 1)}")
+        active_scene = status.get("current_scene", 1)
+        selected_scene = kwargs.get("selected_scene", active_scene - 1) + 1
+        pending = "?" if selected_scene != active_scene else ""
+        queued_scene = status.get("queued_scene")
+        scene_label = (
+            f"S{selected_scene} Q{queued_scene}"
+            if queued_scene is not None
+            else f"Scene {selected_scene}{pending}"
+        )
+        self._draw_header("PATTERNS", scene_label)
+        starts = kwargs.get("chain_starts", {})
         lines = []
         for index, track in enumerate(status.get("tracks", [])[:4]):
+            if index in starts:
+                lines.append(f"T{index + 1} P{starts[index] + 1}>tap end")
+                continue
             chain = track.get("pattern_chain", [])
             pattern = (
                 ">".join(map(str, chain))
@@ -131,6 +144,16 @@ class ScreenManager(ScreenMixin):
         )
 
     def _draw_settings_mode(self, status: dict[str, Any], **kwargs):
+        if kwargs.get("editing_value"):
+            self.canvas.draw_page(
+                "Edit: " + kwargs.get("item_name", "Value"),
+                [
+                    kwargs.get("item_value", ""),
+                    "Turn SELECT to edit",
+                    "Press SELECT: done",
+                ],
+            )
+            return
         self.canvas.draw_menu(
             kwargs.get("menu_title", "Settings"),
             kwargs.get("menu_items", []),

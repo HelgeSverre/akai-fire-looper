@@ -79,12 +79,66 @@ This queue transfers state safely to the frame thread; it does not reorder concu
 | `ScreenMixin` | Common headers, values, menus and progress layouts | Content and refresh policy |
 | `GridMixin` | Pad coordinates, row/column colors, batched patterns | Meaning of the grid |
 | `TransportMixin` | Stopped/armed/playing/recording state and LEDs | A clock, recording engine and MIDI output |
+| `EncoderMenu` / `MenuItem` | Selection and press-to-edit transitions | Value storage, bounds, input routing and drawing |
 
 `ScreenMixin.draw_header()` reserves four pixels on both horizontal edges by default. Override `HEADER_PADDING_X` on your app or screen class to change that inset. Header alignment and fitted canvas text use monochrome font measurements, matching the OLED's actual glyph spacing.
 
 `setup_transport_buttons()` installs standard PLAY/STOP/REC behavior and removes it with the app's subscriptions. If the app has custom record semantics, route those buttons once in `on_button_press()` instead of stacking another REC callback. The [clip-state demo](../examples/apps/looper/looper_app.py) shows that pattern.
 
 Mode handlers receive encoder names after mixin mapping, while the base app receives numeric device constants. Mode switching does not provide rollback if a custom entry/exit hook fails. Keep hooks small and acquire resources outside mode transitions where possible.
+
+## Press-to-edit menus
+
+`EncoderMenu` implements turn to navigate, press to edit, turn to adjust, and press again to finish. Circuit uses it for Settings. Changes apply live; finishing an edit does not roll them back.
+
+```python
+from akai_fire_framework import AkaiFireApp, EncoderMenu, MenuItem
+
+
+class TempoMenu(AkaiFireApp):
+    def on_init(self):
+        self.bpm = 120
+        self.menu = EncoderMenu(
+            [
+                MenuItem("Tempo", adjust=self.adjust_tempo),
+                MenuItem("Exit", activate=self.quit),
+            ]
+        )
+
+    def adjust_tempo(self, delta):
+        self.bpm = max(30, min(300, self.bpm + delta))
+
+    def on_encoder_turn(self, encoder_id, direction, velocity):
+        if encoder_id == self.fire.ROTARY_SELECT:
+            self.menu.turn(velocity if direction == "clockwise" else -velocity)
+
+    def on_button_press(self, button_id, event):
+        if button_id == self.fire.BUTTON_SELECT and event == "press":
+            self.menu.press()
+
+    def on_update(self, dt):
+        label = self.menu.items[self.menu.selected_index].label
+        self.canvas.clear()
+        self.canvas.draw_text_fitted(label, 4, 4)
+        self.canvas.draw_text_fitted(str(self.bpm), 4, 24)
+        hint = "Press: done" if self.menu.editing else "Press: select"
+        self.canvas.draw_text_fitted(hint, 4, 44)
+```
+
+Navigation stops at the first and last item unless `wrap=True`. By default, `move(delta)` and `select(index)` end editing. An app can keep editing while moving between values instead:
+
+```python
+# Route GRID RIGHT to the next setting, retaining an active edit.
+menu.move(1, keep_editing=True)
+# Direct selection, such as a pad shortcut, supports the same policy.
+menu.select(2, keep_editing=True)
+```
+
+`keep_editing` preserves an existing edit; it does not start one during navigation. Moving onto an action or read-only item always leaves edit mode, without executing the action. A clamped move at the list boundary preserves the edit when requested. Circuit currently uses the default finish-on-navigation behavior.
+
+Call `finish_editing()` when leaving a screen. Items with `activate` execute on press; items with neither callback are read-only. An item cannot have both callbacks. Finishing an edit keeps its live changes; applications that need cancel/rollback must own a saved value and restore it explicitly.
+
+The menu serializes its own transitions, but callbacks run on the calling thread. Applications remain responsible for synchronizing their model and drawing, as described under Input. For a compound display snapshot, hold an app-owned lock around input and rendering, as Circuit does.
 
 ## Testing without hardware
 

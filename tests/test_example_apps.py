@@ -360,6 +360,156 @@ class CircuitContracts(unittest.TestCase):
         self.addCleanup(sequencer.cleanup)
         return sequencer
 
+    def test_settings_select_press_edits_and_confirms_value(self):
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app:
+            fire.simulate_button_press(fire.BUTTON_BROWSER)
+            fire.simulate_button_press(fire.BUTTON_SELECT)
+            fire.simulate_rotary_turn(fire.ROTARY_SELECT, "clockwise", 3)
+            self.assertEqual(app.sequencer.get_bpm(), 123)
+            self.assertEqual(app.settings_mode.selected_item, 0)
+            app.on_update(0.04)
+            labels = [text for text, _, _ in app.canvas.text_drawn]
+            self.assertIn("Edit: BPM", labels)
+            self.assertIn("Press SELECT: done", labels)
+            fire.simulate_button_press(fire.BUTTON_SELECT)
+            fire.simulate_rotary_turn(fire.ROTARY_SELECT, "clockwise", 2)
+            self.assertEqual(app.settings_mode.selected_item, 2)
+            fire.simulate_rotary_turn(fire.ROTARY_SELECT, "counterclockwise", 1)
+            self.assertEqual(app.settings_mode.selected_item, 1)
+            fire.simulate_button_press(fire.BUTTON_SELECT)
+            fire.simulate_rotary_turn(fire.ROTARY_SELECT, "clockwise", 1)
+            self.assertAlmostEqual(app.sequencer.get_swing(), 0.05)
+            fire.simulate_button_press(fire.BUTTON_BROWSER)
+            self.assertFalse(app.settings_mode.editing_value)
+
+    def test_pattern_rows_select_and_chain_their_own_tracks(self):
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app:
+            fire.simulate_button_press(fire.BUTTON_PERFORM)
+            app.on_start()
+            for row in range(4):
+                fire.simulate_pad_press(row * 16 + 3, 100)
+                self.assertEqual(app.sequencer.current_track, row)
+                self.assertEqual(fire.track_leds[row + 1], 2)
+                self.assertEqual(app.sequencer.tracks[row].current_pattern, 3)
+                self.assertEqual(app.sequencer.tracks[row].pattern_chain, [])
+            fire.simulate_button_press(fire.BUTTON_SHIFT)
+            fire.simulate_pad_press(17, 100)  # Track 2, pattern 2.
+            app.on_update(0.04)
+            self.assertIn("T2 P2>tap end", [t for t, _, _ in app.canvas.text_drawn])
+            fire.simulate_pad_press(20, 100)  # Track 2, pattern 5.
+            fire.simulate_button_release(fire.BUTTON_SHIFT)
+            self.assertEqual(app.sequencer.tracks[1].pattern_chain, [1, 2, 3, 4])
+            self.assertEqual(app.sequencer.tracks[1].current_pattern, 1)
+            self.assertEqual(app.sequencer.tracks[2].pattern_chain, [])
+            fire.simulate_pad_press(34, 100)  # Track 3 must not alter track 2.
+            self.assertEqual(app.sequencer.tracks[1].pattern_chain, [1, 2, 3, 4])
+            fire.simulate_pad_press(22, 100)  # A normal tap replaces that row's chain.
+            self.assertEqual(app.sequencer.tracks[1].pattern_chain, [])
+            self.assertEqual(app.sequencer.tracks[1].current_pattern, 6)
+
+    def test_unfinished_pattern_chain_cancels_on_shift_release_or_mode_exit(self):
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app:
+            for cancel in (fire.BUTTON_SHIFT, fire.BUTTON_NOTE):
+                fire.simulate_button_press(fire.BUTTON_PERFORM)
+                fire.simulate_button_press(fire.BUTTON_SHIFT)
+                fire.simulate_pad_press(48, 100)
+                if cancel == fire.BUTTON_SHIFT:
+                    fire.simulate_button_release(cancel)
+                else:
+                    fire.simulate_button_press(cancel)
+                    fire.simulate_button_release(fire.BUTTON_SHIFT)
+                fire.simulate_button_press(fire.BUTTON_PERFORM)
+                fire.simulate_button_press(fire.BUTTON_SHIFT)
+                fire.simulate_pad_press(55, 100)
+                self.assertTrue(
+                    all(not track.pattern_chain for track in app.sequencer.tracks)
+                )
+                fire.simulate_button_release(fire.BUTTON_SHIFT)
+
+    def test_pattern_endpoints_are_independent_and_allow_reverse_order(self):
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app:
+            fire.simulate_button_press(fire.BUTTON_PERFORM)
+            fire.simulate_button_press(fire.BUTTON_SHIFT)
+            fire.simulate_pad_press(5, 100)
+            fire.simulate_pad_press(17, 100)
+            self.assertEqual(app.pattern_mode.chain_starts, {0: 5, 1: 1})
+            fire.simulate_pad_press(2, 100)
+            self.assertEqual(app.sequencer.tracks[0].pattern_chain, [2, 3, 4, 5])
+            self.assertEqual(app.pattern_mode.chain_starts, {1: 1})
+            fire.simulate_pad_press(19, 100)
+            self.assertEqual(app.sequencer.tracks[1].pattern_chain, [1, 2, 3])
+            fire.simulate_pad_press(15, 100)  # Unused right half cannot start a chain.
+            self.assertEqual(app.pattern_mode.chain_starts, {})
+
+    def test_replacing_chain_restarts_its_playback_position(self):
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app:
+            seq = app.sequencer
+            fire.simulate_button_press(fire.BUTTON_PERFORM)
+            seq.pattern_chain_positions[0] = 5
+            seq.pattern_chain_step_counts[0] = 11
+            seq.track_step_positions[0] = 12
+            fire.simulate_button_press(fire.BUTTON_SHIFT)
+            fire.simulate_pad_press(0, 100)
+            fire.simulate_pad_press(1, 100)
+            fire.simulate_button_release(fire.BUTTON_SHIFT)
+            self.assertIs(
+                seq._get_current_pattern_for_track(0, 0), seq.tracks[0].patterns[0]
+            )
+            self.assertEqual(seq.pattern_chain_positions[0], 0)
+            self.assertEqual(seq.pattern_chain_step_counts[0], 0)
+            self.assertEqual(seq.track_step_positions[0], 0)
+            seq.pattern_chain_step_counts[0] = 8
+            fire.simulate_pad_press(3, 100)
+            self.assertEqual(seq.pattern_chain_step_counts[0], 0)
+
+    def test_settings_select_runs_save_action_without_entering_edit_mode(self):
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app, tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            app.settings_mode.settings_path = str(path)
+            fire.simulate_button_press(fire.BUTTON_BROWSER)
+            index = next(
+                i
+                for i, item in enumerate(app.settings_mode.menu_items)
+                if item["name"] == "Save Settings"
+            )
+            fire.simulate_rotary_turn(fire.ROTARY_SELECT, "clockwise", index)
+            fire.simulate_button_press(fire.BUTTON_SELECT)
+            self.assertTrue(path.exists())
+            self.assertEqual(json.loads(path.read_text())["bpm"], 120)
+            self.assertFalse(app.settings_mode.editing_value)
+
+    def test_select_launches_scene_and_keeps_pending_marker_until_applied(self):
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app:
+            fire.simulate_button_press(fire.BUTTON_PERFORM)
+            fire.simulate_rotary_turn(fire.ROTARY_SELECT, "clockwise", 1)
+            app.on_update(0.04)
+            self.assertIn("Scene 2?", [t for t, _, _ in app.canvas.text_drawn])
+            fire.simulate_button_press(fire.BUTTON_SELECT)
+            self.assertEqual(app.sequencer.current_scene, 1)
+            app.on_update(0.04)
+            self.assertIn("Scene 2", [t for t, _, _ in app.canvas.text_drawn])
+            # Drive a playing transition without starting the real clock thread.
+            app.sequencer.transport_state = CircuitState.PLAYING
+            fire.simulate_rotary_turn(fire.ROTARY_SELECT, "clockwise", 1)
+            fire.simulate_button_press(fire.BUTTON_SELECT)
+            self.assertEqual(app.sequencer.queued_scene, 2)
+            app.on_update(0.04)
+            self.assertIn("S3 Q3", [t for t, _, _ in app.canvas.text_drawn])
+            fire.simulate_rotary_turn(fire.ROTARY_SELECT, "clockwise", 1)
+            app.on_update(0.04)
+            self.assertIn("S4 Q3", [t for t, _, _ in app.canvas.text_drawn])
+            app.sequencer._process_queued_changes()
+            app.on_update(0.04)
+            self.assertEqual(app.sequencer.current_scene, 2)
+            self.assertIn("Scene 4?", [t for t, _, _ in app.canvas.text_drawn])
+
     def test_mixer_mute_pad_updates_status_oled_and_pad_color(self):
         fire = MockAkaiFire()
         with CircuitSequencer(fire) as app:

@@ -23,7 +23,7 @@ class PatternMode:
         self.selected_track = 0
 
         # Pattern chain building state
-        self.chain_start: int = -1  # -1 means not building a chain
+        self.chain_starts: dict[int, int] = {}
 
         # Register mode callbacks
         self.mode_manager.register_mode_callback(
@@ -36,12 +36,13 @@ class PatternMode:
 
     def _on_enter(self, previous_mode: Mode):
         """Called when entering Pattern Mode."""
-        print("Entered Pattern Mode")
-        self._update_mode_state()
+        self.selected_track = self.sequencer.current_track
+        self.selected_scene = self.sequencer.current_scene
+        self.cancel_chain_selection()
 
     def _on_exit(self):
         """Called when exiting Pattern Mode."""
-        print("Exited Pattern Mode")
+        self.cancel_chain_selection()
 
     def _update_mode_state(self):
         """Update mode manager state with current Pattern Mode settings."""
@@ -53,33 +54,30 @@ class PatternMode:
         )
 
     def handle_pad_press(self, pad_index: int, velocity: int) -> bool:
-        """Handle pad press in Pattern Mode."""
-        grid = self.mode_manager.grid
-        row, col = grid.pad_position(pad_index)
+        row, col = self.mode_manager.grid.pad_position(pad_index)
+        if not (0 <= row < len(self.sequencer.tracks) and 0 <= col < 8):
+            return False
+        self._select_track(row)
+        if self.mode_manager.grid.fire.is_shift_pressed():
+            if row not in self.chain_starts:
+                self.chain_starts[row] = col
+            else:
+                start, end = sorted((self.chain_starts.pop(row), col))
+                with self.sequencer.lock:
+                    track = self.sequencer.tracks[row]
+                    track.set_pattern_chain(list(range(start, end + 1)))
+                    track.set_current_pattern(start)
+                    self._reset_playback_position(row)
+        else:
+            self.chain_starts.pop(row, None)
+            self._select_pattern_for_track(row, col)
+        self._update_mode_state()
+        return True
 
-        if row == grid.STEP_ROW:
-            # Row 0: Scene triggers (0-15)
-            self._trigger_scene(col)
-            return True
-
-        elif row == grid.TRACK_PATTERN_ROW:
-            if col < 4:
-                # Track selection (columns 0-3)
-                self._select_track(col)
-                return True
-            elif col < 12:
-                # Pattern selection for current track (columns 4-11)
-                pattern_idx = col - 4
-                self._select_pattern_for_track(self.selected_track, pattern_idx)
-                return True
-
-        elif row in [grid.INPUT_ROW_1, grid.INPUT_ROW_2]:
-            # Rows 2-3: Pattern chain controls (simplified)
-            chain_slot = col if row == grid.INPUT_ROW_1 else col + 16
-            self._add_pattern_to_chain(chain_slot)
-            return True
-
-        return False
+    def cancel_chain_selection(self):
+        """SHIFT release or leaving Patterns cancels unfinished endpoints."""
+        self.chain_starts.clear()
+        self._update_mode_state()
 
     def _trigger_scene(self, scene_index: int):
         """Trigger a scene (snapshot of all track patterns)."""
@@ -105,47 +103,21 @@ class PatternMode:
         if 0 <= track_index < len(self.sequencer.tracks) and 0 <= pattern_index < 8:
             track = self.sequencer.tracks[track_index]
             if track:
-                track.set_current_pattern(pattern_index)
+                with self.sequencer.lock:
+                    track.set_pattern_chain([])
+                    track.set_current_pattern(pattern_index)
+                    self._reset_playback_position(track_index)
                 print(
                     f"Track {track_index + 1} now playing pattern {pattern_index + 1}"
                 )
 
-    def _add_pattern_to_chain(self, chain_slot: int):
-        """Build pattern chain using chain slots.
-
-        Chain slots 0-7 represent patterns 0-7. First press starts chain,
-        second press completes it with consecutive patterns.
-        Circuit Tracks requires chains to be consecutive (e.g., 2-3-4-5).
-        """
-        # Map chain slot to pattern index (0-7)
-        pattern_index = chain_slot % 8
-
-        if pattern_index < 0 or pattern_index >= 8:
-            return
-
-        track = self.sequencer.get_current_track()
-        if not track:
-            return
-
-        if self.chain_start == -1:
-            # First press: start building chain
-            self.chain_start = pattern_index
-            print(f"Chain start: pattern {pattern_index + 1}")
-        else:
-            # Second press: complete chain with consecutive patterns
-            chain_end = pattern_index
-
-            # Build consecutive chain from start to end
-            if chain_end >= self.chain_start:
-                chain = list(range(self.chain_start, chain_end + 1))
-            else:
-                chain = list(range(chain_end, self.chain_start + 1))
-
-            track.set_pattern_chain(chain)
-            print(f"Chain set: patterns {[p + 1 for p in chain]}")
-
-            # Reset chain building state
-            self.chain_start = -1
+    def _reset_playback_position(self, track_index):
+        """Restart a replacement pattern under the caller's sequencer lock."""
+        pattern = self.sequencer.tracks[track_index].get_current_pattern()
+        pattern.reset_ping_pong()
+        self.sequencer.pattern_chain_positions[track_index] = 0
+        self.sequencer.pattern_chain_step_counts[track_index] = 0
+        self.sequencer.track_step_positions[track_index] = pattern.get_first_step()
 
     def handle_encoder_turn(self, encoder: str, direction: str, velocity: int):
         """Handle encoder turns in Pattern Mode."""
@@ -182,8 +154,10 @@ class PatternMode:
             )
 
     def handle_button_press(self, button: str):
-        """Handle button presses in Pattern Mode."""
-        if button == "grid_left":
+        """Choose a scene with arrows/SELECT turn; press SELECT to launch."""
+        if button == "select":
+            self._trigger_scene(self.selected_scene)
+        elif button == "grid_left":
             # Previous scene
             if self.selected_scene > 0:
                 self.selected_scene -= 1
@@ -203,6 +177,7 @@ class PatternMode:
         pattern = track.get_current_pattern() if track else None
 
         return {
+            "chain_starts": self.chain_starts.copy(),
             "selected_scene": self.selected_scene,
             "selected_track": self.selected_track,
             "track_name": track.name if track else "Unknown",

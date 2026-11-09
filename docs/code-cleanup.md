@@ -258,3 +258,23 @@ Final B Verify snapshot: `3f2d9ac25f70f1fe253e6acaa7e79390592ff0c1e27b0f2889898f
 Remaining limits: no physical Fire or JT-4000 validation, no remote CI run (no configured repository workflow or authorized PR), no other operating systems/Python versions. Full lint debt remains visible. Raw hardware demos and legacy musical workflows are retained with limited validation; they are not advertised as complete apps. Circuit's negative microtiming, rate-clock and >16-step editing limits are documented; the clip app remains a timing/state teaching example without instrument output. Framework foreground dispatch, pad release, recovery notifications and owned app-resource support remain documented future features, not claimed implementations.
 
 No commits, pushes, PRs or external tracker writes were made. The extension baseline archive and local logs are retained for reproducibility. The original magnifier GIF remains byte-for-byte intact in the repository; no simplified fallback or runtime download is used.
+
+## Hardware interaction follow-up, 9 November 2026
+
+Baseline `0ae5e1f`; scope is the new framework encoder menu, Circuit Settings/Patterns and their status/rendering/tests. Earlier sweep evidence remains historical. Hardware results are maintained in [HARDWARE_VERIFICATION.md](HARDWARE_VERIFICATION.md).
+
+| Machine / issue | Current behavior and evidence |
+| --- | --- |
+| Encoder menu | Navigation → press editable item → live editing → press → navigation. Actions execute without entering editing. Explicit selection/movement ends editing by default; `keep_editing=True` preserves an active edit only on editable destinations. Boundary, magnitude, wrap, read-only, action and edit transitions have unit coverage. |
+| Circuit Settings | SELECT routes to menu state; VOLUME/arrows navigate, FILTER/PAN adjust directly, leaving mode ends editing. Integration tests cover edit/confirm, mode exit and saving to a temporary file. The observer confirmed the edit screen and three increments/decrements worked well. |
+| Pattern endpoint selection | Each row owns its track. SHIFT first endpoint stays pending without timeout; second same-row endpoint commits a consecutive range; release or mode exit discards unfinished endpoints. Tests cover independent rows, reverse endpoints and unused pads. The observer reported the revised gesture made more sense. |
+| Replacing a playing chain | Review reproduced a stale chain cursor that resolved a shorter replacement chain to no pattern. Replacements now reset chain cursor, step count and pattern playback cursor under the sequencer lock. The regression failed before and passes after the fix. |
+| Scene status and track LEDs | Browsed and queued scenes are displayed separately (`S4 Q3`); scene consumption snapshots the nullable queue field once. Selecting a pattern row refreshes track LEDs. Integration tests cover stopped/queued launches, browsing after queueing, and row LED feedback. |
+| Input/render concurrency | Circuit serializes callbacks and its UI update with an app lock; the musical clock retains its own lock. This is not FIFO dispatch: the hardware harness uses one driver worker. No general foreground event queue was added to the framework. |
+| Reported counterclockwise notch loss | Isolated SELECT probe recorded and decoded exactly ten events in each direction. The later Circuit menu check reported no missed step. Original intermittent loss remains unproven; the MIDI decoder was not changed. |
+
+`EncoderMenu` is a new installed framework API justified by the requested interaction pattern. It owns transitions but leaves values, bounds, persistence, input routing and rendering with the app. Circuit uses it without adding musical concepts to the framework. No existing public API was removed.
+
+Three read-only reviewers (`review_menu`, `review_patterns`, `review_contracts`) challenged the implementation and verified the fixes. All accepted the final source plus the queued-scene snapshot/import micro-delta. Reviewed source digest: `46aa6dd2357b8e4b70008f5d93d8783e30cb346325570096f0c73623cf12fe5c` (sorted framework/Circuit Python files plus the three changed test modules, path and content separated by NUL). Coordinator made all edits.
+
+Validation: 548 full-suite tests passed; the final snapshot micro-delta additionally passed all 22 Circuit contracts. Ruff formatting passes. Full lint remains red on existing debt: 693 baseline diagnostics → 691, with zero new path/rule/message occurrences. The new menu and its unit tests pass full Ruff. `uv lock --check`, package build and diff whitespace validation pass. This is local verification; no remote CI or external-instrument result is claimed. Hardware tests remain limited to the observations above.

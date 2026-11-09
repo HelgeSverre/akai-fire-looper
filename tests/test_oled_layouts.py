@@ -127,6 +127,23 @@ class OledLayouts(unittest.TestCase):
                                 f"Header text entered the inset at {(x, y)}",
                             )
 
+    def test_settings_edit_page_and_pending_chain_layouts(self):
+        canvas = MeasuredCanvas()
+        screen = ScreenManager(canvas)
+        screen.set_mode(Mode.SETTINGS)
+        for name, value in (("BPM", "300.0"), ("T4 Scale", "MIXOLYDIAN")):
+            screen.update_display(
+                {}, editing_value=True, item_name=name, item_value=value
+            )
+            self.assert_readable(canvas)
+        screen.set_mode(Mode.PATTERN)
+        screen.update_display(
+            {"tracks": [{"current_pattern": 1}] * 4, "current_scene": 1},
+            selected_scene=15,
+            chain_starts={0: 7, 1: 6, 2: 5, 3: 4},
+        )
+        self.assert_readable(canvas)
+
     def test_all_circuit_modes_with_long_dynamic_values(self):
         canvas = MeasuredCanvas()
         screen = ScreenManager(canvas)

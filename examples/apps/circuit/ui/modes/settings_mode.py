@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from akai_fire_framework import EncoderMenu, MenuItem
 from examples.apps.circuit.core.timing import QuantizationMode
 from examples.apps.circuit.ui.screen_manager import Mode
 
@@ -86,14 +87,23 @@ class SettingsMode:
 
         # Menu state
         self.current_category = SettingsCategory.GLOBAL
-        self.selected_item = 0
-        self.editing_value = False
 
         # Track being edited (0-3)
         self.editing_track = 0
 
         # Menu structure
         self.menu_items = self._build_menu()
+        self.menu = EncoderMenu(
+            [
+                MenuItem(item["name"], activate=item["action"])
+                if item["type"] == "action"
+                else MenuItem(
+                    item["name"],
+                    adjust=lambda delta, item=item: self._adjust_item(item, delta),
+                )
+                for item in self.menu_items
+            ]
+        )
 
         # Settings path
         self.settings_path = self.DEFAULT_SETTINGS_PATH
@@ -108,6 +118,18 @@ class SettingsMode:
 
         # Register this instance as the Settings Mode handler
         self.mode_manager.register_mode_handler(Mode.SETTINGS, self)
+
+    @property
+    def selected_item(self):
+        return self.menu.selected_index
+
+    @selected_item.setter
+    def selected_item(self, index):
+        self.menu.select(index)
+
+    @property
+    def editing_value(self):
+        return self.menu.editing
 
     def _build_menu(self) -> List[Dict[str, Any]]:
         """Build the settings menu structure."""
@@ -237,13 +259,13 @@ class SettingsMode:
         """Called when entering Settings Mode."""
         print("Entered Settings Mode")
         self.selected_item = 0
-        self.editing_value = False
+        self.menu.finish_editing()
         self._update_mode_state()
 
     def _on_exit(self):
         """Called when exiting Settings Mode."""
         print("Exited Settings Mode")
-        self.editing_value = False
+        self.menu.finish_editing()
 
     def _update_mode_state(self):
         """Update mode manager state with current Settings Mode settings."""
@@ -333,66 +355,32 @@ class SettingsMode:
 
         return False
 
+    def _adjust_item(self, item, delta):
+        if item["type"] == "value":
+            value = item["get"]() + delta * item.get("step", 1)
+            item["set"](max(item["min"], min(item["max"], value)))
+        elif item["type"] == "options":
+            item["set"]((item["get"]() + delta) % len(item["options"]))
+
     def handle_encoder_turn(self, encoder: str, direction: str, velocity: int):
-        """Handle encoder turns in Settings Mode."""
-        try:
-            if encoder == "volume":
-                # Navigate menu items
-                if direction == "clockwise":
-                    self.selected_item = (self.selected_item + 1) % len(self.menu_items)
-                else:
-                    self.selected_item = (self.selected_item - 1) % len(self.menu_items)
-                self._update_mode_state()
-                item = self.menu_items[self.selected_item]
-                print(f"Selected: {item['name']}")
-
-            elif encoder in ["filter", "pan"]:
-                # Adjust current value
-                item = self.menu_items[self.selected_item]
-                delta = velocity if direction == "clockwise" else -velocity
-
-                if item["type"] == "value":
-                    current = item["get"]()
-                    step = item.get("step", 1)
-                    new_value = max(
-                        item["min"], min(item["max"], current + delta * step)
-                    )
-                    item["set"](new_value)
-                    self._update_mode_state()
-                    suffix = item.get("suffix", "")
-                    print(f"{item['name']}: {new_value}{suffix}")
-
-                elif item["type"] == "options":
-                    current_idx = item["get"]()
-                    options = item["options"]
-                    if direction == "clockwise":
-                        new_idx = (current_idx + 1) % len(options)
-                    else:
-                        new_idx = (current_idx - 1) % len(options)
-                    item["set"](new_idx)
-                    self._update_mode_state()
-                    print(f"{item['name']}: {options[new_idx]}")
-
-        except Exception as e:
-            print(
-                f"Error in Settings mode encoder handling ({encoder}, {direction}): {e}"
-            )
+        """SELECT navigates or edits; VOLUME always navigates."""
+        delta = velocity if direction == "clockwise" else -velocity
+        if encoder == "select":
+            self.menu.turn(delta)
+        elif encoder == "volume":
+            self.menu.move(delta)
+        elif encoder in ("filter", "pan"):
+            self._adjust_item(self.menu_items[self.selected_item], delta)
+        self._update_mode_state()
 
     def handle_button_press(self, button: str):
-        """Handle button presses in Settings Mode."""
         if button == "grid_left":
-            # Previous item
-            self.selected_item = (self.selected_item - 1) % len(self.menu_items)
-            self._update_mode_state()
+            self.menu.move(-1)
         elif button == "grid_right":
-            # Next item
-            self.selected_item = (self.selected_item + 1) % len(self.menu_items)
-            self._update_mode_state()
+            self.menu.move(1)
         elif button == "select":
-            # Execute action if current item is an action
-            item = self.menu_items[self.selected_item]
-            if item["type"] == "action":
-                item["action"]()
+            self.menu.press()
+        self._update_mode_state()
 
     def get_display_info(self) -> Dict[str, Any]:
         """Get information for display updates."""

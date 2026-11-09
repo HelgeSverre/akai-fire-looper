@@ -395,7 +395,7 @@ class GridManager:
         self.clear_all_pads()
 
         tracks = status.get("tracks", [])
-        selected_track = kwargs.get("selected_track", 0)
+        starts = kwargs.get("chain_starts", {})
 
         # Show all patterns across the grid
         for track_idx in range(4):
@@ -423,6 +423,8 @@ class GridManager:
                     brightness = self.BRIGHTNESS["dim"]
 
                 color = tuple(c * brightness // 127 for c in track_color)
+                if starts.get(track_idx) == pattern_idx:
+                    color = (127, 127, 127)
                 self.set_pad_color(pad_index, color)
 
     def _update_step_edit_mode(self, status: Dict[str, Any], **kwargs):

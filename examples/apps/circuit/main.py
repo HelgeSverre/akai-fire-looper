@@ -20,6 +20,8 @@ class CircuitSequencer(AkaiFireApp):
     APP_NAME = "Circuit Sequencer"
 
     def on_init(self):
+        # Hardware callbacks and frame rendering share menu and pattern state.
+        self._ui_lock = threading.RLock()
         self.sequencer = Sequencer()
         try:
             self.screen_manager = ScreenManager(self.canvas)
@@ -59,90 +61,108 @@ class CircuitSequencer(AkaiFireApp):
             )
 
     def on_button_press(self, button_id, event):
-        if event != "press":
-            return
-        fire = self.fire
-        if button_id == fire.BUTTON_PLAY:
-            if self.sequencer.transport_state == TransportState.STOPPED:
-                self.sequencer.play()
-            else:
+        with self._ui_lock:
+            if button_id == self.fire.BUTTON_SHIFT and event == "release":
+                self.pattern_mode.cancel_chain_selection()
+                return
+            if event != "press":
+                return
+            fire = self.fire
+            if button_id == fire.BUTTON_PLAY:
+                if self.sequencer.transport_state == TransportState.STOPPED:
+                    self.sequencer.play()
+                else:
+                    self.sequencer.stop()
+            elif button_id == fire.BUTTON_REC:
+                if self.sequencer.transport_state == TransportState.RECORDING:
+                    self.sequencer.stop()
+                else:
+                    self.sequencer.record()
+            elif button_id == fire.BUTTON_STOP:
                 self.sequencer.stop()
-        elif button_id == fire.BUTTON_REC:
-            if self.sequencer.transport_state == TransportState.RECORDING:
-                self.sequencer.stop()
+            elif button_id == fire.BUTTON_BROWSER:
+                self.mode_manager.set_mode(
+                    Mode.NOTE
+                    if self.mode_manager.current_mode == Mode.SETTINGS
+                    else Mode.SETTINGS
+                )
             else:
-                self.sequencer.record()
-        elif button_id == fire.BUTTON_STOP:
-            self.sequencer.stop()
-        elif button_id == fire.BUTTON_BROWSER:
-            self.mode_manager.set_mode(
-                Mode.NOTE
-                if self.mode_manager.current_mode == Mode.SETTINGS
-                else Mode.SETTINGS
-            )
-        else:
-            modes = {
-                fire.BUTTON_NOTE: Mode.NOTE,
-                fire.BUTTON_STEP: Mode.STEP_EDIT,
-                fire.BUTTON_DRUM: Mode.MIXER,
-                fire.BUTTON_PERFORM: Mode.PATTERN,
-            }
-            tracks = [
-                fire.BUTTON_SOLO_1,
-                fire.BUTTON_SOLO_2,
-                fire.BUTTON_SOLO_3,
-                fire.BUTTON_SOLO_4,
-            ]
-            buttons = {
-                fire.BUTTON_GRID_LEFT: "grid_left",
-                fire.BUTTON_GRID_RIGHT: "grid_right",
-                fire.BUTTON_SELECT: "select",
-            }
-            if button_id in modes:
-                self.mode_manager.set_mode(modes[button_id])
-            elif button_id in tracks:
-                self.note_mode._stop_all_notes()
-                self.sequencer.set_current_track(tracks.index(button_id))
-                self._update_track_leds()
-                self._refresh_mode_display()
-            elif button_id in buttons:
-                self.mode_manager.mode_handlers[
-                    self.mode_manager.current_mode
-                ].handle_button_press(buttons[button_id])
+                modes = {
+                    fire.BUTTON_NOTE: Mode.NOTE,
+                    fire.BUTTON_STEP: Mode.STEP_EDIT,
+                    fire.BUTTON_DRUM: Mode.MIXER,
+                    fire.BUTTON_PERFORM: Mode.PATTERN,
+                }
+                tracks = [
+                    fire.BUTTON_SOLO_1,
+                    fire.BUTTON_SOLO_2,
+                    fire.BUTTON_SOLO_3,
+                    fire.BUTTON_SOLO_4,
+                ]
+                buttons = {
+                    fire.BUTTON_GRID_LEFT: "grid_left",
+                    fire.BUTTON_GRID_RIGHT: "grid_right",
+                    fire.BUTTON_SELECT: "select",
+                }
+                if button_id in modes:
+                    self.mode_manager.set_mode(modes[button_id])
+                elif button_id in tracks:
+                    self.note_mode._stop_all_notes()
+                    self.sequencer.set_current_track(tracks.index(button_id))
+                    self._update_track_leds()
+                    self._refresh_mode_display()
+                elif button_id in buttons:
+                    self.mode_manager.mode_handlers[
+                        self.mode_manager.current_mode
+                    ].handle_button_press(buttons[button_id])
 
     def on_encoder_turn(self, encoder_id, direction, velocity):
-        encoders = {
-            self.fire.ROTARY_VOLUME: "volume",
-            self.fire.ROTARY_FILTER: "filter",
-            self.fire.ROTARY_PAN: "pan",
-            self.fire.ROTARY_SELECT: "volume",
-        }
-        if encoder_id in encoders:
-            self.mode_manager.mode_handlers[
-                self.mode_manager.current_mode
-            ].handle_encoder_turn(encoders[encoder_id], direction, velocity)
+        with self._ui_lock:
+            if (
+                encoder_id == self.fire.ROTARY_SELECT
+                and self.mode_manager.current_mode == Mode.SETTINGS
+            ):
+                self.settings_mode.handle_encoder_turn("select", direction, velocity)
+                return
+            encoders = {
+                self.fire.ROTARY_VOLUME: "volume",
+                self.fire.ROTARY_FILTER: "filter",
+                self.fire.ROTARY_PAN: "pan",
+                self.fire.ROTARY_SELECT: "volume",
+            }
+            if encoder_id in encoders:
+                self.mode_manager.mode_handlers[
+                    self.mode_manager.current_mode
+                ].handle_encoder_turn(encoders[encoder_id], direction, velocity)
 
     def on_pad_press(self, pad, velocity):
-        self.mode_manager.handle_pad_press(pad, velocity)
+        with self._ui_lock:
+            previous_track = self.sequencer.current_track
+            self.mode_manager.handle_pad_press(pad, velocity)
+            if self.sequencer.current_track != previous_track:
+                self._update_track_leds()
 
     def on_start(self):
-        self.note_mode.on_track_changed()
-        self._update_track_leds()
-        self._update_display()
-        print(
-            "Circuit: NOTE keyboard, STEP editor, DRUM mixer, PERFORM patterns, BROWSER settings."
-        )
-        print("PLAY/REC/STOP transport; Ctrl+C or close the mock window to quit.")
+        with self._ui_lock:
+            self.note_mode.on_track_changed()
+            self._update_track_leds()
+            self._update_display()
+            print(
+                "Circuit: NOTE keyboard, STEP editor, DRUM mixer, PERFORM patterns, BROWSER settings."
+            )
+            print("PLAY/REC/STOP transport; Ctrl+C or close the mock window to quit.")
 
     def on_update(self, dt):
-        self.note_mode.expire_previews()
-        self._update_transport_leds()
-        with self._step_lock:
-            current_step = self._current_step
-        self._update_display(current_step)
+        with self._ui_lock:
+            self.note_mode.expire_previews()
+            self._update_transport_leds()
+            with self._step_lock:
+                current_step = self._current_step
+            self._update_display(current_step)
 
     def on_stop(self):
-        self.sequencer.cleanup()
+        with self._ui_lock:
+            self.sequencer.cleanup()
 
     def _setup_sequencer_callbacks(self):
         """Set up sequencer event callbacks."""

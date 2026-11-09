@@ -607,11 +607,14 @@ class Sequencer:
         """Get comprehensive sequencer status."""
         timing_info = self.timing.get_timing_info()
         midi_status = self.midi.get_status()
+        # The clock may consume the queued scene while this snapshot is built.
+        queued_scene = self.queued_scene
 
         return {
             "transport_state": self.transport_state.value,
             "current_track": self.current_track + 1,
             "current_scene": self.current_scene + 1,
+            "queued_scene": queued_scene + 1 if queued_scene is not None else None,
             "recording_track": (
                 self.recording_track + 1 if self.recording_track is not None else None
             ),

@@ -3,6 +3,7 @@ AkaiFireApp Framework - Modular application framework for AKAI Fire applications
 
 This framework provides composable building blocks for creating AKAI Fire apps:
 - AkaiFireApp: Base application class with lifecycle and event hooks
+- EncoderMenu / MenuItem: Encoder navigation and press-to-edit state
 - ModeHandler: Abstract base for mode implementations
 - ModeManagerMixin: Add modal behavior to apps
 - ScreenMixin: OLED screen utilities
@@ -33,6 +34,7 @@ With mixins:
 """
 
 from .app import AkaiFireApp
+from .menu import EncoderMenu, MenuItem
 from .mode import ModeHandler, ModeManagerMixin
 from .screen import ScreenMixin
 from .grid import GridMixin
@@ -40,6 +42,8 @@ from .transport import TransportMixin, TransportState
 
 __all__ = [
     "AkaiFireApp",
+    "EncoderMenu",
+    "MenuItem",
     "ModeHandler",
     "ModeManagerMixin",
     "ScreenMixin",

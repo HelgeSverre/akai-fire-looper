@@ -50,10 +50,30 @@ The step editor currently addresses the first 16 steps; patterns can store/play 
 | BROWSER | Toggle Settings |
 | GRID LEFT/RIGHT | Octave in Note mode; navigation in other modes |
 | VOLUME / FILTER / PAN | Mode-specific controls; Note mode uses BPM / swing / quantization |
-| SELECT encoder | First encoder action in the active mode; menu navigation in Settings |
-| SELECT button | Execute selected Settings action |
+| SELECT encoder | Navigate/edit Settings; select a scene in Patterns; first encoder action in other modes |
+| SELECT button | Enter/finish editing or execute a Settings action; launch selected scene in Patterns |
 
-In Settings, VOLUME/SELECT navigates and FILTER/PAN changes the value. Save/Load Settings stores configuration at `~/.circuit_sequencer_settings.json`; it does not save a full song. Mixer solo uses the track's persisted `soloed` state. External keyboard note-ons record into the selected recording track; input is not forwarded as general MIDI-through.
+Mixer solo uses the track's persisted `soloed` state. External keyboard note-ons record into the selected recording track; input is not forwarded as general MIDI-through.
+
+## Edit settings with SELECT
+
+1. Press BROWSER, then turn SELECT to highlight a setting.
+2. Press SELECT. The OLED shows `Edit: <setting>` and its current value.
+3. Turn SELECT to change the value. Changes apply immediately.
+4. Press SELECT again to return to navigation.
+
+Navigation stops at the ends of the list. VOLUME and GRID LEFT/RIGHT always navigate, ending an active edit. FILTER/PAN changes the selected value directly. Leaving Settings also ends editing. Save/Load Settings are actions: press SELECT once to execute them. They store configuration at `~/.circuit_sequencer_settings.json`, not a full song.
+
+## Select and chain patterns
+
+Press PERFORM. Each pad row belongs to the matching track, top to bottom. Columns 1–8 select that track's patterns 1–8; columns 9–16 are unused. There is no separate track-selection step.
+
+- Tap a pattern to select it and clear that track's previous chain.
+- To chain a consecutive range, hold SHIFT, tap the first pattern, then tap the last pattern in the same row. For example, row 2 pads 2 and 5 create the track 2 chain `2>3>4>5`.
+- While choosing the end, the start pad is white and the OLED says `P2>tap end`. There is no timeout. Releasing SHIFT or leaving Patterns cancels unfinished selections, preserving the existing chain.
+- The endpoints can be tapped in either order. Separate rows keep separate selections; a tap on another row cannot extend the first row's chain.
+
+Turn SELECT or use GRID LEFT/RIGHT to select a scene, then press SELECT to launch it. A `?` after the scene number means it is selected but not active. While playing, launches wait for the next pattern boundary: `S4 Q3` means scene 4 is selected and scene 3 is queued. Browsing does not change the queued launch; pressing SELECT queues the newly selected scene instead. Scenes hold pattern selections for all four tracks; the current UI has no scene-save control, so populated scene snapshots must be supplied in code.
 
 ## Screen views
 
@@ -77,4 +97,4 @@ uv run python -m unittest discover
 
 The app reuses `AkaiFireApp` for display refresh and controller ownership. Its musical clock and note scheduler live in `core/`; UI modes live in `ui/modes/`. Pad frames are composed in memory and sent as one batch, avoiding bursts of individual clear-and-repaint messages.
 
-A [Fire hardware check on 9 November 2026](../../../docs/HARDWARE_VERIFICATION.md) exercised all five modes and PLAY/STOP for over two minutes after batching was added. The observer reported that most controls responded. Detailed screen readability, track selection, musical timing and synth integration still need focused hardware checks. [spec.md](spec.md) is historical design material, not a promise that every proposed feature is implemented.
+A [Fire hardware check on 9 November 2026](../../../docs/HARDWARE_VERIFICATION.md) exercised all five modes and PLAY/STOP for over two minutes after batching was added. Follow-up checks covered NOTE track selection, header spacing, Mixer labels/mute feedback, Settings scrolling and SELECT editing, and the revised pattern-chain gesture. Detailed STEP editing, musical timing and synth integration still need focused hardware checks. [spec.md](spec.md) is historical design material, not a promise that every proposed feature is implemented.
