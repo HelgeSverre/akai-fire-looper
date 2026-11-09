@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Hardware-verified button LED range: two-color buttons now accept values 0–4, with matching pygame colors and corrected example indicators. Bank clearing sends `0x10` rather than selecting CHANNEL with `0x00`; `DUAL_LED_*` constants distinguish primary colors from amber.
 - Application initialization/shutdown and subscription teardown preserve ownership when callbacks or removers fail.
 - Circuit clock progression, note gates/cancellation, mute/solo phase, step writes, settings routing, recording input and pattern shrinking.
 - Circuit automated demos run the normal frame hook and arm recording before entering notes.

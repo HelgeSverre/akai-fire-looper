@@ -165,14 +165,18 @@ class SequencerApp:
 
         # Set LEDs based on current transport state
         if self.transport_state == "playing":
-            self.fire.set_button_led(self.fire.BUTTON_PLAY, 2)  # High green
+            self.fire.set_button_led(
+                self.fire.BUTTON_PLAY, self.fire.DUAL_LED_BRIGHT_PRIMARY
+            )  # High green
         elif self.transport_state == "recording":
-            self.fire.set_button_led(self.fire.BUTTON_REC, 2)  # High red
+            self.fire.set_button_led(
+                self.fire.BUTTON_REC, self.fire.DUAL_LED_BRIGHT_PRIMARY
+            )  # High red
             self.fire.set_button_led(
                 self.fire.BUTTON_PLAY, 1
             )  # Dim green (playing while recording)
         else:  # stopped
-            self.fire.set_button_led(self.fire.BUTTON_STOP, 1)  # Dim red
+            self.fire.set_button_led(self.fire.BUTTON_STOP, 1)  # Dim amber
 
     def update_ui_leds(self):
         """Update UI button LEDs based on UI state"""
@@ -184,7 +188,7 @@ class SequencerApp:
         else:
             self.fire.set_button_led(
                 self.fire.BUTTON_BROWSER, 2
-            )  # High green when in menu
+            )  # Bright red when in menu
 
     def update_button_leds(self):
         """Update all button LEDs based on current states"""

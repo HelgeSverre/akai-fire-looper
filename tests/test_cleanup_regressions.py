@@ -531,6 +531,26 @@ class FailedRegistrationTests(unittest.TestCase):
 
 
 class StandaloneTransportRegistrationTests(unittest.TestCase):
+    def test_transport_feedback_uses_primary_colors_not_amber(self):
+        from akai_fire_testing import MockAkaiFire
+
+        transport = TransportMixin()
+        with MockAkaiFire() as fire:
+            transport.fire = fire
+            transport.init_transport()
+            transport.play()
+            transport.update_transport_leds()
+            fire.assert_button_led(fire.BUTTON_PLAY, fire.DUAL_LED_BRIGHT_PRIMARY)
+            transport.record()
+            transport.update_transport_leds()
+            fire.assert_button_led(fire.BUTTON_REC, fire.DUAL_LED_BRIGHT_PRIMARY)
+            fire.assert_button_led(fire.BUTTON_PLAY, fire.DUAL_LED_DIM_PRIMARY)
+            transport.stop()
+            transport.update_transport_leds()
+            fire.assert_button_led(fire.BUTTON_PLAY, 0)
+            fire.assert_button_led(fire.BUTTON_REC, 0)
+            fire.assert_button_led(fire.BUTTON_STOP, 1)
+
     def test_failed_setup_rolls_back_and_can_retry(self):
         from akai_fire_testing import MockAkaiFire
 

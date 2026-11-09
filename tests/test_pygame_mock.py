@@ -279,7 +279,8 @@ class TestPygameMockVisualState(unittest.TestCase):
             self.fire.BUTTON_REC,
             self.fire.BUTTON_STEP,
         ):
-            self.fire.set_button_led(button, 2)
+            self.fire.set_button_led(button, self.fire.DUAL_LED_BRIGHT_PRIMARY)
+        self.fire.set_button_led(self.fire.BUTTON_STEP, self.fire.DUAL_LED_BRIGHT_AMBER)
         self.fire.set_track_led(1, self.fire.RECTANGLE_LED_HIGH_RED)
         self.fire.set_track_led(2, self.fire.RECTANGLE_LED_HIGH_GREEN)
         self._flush()
@@ -300,6 +301,39 @@ class TestPygameMockVisualState(unittest.TestCase):
         self.assertGreater(step.g, step.b)
         self.assertGreater(red_track.r, red_track.g)
         self.assertGreater(green_track.g, green_track.r)
+
+    def test_dual_button_colors_and_brightness_match_hardware(self):
+        for button in self.fire.DUAL_COLOR_BUTTON_IDS:
+            colors = {}
+            for value in range(1, 5):
+                self.fire.set_button_led(button, value)
+                self._flush()
+                colors[value] = self.fire.screen.get_at(
+                    self.fire.button_rects[button].center
+                )
+            with self.subTest(button=button):
+                for value in (1, 3):
+                    color = colors[value]
+                    if button in (self.fire.BUTTON_PLAY, self.fire.BUTTON_PATTERN):
+                        self.assertGreater(color.g, color.r)
+                    else:
+                        self.assertGreater(color.r, color.g)
+                for value in (2, 4):
+                    self.assertGreater(colors[value].r, colors[value].b)
+                    self.assertGreater(colors[value].g, colors[value].b)
+                self.assertGreater(sum(colors[3][:3]), sum(colors[1][:3]))
+                self.assertGreater(sum(colors[4][:3]), sum(colors[2][:3]))
+
+    def test_bank_zero_selects_channel_and_clear_turns_all_indicators_off(self):
+        self.fire.set_control_bank_leds(0)
+        self._flush()
+        channel = self.fire.screen.get_at((54, 51))
+        self.assertGreater(channel.r, channel.g)
+        self.fire.clear_control_bank_leds()
+        self._flush()
+        for y in (51, 71, 91, 111):
+            color = self.fire.screen.get_at((54, y))
+            self.assertLess(color.r, color.g)
 
     def test_user2_bank_value_does_not_light_channel_and_mixer(self):
         self.fire.set_control_bank_leds(self.fire.CONTROL_BANK_USER2)

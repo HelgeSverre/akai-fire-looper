@@ -90,7 +90,26 @@ BUTTON_LED_IDS = frozenset(
     }
 )
 
-# --- Button LED values ---
+# Two-color buttons use primary (red/green) and amber at two brightness levels.
+DUAL_COLOR_BUTTON_IDS = frozenset(
+    {
+        BUTTON_STEP,
+        BUTTON_NOTE,
+        BUTTON_DRUM,
+        BUTTON_PERFORM,
+        BUTTON_SHIFT,
+        BUTTON_REC,
+        BUTTON_PATTERN,
+        BUTTON_PLAY,
+    }
+)
+DUAL_LED_DIM_PRIMARY = 0x01
+DUAL_LED_DIM_AMBER = 0x02
+DUAL_LED_BRIGHT_PRIMARY = 0x03
+DUAL_LED_BRIGHT_AMBER = 0x04
+
+# Legacy values retained for compatibility. Values 1/2 mean dim/bright only
+# on single-color buttons; on two-color buttons, 2 selects dim amber.
 LED_OFF = 0x00
 LED_DULL_RED = 0x01
 LED_HIGH_RED = 0x02

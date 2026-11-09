@@ -27,15 +27,6 @@ def main():
 
     fire = get_akai_fire()
 
-    # LED states for BUTTON_* LEDs
-    button_led_states = [
-        fire.LED_OFF,
-        fire.LED_DULL_RED,
-        fire.LED_HIGH_RED,
-        fire.LED_DULL_GREEN,
-        fire.LED_HIGH_GREEN,
-    ]
-
     # List of button IDs to cycle through
     buttons = [
         fire.BUTTON_STEP,
@@ -86,9 +77,8 @@ def main():
             # Cycle button LEDs
             for i, button in enumerate(buttons):
                 offset = -i if button_cycle_reverse else i
-                state = button_led_states[
-                    (frame // 4 + offset) % len(button_led_states)
-                ]
+                state_count = 5 if button in fire.DUAL_COLOR_BUTTON_IDS else 3
+                state = (frame // 4 + offset) % state_count
                 fire.set_button_led(button, state)
 
             # Brief delay for smoother animation

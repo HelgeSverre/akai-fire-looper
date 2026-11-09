@@ -129,7 +129,7 @@ class ComprehensiveTest:
         def handle_play(event):
             if event == "press":
                 self.fire.set_button_led(
-                    self.fire.BUTTON_PLAY, self.fire.LED_HIGH_GREEN
+                    self.fire.BUTTON_PLAY, self.fire.DUAL_LED_BRIGHT_PRIMARY
                 )
                 self.screen_manager.show_message("PLAY pressed")
                 self.start_pattern()
@@ -139,7 +139,9 @@ class ComprehensiveTest:
         @self.fire.on_button(self.fire.BUTTON_STOP)
         def handle_stop(event):
             if event == "press":
-                self.fire.set_button_led(self.fire.BUTTON_STOP, self.fire.LED_HIGH_RED)
+                self.fire.set_button_led(
+                    self.fire.BUTTON_STOP, self.fire.LED_HIGH_YELLOW
+                )
                 self.screen_manager.show_message("STOP - Clearing")
                 self.stop_pattern()
                 self.clear_all()
@@ -149,7 +151,9 @@ class ComprehensiveTest:
         @self.fire.on_button(self.fire.BUTTON_REC)
         def handle_rec(event):
             if event == "press":
-                self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_HIGH_RED)
+                self.fire.set_button_led(
+                    self.fire.BUTTON_REC, self.fire.DUAL_LED_BRIGHT_PRIMARY
+                )
                 self.screen_manager.show_message("RECORDING...")
             else:
                 self.fire.set_button_led(self.fire.BUTTON_REC, self.fire.LED_OFF)
@@ -200,7 +204,7 @@ class ComprehensiveTest:
         def handle_browser(event):
             if event == "press":
                 self.fire.set_button_led(
-                    self.fire.BUTTON_BROWSER, self.fire.LED_DULL_GREEN
+                    self.fire.BUTTON_BROWSER, self.fire.LED_DULL_RED
                 )
                 if self.current_test is None:
                     menu = self.screen_manager.screens.get("menu")
@@ -225,7 +229,9 @@ class ComprehensiveTest:
         @self.fire.on_button(self.fire.BUTTON_ALT)
         def handle_alt(event):
             if event == "press":
-                self.fire.set_button_led(self.fire.BUTTON_ALT, self.fire.LED_DULL_RED)
+                self.fire.set_button_led(
+                    self.fire.BUTTON_ALT, self.fire.LED_DULL_YELLOW
+                )
                 self.screen_manager.show_message("ALT ON")
             else:
                 self.fire.set_button_led(self.fire.BUTTON_ALT, self.fire.LED_OFF)
@@ -286,27 +292,15 @@ class ComprehensiveTest:
                 screen.set_value(int(value * 100 / 127))
                 self.screen_manager.show_screen("resonance")
 
-            # Update control bank LEDs based on volume
+            # Field-mask constants include the base bit; bare values select banks.
             if rotary_id == self.fire.ROTARY_VOLUME:
-                if value < 32:
-                    self.fire.set_control_bank_leds(self.fire.FIELD_CHANNEL)
-                elif value < 64:
-                    self.fire.set_control_bank_leds(
-                        self.fire.FIELD_CHANNEL | self.fire.FIELD_MIXER
-                    )
-                elif value < 96:
-                    self.fire.set_control_bank_leds(
-                        self.fire.FIELD_CHANNEL
-                        | self.fire.FIELD_MIXER
-                        | self.fire.FIELD_USER1
-                    )
-                else:
-                    self.fire.set_control_bank_leds(
-                        self.fire.FIELD_CHANNEL
-                        | self.fire.FIELD_MIXER
-                        | self.fire.FIELD_USER1
-                        | self.fire.FIELD_USER2
-                    )
+                states = [
+                    self.fire.CONTROL_BANK_CHANNEL,
+                    self.fire.CONTROL_BANK_CHANNEL_AND_MIXER,
+                    self.fire.CONTROL_BANK_CHANNEL_AND_MIXER_AND_USER1,
+                    self.fire.CONTROL_BANK_ALL_ON,
+                ]
+                self.fire.set_control_bank_leds(states[value // 32])
 
         # Bank/Select buttons
         @self.fire.on_button(self.fire.BUTTON_BANK)
@@ -316,10 +310,10 @@ class ComprehensiveTest:
                 # Cycle control bank LEDs
                 self.led_flicker_phase = (self.led_flicker_phase + 1) % 4
                 states = [
-                    self.fire.FIELD_CHANNEL,
-                    self.fire.FIELD_MIXER,
-                    self.fire.FIELD_USER1,
-                    self.fire.FIELD_USER2,
+                    self.fire.CONTROL_BANK_CHANNEL,
+                    self.fire.CONTROL_BANK_MIXER,
+                    self.fire.CONTROL_BANK_USER1,
+                    self.fire.CONTROL_BANK_USER2,
                 ]
                 self.fire.set_control_bank_leds(states[self.led_flicker_phase])
             else:
@@ -398,7 +392,9 @@ class ComprehensiveTest:
             for button in all_buttons:
                 if not self.running or self.current_test != "buttons":
                     break
-                self.fire.set_button_led(button, 2)
+                self.fire.set_button_led(
+                    button, 3 if button in self.fire.DUAL_COLOR_BUTTON_IDS else 2
+                )
                 time.sleep(0.1)
                 self.fire.set_button_led(button, 0)
 
@@ -431,14 +427,11 @@ class ComprehensiveTest:
 
             # Control bank LEDs
             patterns = [
-                self.fire.FIELD_CHANNEL,
-                self.fire.FIELD_CHANNEL | self.fire.FIELD_MIXER,
-                self.fire.FIELD_CHANNEL | self.fire.FIELD_MIXER | self.fire.FIELD_USER1,
-                self.fire.FIELD_CHANNEL
-                | self.fire.FIELD_MIXER
-                | self.fire.FIELD_USER1
-                | self.fire.FIELD_USER2,
-                0,
+                self.fire.CONTROL_BANK_CHANNEL,
+                self.fire.CONTROL_BANK_CHANNEL_AND_MIXER,
+                self.fire.CONTROL_BANK_CHANNEL_AND_MIXER_AND_USER1,
+                self.fire.CONTROL_BANK_ALL_ON,
+                self.fire.CONTROL_BANK_ALL_OFF,
             ]
 
             for pattern in patterns:

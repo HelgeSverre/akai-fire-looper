@@ -133,7 +133,7 @@ class MockAkaiFire(AkaiFireDevice):
         self.pad_colors: List[List[int]] = [[0, 0, 0] for _ in range(64)]
         self.button_leds: Dict[int, int] = {}
         self.track_leds: List[int] = [0, 0, 0, 0]
-        self.control_bank_state: int = 0
+        self.control_bank_state: int = self.CONTROL_BANK_ALL_OFF
 
         self.canvas = Canvas()
 
@@ -620,7 +620,8 @@ class MockAkaiFire(AkaiFireDevice):
                 f"Invalid button ID: {button_id}. "
                 f"Valid buttons: {sorted(self.BUTTON_LED_IDS)}"
             )
-        value = max(0, min(2, value))
+        maximum = 4 if button_id in self.DUAL_COLOR_BUTTON_IDS else 2
+        value = max(0, min(maximum, value))
         with self._state_lock:
             self.button_leds[button_id] = value
         self._mark_dirty()
@@ -656,15 +657,16 @@ class MockAkaiFire(AkaiFireDevice):
         self._mark_dirty()
         return True
 
-    def clear_control_bank_leds(self) -> None:
-        self.set_control_bank_leds(0)
+    def clear_control_bank_leds(self) -> bool:
+        return self.set_control_bank_leds(self.CONTROL_BANK_ALL_OFF)
 
-    def clear_all(self) -> None:
-        self.clear_all_pads()
-        self.clear_all_button_leds()
-        self.clear_all_track_leds()
-        self.clear_control_bank_leds()
+    def clear_all(self) -> bool:
+        success = self.clear_all_pads()
+        success &= self.clear_all_button_leds()
+        success &= self.clear_all_track_leds()
+        success &= self.clear_control_bank_leds()
         self.clear_display()
+        return success
 
     # ------------------------------------------------------------------
     # OLED canvas — get_canvas / render_to_display / render_to_bmp /
@@ -1005,7 +1007,7 @@ if __name__ == "__main__":
     # Smoke test — construct headless, do some setter calls, close.
     with MockAkaiFire(headless=True) as fire:
         fire.set_pad_color(0, 127, 0, 0)
-        fire.set_button_led(fire.BUTTON_PLAY, fire.LED_HIGH_GREEN)
+        fire.set_button_led(fire.BUTTON_PLAY, fire.DUAL_LED_BRIGHT_PRIMARY)
         fire.set_track_led(1, fire.RECTANGLE_LED_HIGH_GREEN)
         print(f"pad 0: {fire.pad_colors[0]}")
         print(f"PLAY LED: {fire.button_leds.get(fire.BUTTON_PLAY)}")

@@ -131,7 +131,9 @@ class DemoRunner:
             hold_time: How long to "hold" the button
         """
         # Flash button LED
-        self.fire.set_button_led(button_id, 2)
+        self.fire.set_button_led(
+            button_id, 3 if button_id in self.fire.DUAL_COLOR_BUTTON_IDS else 2
+        )
 
         # Find and call the button handler
         self.fire._dispatch_button(button_id, "press")

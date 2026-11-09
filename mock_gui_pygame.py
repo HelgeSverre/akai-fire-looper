@@ -83,7 +83,7 @@ class MockAkaiFire(AkaiFireDevice):
         self.pad_colors = [[0, 0, 0] for _ in range(64)]
         self.button_leds = {}
         self.track_leds = [0, 0, 0, 0]
-        self.control_bank_state = 0
+        self.control_bank_state = self.CONTROL_BANK_ALL_OFF
 
         # Listener registries (pad_listeners / button_listeners /
         # rotary_listeners / rotary_touch_listeners) are provided by
@@ -351,26 +351,28 @@ class MockAkaiFire(AkaiFireDevice):
         return tuple(round(a + (b - a) * amount) for a, b in zip(first, second))
 
     def _button_color(self, button_id):
-        # The MIDI value is brightness (0/1/2); the physical button fixes its hue.
         state = self.button_leds.get(button_id, 0)
         if not state:
             return self.unlit_color
-        if button_id in (
-            self.BUTTON_REC,
-            self.BUTTON_PAT_UP,
-            self.BUTTON_PAT_DOWN,
-            self.BUTTON_GRID_LEFT,
-            self.BUTTON_GRID_RIGHT,
-        ):
-            hue = self.red
-        elif (
-            button_id == self.BUTTON_PLAY
-            or self.BUTTON_SOLO_1 <= button_id <= self.BUTTON_SOLO_4
-        ):
-            hue = self.green
+        if button_id in self.DUAL_COLOR_BUTTON_IDS:
+            if state in (self.DUAL_LED_DIM_AMBER, self.DUAL_LED_BRIGHT_AMBER):
+                hue = self.yellow
+            else:
+                hue = (
+                    self.green
+                    if button_id in (self.BUTTON_PLAY, self.BUTTON_PATTERN)
+                    else self.red
+                )
+            dim = state in (self.DUAL_LED_DIM_PRIMARY, self.DUAL_LED_DIM_AMBER)
         else:
-            hue = self.yellow
-        return self._mix(self.unlit_color, hue, 0.45 if state == 1 else 1)
+            if self.BUTTON_SOLO_1 <= button_id <= self.BUTTON_SOLO_4:
+                hue = self.green
+            elif button_id in (self.BUTTON_ALT, self.BUTTON_STOP):
+                hue = self.yellow
+            else:
+                hue = self.red
+            dim = state == 1
+        return self._mix((12, 14, 13), hue, 0.45) if dim else hue
 
     def _draw_key(self, rect, color, pressed=False):
         """A recessed socket and translucent cap, with a restrained lit center."""
@@ -509,6 +511,8 @@ class MockAkaiFire(AkaiFireDevice):
         fields = (
             self.FIELD_USER2
             if self.control_bank_state == self.CONTROL_BANK_USER2
+            else self.FIELD_CHANNEL
+            if self.control_bank_state == 0
             else self.control_bank_state
         )
         pygame.draw.lines(
@@ -721,7 +725,8 @@ class MockAkaiFire(AkaiFireDevice):
                 f"Invalid button ID: {button_id}. "
                 f"Valid buttons: {sorted(self.BUTTON_LED_IDS)}"
             )
-        value = max(0, min(2, value))
+        maximum = 4 if button_id in self.DUAL_COLOR_BUTTON_IDS else 2
+        value = max(0, min(maximum, value))
 
         def update():
             self.button_leds[button_id] = value
@@ -763,7 +768,7 @@ class MockAkaiFire(AkaiFireDevice):
 
     def clear_control_bank_leds(self) -> bool:
         """Clear control bank LEDs."""
-        return self.set_control_bank_leds(0)
+        return self.set_control_bank_leds(self.CONTROL_BANK_ALL_OFF)
 
     def set_control_bank_leds(self, state: int) -> bool:
         """Set control bank state."""
@@ -775,13 +780,14 @@ class MockAkaiFire(AkaiFireDevice):
             self.event_queue.append(update)
         return True
 
-    def clear_all(self):
+    def clear_all(self) -> bool:
         """Clear everything."""
-        self.clear_all_pads()
-        self.clear_all_button_leds()
-        self.clear_all_track_leds()
-        self.clear_control_bank_leds()
+        success = self.clear_all_pads()
+        success &= self.clear_all_button_leds()
+        success &= self.clear_all_track_leds()
+        success &= self.clear_control_bank_leds()
         self.canvas.clear()
+        return success
 
     # get_canvas / render_to_display / render_to_bmp / clear_display
     # are inherited from AkaiFireDevice.
@@ -866,7 +872,7 @@ if __name__ == "__main__":
     @fire.on_button(fire.BUTTON_PLAY)
     def play_handler(event):
         if event == "press":
-            fire.set_button_led(fire.BUTTON_PLAY, 2)
+            fire.set_button_led(fire.BUTTON_PLAY, fire.DUAL_LED_BRIGHT_PRIMARY)
         else:
             fire.set_button_led(fire.BUTTON_PLAY, 0)
 

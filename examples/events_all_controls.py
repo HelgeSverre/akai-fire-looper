@@ -195,7 +195,9 @@ class EventMonitor:
             # Light the LED on press, dim on release so you can see it flash.
             try:
                 if event == "press":
-                    fire.set_button_led(button_id, fire.LED_HIGH_RED)
+                    fire.set_button_led(
+                        button_id, 3 if button_id in fire.DUAL_COLOR_BUTTON_IDS else 2
+                    )
                 else:
                     fire.set_button_led(button_id, fire.LED_OFF)
             except Exception:

@@ -238,7 +238,12 @@ class ModeManagerMixin:
         mode_buttons = getattr(self, "MODE_BUTTONS", {})
         for mode, button in mode_buttons.items():
             if mode == self._current_mode:
-                self.fire.set_button_led(button, 2)  # Bright
+                value = (
+                    self.fire.DUAL_LED_BRIGHT_PRIMARY
+                    if button in self.fire.DUAL_COLOR_BUTTON_IDS
+                    else 2
+                )
+                self.fire.set_button_led(button, value)
             else:
                 self.fire.set_button_led(button, 0)  # Off
 

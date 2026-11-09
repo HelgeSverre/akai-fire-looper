@@ -37,8 +37,8 @@ def main() -> None:
             fire.set_pad_color(idx, 0, 0, 0)
 
         # Lit buttons
-        fire.set_button_led(fire.BUTTON_PLAY, fire.LED_HIGH_GREEN)
-        fire.set_button_led(fire.BUTTON_STEP, fire.LED_HIGH_RED)
+        fire.set_button_led(fire.BUTTON_PLAY, fire.DUAL_LED_BRIGHT_PRIMARY)
+        fire.set_button_led(fire.BUTTON_STEP, fire.DUAL_LED_BRIGHT_PRIMARY)
         fire.set_track_led(2, fire.RECTANGLE_LED_HIGH_GREEN)
 
         # OLED content

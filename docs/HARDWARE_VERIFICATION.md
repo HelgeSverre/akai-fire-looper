@@ -13,9 +13,19 @@ Checks performed on 9 November 2026 with a USB-connected AKAI Fire on macOS. Bot
 | Encoder turns | VOLUME, PAN, FILTER, RESONANCE and SELECT reported both clockwise and counterclockwise turns with IDs 16, 17, 18, 19 and 118. Main-knob speed values ranged from 1 to 10 across this check; SELECT reported 1. |
 | Encoder touch and SELECT push | Each main knob produced balanced touch/release events. SELECT produced four matching press/release pairs with button ID 25. |
 | Modifier snapshots | Top-left pad callbacks correctly reported SHIFT-only, ALT-only and neither modifier. Modifier release callbacks reported the cleared state. |
-| Button and bank LED output | PLAY, REC and STEP lit, and all four bank indicators lit with `CONTROL_BANK_ALL_ON`. Individual bank selection and the full button color/brightness range still need separate checks. |
+| Initial button and bank LED output | PLAY, REC and STEP lit, and all four bank indicators lit with `CONTROL_BANK_ALL_ON`. Later value-by-value checks below establish their actual colors and brightness. |
 | Track LED addresses and values | Corrected CC addresses from `0x65–0x68` to `0x28–0x2B`. The observer confirmed dim red, dim green, bright red and bright green from top to bottom, including the brightness difference. Exact-message tests cover all four addresses, values 0–4 and clearing. |
 | USER 2 bank selection | `CONTROL_BANK_USER2` (`0x03`) lit USER 2 on this Fire. The existing constant was retained; this observation differs from the selector table in the [SEGGER reference](https://blog.segger.com/decoding-the-akai-fire-part-2/), which labels `0x03` as USER 1. |
+| CHANNEL bank selection | `CONTROL_BANK_CHANNEL` (`0x11`) lit only CHANNEL; the observer confirmed the other indicators were off. |
+| MIXER bank selection | `CONTROL_BANK_MIXER` (`0x12`) lit only MIXER; the observer confirmed CHANNEL, USER 1 and USER 2 were off. |
+| USER 1 bank selection | `CONTROL_BANK_USER1` (`0x14`) lit only USER 1; the observer confirmed the other three indicators were off. Together with the earlier checks, all four individual bank selections are confirmed. |
+| Single-color button LEDs, value 1 | PATTERN UP/DOWN, BROWSER and GRID LEFT/RIGHT appeared dim red; SOLO 1–4 dim green; ALT and STOP dim yellow/amber. The observer confirmed the other button LEDs, bank indicators, track indicators and pads were off. |
+| Single-color button LEDs, value 2 | The same buttons became visibly brighter with their colors unchanged; the observer confirmed the remaining lights stayed off. |
+| Mode/transport button LEDs, value 1 | STEP, NOTE, DRUM, PERFORM, SHIFT and REC appeared dim red; PATTERN and PLAY appeared dim green. This differs from the SEGGER table's yellow-at-value-1 description. The observer also noticed CHANNEL lit after `clear_all()`; this led to the bank-clearing repair below. Earlier broad all-other-lights-off reports did not establish reliable bank clearing. |
+| Mode/transport button LEDs, value 2 | All eight buttons appeared dim amber, and CHANNEL remained lit before the bank-clearing fix. Values 3–4 were initially checked using raw messages because the old public setter clamped them to 2. |
+| Mode/transport button LEDs, raw values 3–4 | Value 3 produced bright red on STEP, NOTE, DRUM, PERFORM, SHIFT and REC, and green on PATTERN/PLAY. The observer initially could not distinguish green brightness. Value 4 was reported as brighter amber on all eight, with a tentative confirmation. The later public-API comparison below confirms bright green and bright amber on representative buttons. |
+| Explicit control-bank clearing | Sending `CONTROL_BANK_ALL_OFF` (`0x10`) turned off all four bank indicators. The old `clear_control_bank_leds()` sent `0x00`, which selected CHANNEL. Hardware and mocks now clear with `0x10`; the public-API check confirmed all bank indicators off. |
+| Corrected public button API | After lifting the cap to 4 for the eight two-color buttons, the observer confirmed STEP/REC bright red at 3, NOTE bright amber at 4, and PLAY at 3 visibly brighter green than PATTERN at 1. The same check confirmed `clear_all()` extinguished the bank indicators. Legacy aliases retain their numeric values; `DUAL_LED_*` names describe the observed four-state mapping. |
 | Snake app | The observer reported responsive play, matching pad/OLED views and no visual problem. Recorded events include all four direction buttons, four pauses, four STOP resets, crash/retry transitions and a highest score of 3. |
 | Circuit preview after batching | Recorded mode changes cover NOTE, STEP EDIT, MIXER, PATTERN and SETTINGS, plus PLAY/STOP, across 124.5 seconds. The observer reported that most controls responded. No SOLO track-selection events were captured in this run, and detailed OLED readability was not explicitly confirmed. |
 | Circuit NOTE layout and track selection | A later focused check confirmed SOLO 2 selected `NOTE T2` and the four content rows were readable. The observer found the right-aligned status against the screen edge. Measurement used grayscale glyph advances, which underestimated `STOP 120` by four pixels on the monochrome canvas; fitting and header alignment now use monochrome metrics, with a shared four-pixel horizontal inset. The observer reported that the updated layout looked better. |
@@ -28,6 +38,7 @@ Checks performed on 9 November 2026 with a USB-connected AKAI Fire on macOS. Bot
 | Static OLED without refresh | A freshly sent image blanked after approximately eight seconds while the probe remained connected and sent no further display updates. |
 | Repeated identical OLED image | Sending the same nonblank frame every two seconds kept it visible for at least 30 seconds; the observer reported no problem. Packet hashes confirmed unchanged image data. |
 | Default driver keepalive | A separate probe called `render_to_display()` once. The driver then refreshed identical frames every two seconds, and the observer confirmed the screen stayed visible without a reported problem. |
+| Live reconnect on the same instance | After USB unplug/replug, explicit `reconnect()` returned true on the existing driver object and restarted listening. Without re-registering handlers, the log captured PLAY press/release, pads 0 and 63, and SELECT clockwise/counterclockwise with speed 1. The probe rendered the new OLED image once; the observer reported no mismatch in the image, pad colors or 30-second keepalive check. This verifies explicit reconnection, not automatic unplug detection/recovery. |
 
 Raw pad releases arrived as MIDI note-off messages. The public driver still exposes pad presses only; this check does not add a pad-release API.
 
@@ -41,8 +52,7 @@ The [keepalive tests](../tests/test_oled_keepalive.py) exercise real driver code
 
 ## Remaining driver-level hardware checks
 
-- Live reconnect of an existing driver instance after physical unplug/replug, including resumed input and OLED keepalive. The earlier recovery check opened a fresh driver after reconnecting.
-- Full button color/brightness range and the remaining individual control-bank indicators. Track LED values and USER 2 are confirmed; this does not establish every button/bank mapping.
+- Mixed control-bank combinations and any separate LED behavior at SELECT/BANK addresses. The visible single-color and two-color button groups, track LED values, all four individual bank selections, all-on and all-off are checked.
 - All 64 pad input indices, remaining button press/release pairs, and SHIFT+ALT held together. Only corner-pad indices and the listed controls were checked systematically.
 - A sustained mixed-input/output run to check for stalls or missed events. The short post-batching Circuit session is useful evidence, but is not an extended load test.
 

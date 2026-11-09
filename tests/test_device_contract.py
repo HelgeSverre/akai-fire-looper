@@ -145,6 +145,9 @@ class TestDeviceContract(unittest.TestCase):
             "ROTARY_SELECT",
             "RECTANGLE_LED_HIGH_RED",
             "LED_HIGH_GREEN",
+            "DUAL_COLOR_BUTTON_IDS",
+            "DUAL_LED_BRIGHT_PRIMARY",
+            "DUAL_LED_BRIGHT_AMBER",
             "NOTE_ON",
             "NOTE_OFF",
             "CC",
@@ -252,6 +255,8 @@ class TestDeviceContract(unittest.TestCase):
                     self.assertIs(fire.clear_all_pads(), True)
                     self.assertIs(fire.clear_all_button_leds(), True)
                     self.assertIs(fire.clear_all_track_leds(), True)
+                    self.assertIs(fire.clear_control_bank_leds(), True)
+                    self.assertIs(fire.clear_all(), True)
             finally:
                 fire.close()
 
@@ -270,6 +275,54 @@ class TestDeviceContract(unittest.TestCase):
                             fire.set_pad_color(bad_index, 0, 0, 0)
                     with self.assertRaises(InvalidParameterError):
                         fire.set_button_led(0x77, 1)  # not an LED button
+            finally:
+                fire.close()
+
+    def test_dual_button_values_and_single_button_clamping(self):
+        dual = (
+            C.BUTTON_STEP,
+            C.BUTTON_NOTE,
+            C.BUTTON_DRUM,
+            C.BUTTON_PERFORM,
+            C.BUTTON_SHIFT,
+            C.BUTTON_REC,
+            C.BUTTON_PATTERN,
+            C.BUTTON_PLAY,
+        )
+        for name, _cls, factory in _IMPLS:
+            fire = factory()
+            try:
+                for button in (*dual, C.BUTTON_STOP, C.BUTTON_SOLO_1, C.BUTTON_BROWSER):
+                    for value in (-1, 0, 1, 2, 3, 4, 127):
+                        with self.subTest(impl=name, button=button, value=value):
+                            fire.set_button_led(button, value)
+                            if hasattr(fire, "process_events"):
+                                fire.process_events()
+                            expected = max(0, min(4 if button in dual else 2, value))
+                            if isinstance(fire, AkaiFire):
+                                self.assertEqual(
+                                    fire.midi_out.messages[-1], [0xB0, button, expected]
+                                )
+                            else:
+                                self.assertEqual(fire.button_leds[button], expected)
+            finally:
+                fire.close()
+
+    def test_bank_clear_uses_explicit_all_off_not_channel_selector(self):
+        for name, _cls, factory in _IMPLS:
+            fire = factory()
+            try:
+                with self.subTest(impl=name):
+                    fire.set_control_bank_leds(C.CONTROL_BANK_ALL_ON)
+                    fire.clear_control_bank_leds()
+                    if hasattr(fire, "process_events"):
+                        fire.process_events()
+                    if isinstance(fire, AkaiFire):
+                        self.assertEqual(fire.midi_out.messages[-1], [0xB0, 0x1B, 0x10])
+                    else:
+                        self.assertEqual(
+                            fire.control_bank_state, C.CONTROL_BANK_ALL_OFF
+                        )
             finally:
                 fire.close()
 

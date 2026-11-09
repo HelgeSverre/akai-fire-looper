@@ -760,14 +760,15 @@ class AkaiFire(AkaiFireDevice):
         return self.reset_pads(*color)
 
     def set_button_led(self, button_id: int, value: int) -> bool:
-        """Set button LED state with validation."""
+        """Send a raw LED value: 0–4 for two-color buttons, 0–2 for others."""
         if button_id not in self.BUTTON_LED_IDS:
             raise InvalidParameterError(
                 f"Invalid button ID: {button_id}. "
                 f"Valid buttons: {sorted(self.BUTTON_LED_IDS)}"
             )
 
-        value = max(0, min(2, value))
+        maximum = 4 if button_id in self.DUAL_COLOR_BUTTON_IDS else 2
+        value = max(0, min(maximum, value))
         message = [self.CC, button_id, value]
         return self._send_midi_safe(message)
 
@@ -795,7 +796,7 @@ class AkaiFire(AkaiFireDevice):
         """Set track LED (1-4) with validation.
 
         ``value`` is a RECTANGLE_LED_* constant (0-4) — note the wider
-        range than button LEDs (0-2).
+        range than single-color button LEDs (0-2).
         """
         if not (1 <= track_number <= 4):
             logger.warning(f"Invalid track number: {track_number}")
@@ -809,7 +810,7 @@ class AkaiFire(AkaiFireDevice):
 
     def clear_control_bank_leds(self) -> bool:
         """Clear control bank LEDs."""
-        return self.set_control_bank_leds(0)
+        return self.set_control_bank_leds(self.CONTROL_BANK_ALL_OFF)
 
     def set_control_bank_leds(self, state: int) -> bool:
         """Set control bank LED state."""

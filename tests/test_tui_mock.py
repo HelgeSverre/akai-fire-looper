@@ -129,7 +129,7 @@ class TestTuiMockScaffold(unittest.TestCase):
         self.assertEqual(self.fire.pad_colors[0], [0, 0, 0])
         self.assertEqual(self.fire.button_leds, {})
         self.assertEqual(self.fire.track_leds, [0, 0, 0, 0])
-        self.assertEqual(self.fire.control_bank_state, 0)
+        self.assertEqual(self.fire.control_bank_state, self.fire.CONTROL_BANK_ALL_OFF)
 
     # -- OLED canvas --------------------------------------------------
 

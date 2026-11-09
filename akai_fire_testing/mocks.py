@@ -584,7 +584,7 @@ class MockAkaiFire(AkaiFireDevice):
         self.pad_colors: List[Tuple[int, int, int]] = [(0, 0, 0)] * 64
         self.button_leds: Dict[int, int] = {}
         self.track_leds: Dict[int, int] = {}
-        self.control_bank_state = 0
+        self.control_bank_state = self.CONTROL_BANK_ALL_OFF
 
         # Event history for assertions
         self.pad_events: List[PadEvent] = []
@@ -735,7 +735,8 @@ class MockAkaiFire(AkaiFireDevice):
                 f"Invalid button ID: {button_id}. "
                 f"Valid buttons: {sorted(self.BUTTON_LED_IDS)}"
             )
-        value = max(0, min(2, value))
+        maximum = 4 if button_id in self.DUAL_COLOR_BUTTON_IDS else 2
+        value = max(0, min(maximum, value))
         self.button_leds[button_id] = value
         self.button_events.append(ButtonEvent(button_id, value))
         return True
@@ -777,7 +778,7 @@ class MockAkaiFire(AkaiFireDevice):
 
     def clear_control_bank_leds(self) -> bool:
         """Clear control bank LEDs."""
-        return self.set_control_bank_leds(0)
+        return self.set_control_bank_leds(self.CONTROL_BANK_ALL_OFF)
 
     def clear_all(self) -> bool:
         """Clear all LEDs and pads."""

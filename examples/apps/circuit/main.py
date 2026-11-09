@@ -192,12 +192,16 @@ class CircuitSequencer(AkaiFireApp):
 
         # Set LEDs based on state
         if state == TransportState.PLAYING:
-            self.fire.set_button_led(self.fire.BUTTON_PLAY, 2)  # Bright green
+            self.fire.set_button_led(
+                self.fire.BUTTON_PLAY, self.fire.DUAL_LED_BRIGHT_PRIMARY
+            )  # Bright green
         elif state == TransportState.RECORDING:
-            self.fire.set_button_led(self.fire.BUTTON_REC, 2)  # Bright red
+            self.fire.set_button_led(
+                self.fire.BUTTON_REC, self.fire.DUAL_LED_BRIGHT_PRIMARY
+            )  # Bright red
             self.fire.set_button_led(self.fire.BUTTON_PLAY, 1)  # Dim green
         else:  # STOPPED
-            self.fire.set_button_led(self.fire.BUTTON_STOP, 1)  # Dim red
+            self.fire.set_button_led(self.fire.BUTTON_STOP, 1)  # Dim amber
 
     def _update_track_leds(self):
         """Update track LEDs to show selected track."""

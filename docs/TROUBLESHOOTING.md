@@ -44,7 +44,7 @@ Blanking at shutdown is separate: the hardware context manager clears the displa
 
 ## Pads look dim or nearly white in the mock
 
-Pad channels use the full MIDI range 0–127. Values such as `(3, 0, 0)` are very dim; `(127, 0, 0)` is full red. Run `uv run python -m examples.pads_color_cycle` to check the three primary colors. Button brightness values 0–2 are a different API; the button itself determines its hue.
+Pad channels use the full MIDI range 0–127. Values such as `(3, 0, 0)` are very dim; `(127, 0, 0)` is full red. Run `uv run python -m examples.pads_color_cycle` to check the three primary colors. Button LEDs use a different mapping: single-color buttons take 0–2; two-color buttons use 1/3 for dim/bright primary color and 2/4 for dim/bright amber. Use `DUAL_LED_BRIGHT_PRIMARY` for bright green PLAY or bright red REC. See [button LED values](DEVICE.md#button-leds).
 
 ## Circuit is silent
 

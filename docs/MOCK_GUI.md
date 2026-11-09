@@ -22,7 +22,7 @@ and the top-panel diagram on page 4 of [Akai's user guide](https://cdn.inmusicbr
 | Top controls | Bank indicators, four encoders, pattern arrows, OLED, Browser, Select, grid arrows |
 | Left edge | Four round mute/solo buttons and narrow rectangular track LEDs aligned with pad rows |
 | Bottom controls | Modes and modifiers on the left; Pattern/Song and transport on the right |
-| LEDs | Green Play/solo, red Record/navigation, yellow modes; track LEDs support both red and green brightness levels |
+| LEDs | Two-color buttons show primary red/green at values 1/3 and amber at 2/4; single-color buttons use dim/bright values 1/2. Track LEDs support red and green brightness levels. |
 | OLED | All 128 × 64 pixels displayed at native resolution, light text on a dark face |
 
 The OLED is slightly larger relative to the panel than in the photograph so its

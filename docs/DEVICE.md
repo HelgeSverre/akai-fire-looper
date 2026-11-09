@@ -68,12 +68,27 @@ fire.get_pad_row(16)  # 2  (one-indexed)
 ### Button LEDs
 
 ```python
-fire.set_button_led(fire.BUTTON_PLAY, fire.LED_HIGH_GREEN)
+fire.set_button_led(fire.BUTTON_PLAY, fire.DUAL_LED_BRIGHT_PRIMARY)  # green
+fire.set_button_led(fire.BUTTON_PLAY, fire.DUAL_LED_BRIGHT_AMBER)
 fire.set_button_led(fire.BUTTON_PLAY, fire.LED_OFF)
 fire.clear_all_button_leds()
 ```
 
-Button values select brightness, not hue: `LED_OFF` is 0, all `LED_DULL_*` aliases are 1, and all `LED_HIGH_*` aliases are 2. The physical button determines the color. For example, `LED_HIGH_RED` on PLAY still lights its green LED.
+Button values depend on the button. The following mapping was checked on a physical Fire:
+
+| Buttons | 1 | 2 | 3 | 4 |
+| --- | --- | --- | --- | --- |
+| STEP, NOTE, DRUM, PERFORM, SHIFT, REC | Dim red | Dim amber | Bright red | Bright amber |
+| PATTERN, PLAY | Dim green | Dim amber | Bright green | Bright amber |
+| PATTERN UP/DOWN, GRID LEFT/RIGHT, BROWSER | Dim red | Bright red | — | — |
+| SOLO 1–4 | Dim green | Bright green | — | — |
+| ALT, STOP | Dim amber | Bright amber | — | — |
+
+Zero turns a button off. The two-color buttons are listed in `DUAL_COLOR_BUTTON_IDS`; use `DUAL_LED_DIM_PRIMARY` (1), `DUAL_LED_DIM_AMBER` (2), `DUAL_LED_BRIGHT_PRIMARY` (3), or `DUAL_LED_BRIGHT_AMBER` (4). The setter clamps their values to 0–4 and other buttons to 0–2. SELECT/BANK remain accepted addresses, but no separate physical LED behavior is established here.
+
+Legacy `LED_DULL_*` aliases remain 1 and `LED_HIGH_*` aliases remain 2 for compatibility. They are brightness aliases for single-color buttons, not universal color selectors. In particular, `LED_HIGH_GREEN` on PLAY means **dim amber**; migrate that call to `DUAL_LED_BRIGHT_PRIMARY` for bright green. See the [hardware observations](HARDWARE_VERIFICATION.md) for differences from external protocol tables.
+
+All mocks preserve the same raw LED values and ranges. The terminal mock renders button LEDs as lit/unlit indicators; use pygame or hardware to inspect hue and brightness.
 
 ### Track LEDs
 
@@ -97,6 +112,8 @@ fire.clear_control_bank_leds()
 ```
 
 Note: `CONTROL_BANK_USER2` is a documented hardware exception (`0x03`, not `FIELD_BASE | FIELD_USER2`) — use the predefined constant.
+
+Clearing sends `CONTROL_BANK_ALL_OFF` (`0x10`). Raw value `0x00` selects CHANNEL on the tested Fire; it does not clear the bank indicators. A field mask must include `FIELD_BASE`.
 
 ### Everything at once
 
@@ -356,6 +373,8 @@ Button IDs: `BUTTON_PLAY`, `BUTTON_STOP`, `BUTTON_REC`, `BUTTON_PATTERN`, `BUTTO
 Rotaries: `ROTARY_VOLUME`, `ROTARY_PAN`, `ROTARY_FILTER`, `ROTARY_RESONANCE`, `ROTARY_SELECT`
 
 Button LEDs: `LED_OFF`, `LED_DULL_RED`, `LED_HIGH_RED`, `LED_DULL_GREEN`, `LED_HIGH_GREEN`, `LED_DULL_YELLOW`, `LED_HIGH_YELLOW`
+
+Two-color button LEDs: `DUAL_LED_DIM_PRIMARY`, `DUAL_LED_DIM_AMBER`, `DUAL_LED_BRIGHT_PRIMARY`, `DUAL_LED_BRIGHT_AMBER`; button membership: `DUAL_COLOR_BUTTON_IDS`.
 
 Track LEDs: `RECTANGLE_LED_OFF` (0), `RECTANGLE_LED_DULL_RED` (1), `RECTANGLE_LED_DULL_GREEN` (2), `RECTANGLE_LED_HIGH_RED` (3), `RECTANGLE_LED_HIGH_GREEN` (4)
 

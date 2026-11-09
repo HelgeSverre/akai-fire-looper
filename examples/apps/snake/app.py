@@ -59,14 +59,15 @@ class SnakeApp(AkaiFireApp):
             self.fire.set_button_led(button, 2 if value == direction else 0)
         self.fire.set_button_led(
             self.fire.BUTTON_PLAY,
-            2
+            self.fire.DUAL_LED_BRIGHT_PRIMARY
             if self.game.state == State.RUNNING
             else 1
             if self.game.state == State.PAUSED
             else 0,
         )
         self.fire.set_button_led(
-            self.fire.BUTTON_REC, 2 if self.game.state == State.OVER else 0
+            self.fire.BUTTON_REC,
+            self.fire.DUAL_LED_BRIGHT_PRIMARY if self.game.state == State.OVER else 0,
         )
 
     def _draw_pads(self):
