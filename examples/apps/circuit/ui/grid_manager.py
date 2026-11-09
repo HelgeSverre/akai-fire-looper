@@ -213,10 +213,12 @@ class GridManager:
                     # Disabled track
                     brightness = self.BRIGHTNESS["dim"]
 
-                if track_info.get("soloed", False):
-                    color = self.STATE_COLORS["soloed"]
-                elif not track_info.get("enabled", True):
+                if track_info.get("muted", False) or not track_info.get(
+                    "enabled", True
+                ):
                     color = self.STATE_COLORS["muted"]
+                elif track_info.get("soloed", False):
+                    color = self.STATE_COLORS["soloed"]
                 else:
                     color = tuple(c * brightness // 127 for c in track_color)
             else:
@@ -336,10 +338,12 @@ class GridManager:
                 track_info = tracks[i]
                 track_color = self.TRACK_COLORS[i]
 
-                if track_info.get("soloed", False):
-                    color = self.STATE_COLORS["soloed"]
-                elif not track_info.get("enabled", True):
+                if track_info.get("muted", False) or not track_info.get(
+                    "enabled", True
+                ):
                     color = self.STATE_COLORS["muted"]
+                elif track_info.get("soloed", False):
+                    color = self.STATE_COLORS["soloed"]
                 else:
                     brightness = self.BRIGHTNESS["medium"]
                     color = tuple(c * brightness // 127 for c in track_color)

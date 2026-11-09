@@ -83,11 +83,11 @@ class ScreenManager(ScreenMixin):
         for index, track in enumerate(status.get("tracks", [])[:4]):
             y = self.CONTENT_START + index * self.LINE_HEIGHT
             flag = (
-                "S"
+                "-"
+                if track.get("muted", False) or not track.get("enabled", True)
+                else "S"
                 if track.get("soloed")
                 else "+"
-                if track.get("enabled", True)
-                else "-"
             )
             # Keep channel and activity visible even when track names are long.
             name = Canvas.fit_text(track.get("name", f"T{index + 1}"), 40)

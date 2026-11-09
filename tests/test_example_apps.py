@@ -360,6 +360,28 @@ class CircuitContracts(unittest.TestCase):
         self.addCleanup(sequencer.cleanup)
         return sequencer
 
+    def test_mixer_mute_pad_updates_status_oled_and_pad_color(self):
+        fire = MockAkaiFire()
+        with CircuitSequencer(fire) as app:
+            fire.simulate_button_press(fire.BUTTON_DRUM)
+            app.on_update(0.04)
+            normal = fire.pad_colors[16]
+            other_tracks = list(fire.pad_colors[17:20])
+            for muted, marker in ((True, "-"), (False, "+")):
+                fire.simulate_pad_press(16, 100)
+                app.on_update(0.04)
+                self.assertEqual(app.sequencer.tracks[0].muted, muted)
+                self.assertEqual(
+                    app.sequencer.get_status()["tracks"][0]["muted"], muted
+                )
+                labels = [text for text, _, _ in app.canvas.text_drawn]
+                self.assertIn(f"{marker}1 Drums", labels)
+                self.assertEqual(
+                    fire.pad_colors[16],
+                    app.grid_manager.STATE_COLORS["muted"] if muted else normal,
+                )
+                self.assertEqual(fire.pad_colors[17:20], other_tracks)
+
     def test_scheduled_gate_and_stop_cancel_delayed_note(self):
         seq = self.make_sequencer()
         with patch(

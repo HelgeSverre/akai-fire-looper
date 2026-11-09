@@ -621,6 +621,7 @@ class Sequencer:
                 {
                     "name": track.name,
                     "enabled": track.enabled,
+                    "muted": track.muted,
                     "soloed": track.soloed,
                     "midi_channel": track.midi_channel,
                     "current_pattern": track.current_pattern + 1,
