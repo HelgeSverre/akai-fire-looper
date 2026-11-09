@@ -34,7 +34,18 @@ class TutorialDocsTests(unittest.TestCase):
                         )
                     source = dedent(
                         "\n".join(
-                            source.splitlines()[node.lineno - 1 : node.end_lineno]
+                            source.splitlines()[
+                                min(
+                                    [
+                                        node.lineno,
+                                        *[
+                                            d.lineno
+                                            for d in getattr(node, "decorator_list", [])
+                                        ],
+                                    ]
+                                )
+                                - 1 : node.end_lineno
+                            ]
                         )
                     )
                 self.assertEqual(

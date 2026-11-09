@@ -1,6 +1,6 @@
 # Pixel editor
 
-A complete app for the [building-an-application tutorial](../../../docs/BUILDING_AN_APP.md). Paint a 16×4 color picture on the pads, preview occupied pixels on the OLED, and save/load JSON. It uses `AkaiFireApp`, `ScreenMixin` and `EncoderMenu`.
+A complete app for the [building-an-application tutorial](../../../docs/BUILDING_AN_APP.md). Paint a 16×4 color picture on the pads, preview occupied pixels on the OLED, and save/load JSON. It uses `AkaiFireApp`, `on` decorators, `ScreenMixin` and `EncoderMenu`. The framework owns input queueing, modifier snapshots and handler teardown.
 
 [![Painting and editing settings in the actual pygame app](../../../docs/images/pixel-editor.gif)](../../../docs/images/pixel-editor.png)
 
@@ -38,7 +38,7 @@ Save replaces `pixel-art.json` in the current directory unless `--file` specifie
 
 - [first_light.py](first_light.py): runnable first checkpoint, pad toggles and an OLED count.
 - [model.py](model.py): palette, picture operations, validated loading and temporary-file replacement on save.
-- [app.py](app.py): queued input, two views, menu and output rendering.
+- [app.py](app.py): declarative foreground handlers, two views, menu and output rendering.
 - [__main__.py](__main__.py): explicit backend selection and controller ownership.
 - [tests](../../../tests/test_pixel_editor.py): interaction, persistence, layout and lifecycle checks.
 

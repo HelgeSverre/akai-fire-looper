@@ -141,7 +141,7 @@ class PixelEditorTests(unittest.TestCase):
         self.addCleanup(self.app.shutdown)
 
     def frame(self):
-        self.app.on_update(1 / 30)
+        self.app.tick(1 / 30)
 
     def press(self, button):
         self.fire.simulate_button_press(button)
@@ -347,15 +347,16 @@ class PixelEditorTests(unittest.TestCase):
     def test_first_checkpoint_queues_toggles_and_stops(self):
         with MockAkaiFire() as fire, FirstLight(fire) as app:
             app.on_start()
-            app.on_update(0.04)
+            app.tick(0.04)
             self.assertIn("Lit pads: 0", [text for text, _, _ in app.canvas.text_drawn])
             fire.simulate_pad_press(7)
             self.assertEqual(app.lit, set())
-            app.on_update(0.04)
+            app.tick(0.04)
             fire.assert_pad_color(7, (0, 100, 0))
             fire.simulate_pad_press(7)
-            app.on_update(0.04)
+            app.tick(0.04)
             fire.assert_pad_color(7, (0, 0, 0))
             app.running = True
             fire.simulate_button_press(fire.BUTTON_STOP)
+            app.tick(0.04)
             self.assertFalse(app.running)

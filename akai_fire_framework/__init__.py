@@ -11,13 +11,14 @@ This framework provides composable building blocks for creating AKAI Fire apps:
 - TransportMixin: Transport state management (play/stop/record)
 
 Basic usage:
-    from akai_fire_framework import AkaiFireApp
+    from akai_fire_framework import AkaiFireApp, on
 
     class MyApp(AkaiFireApp):
         APP_NAME = "My App"
 
-        def on_pad_press(self, pad, velocity):
-            self.fire.set_pad_color(pad, 0, 127, 0)
+        @on.pad()
+        def paint(self, event):
+            self.fire.set_pad_color(event.pad, 0, 127, 0)
 
     if __name__ == "__main__":
         with MyApp() as app:
@@ -34,22 +35,27 @@ With mixins:
 """
 
 from .app import AkaiFireApp
+from .events import ButtonEvent, EncoderEvent, PadEvent, on
+from .grid import GridMixin
 from .menu import EncoderMenu, MenuItem
 from .mode import ModeHandler, ModeManagerMixin
 from .screen import ScreenMixin
-from .grid import GridMixin
 from .transport import TransportMixin, TransportState
 
 __all__ = [
     "AkaiFireApp",
+    "ButtonEvent",
+    "EncoderEvent",
     "EncoderMenu",
+    "GridMixin",
     "MenuItem",
     "ModeHandler",
     "ModeManagerMixin",
+    "PadEvent",
     "ScreenMixin",
-    "GridMixin",
     "TransportMixin",
     "TransportState",
+    "on",
 ]
 
 __version__ = "0.1.0"

@@ -19,6 +19,7 @@ Names describe the device feature: `pads_*`, `oled_*`, `events_*`, `leds_*`, `mi
 
 | Module | Purpose and status |
 | --- | --- |
+| `apps.firestorm` | [Particle instrument](apps/firestorm/README.md). Fireworks, ripples and orbit scenes with decorator-based input and optional computer audio. Defaults to pygame. |
 | `apps.pixel_editor` | [Tutorial app](apps/pixel_editor/README.md). Color painting, shared pad/OLED state, SELECT editing and JSON save/load. Defaults to pygame; hardware requires `--hardware`. |
 | `apps.circuit` | [Four-track sequencer](apps/circuit/README.md). Real MIDI output/recording, explicit ports; timing limitations documented. |
 | `apps.synth_editor` | [JT-4000 CC editor](apps/synth_editor/README.md). Parameter pages, OLED shapes, auditions, snapshots. Replaces the unfinished modular Groovebox. |

@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- App-level `on.pad`, `on.button` and `on.encoder` declarations, frozen modifier snapshots, bounded foreground dispatch and deterministic `tick(dt)` frames. Pixel Editor and its tutorial now use this API; legacy hooks retain their callback-thread behavior.
+- Firestorm particle instrument with three scenes, shared pad/OLED simulation, direct knob control and optional synthesized computer audio.
+
 - Pixel editor RGB brush levels on VOLUME/PAN/FILTER and global brightness on RESONANCE, with version-2 RGB snapshots and loading of original palette files.
 
 - End-to-end application tutorial with a runnable pixel editor, queued input, shared pad/OLED views, SELECT editing, JSON persistence and executable documentation checks.

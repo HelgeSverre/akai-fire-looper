@@ -15,25 +15,29 @@ from functools import partial
 
 from akai_fire import get_akai_fire
 from akai_fire_framework._subscriptions import _EventSubscriptions
+from akai_fire_framework.events import ButtonEvent, EncoderEvent, PadEvent, _InputRouter
 
 
 class AkaiFireApp:
     """
     Base application class for AKAI Fire apps.
 
-    Subclass this to create your own app. Override the lifecycle hooks
-    and event handlers as needed.
+    Subclass this to create your own app. Use app decorators for foreground
+    input and override lifecycle hooks as needed.
 
     Example:
+        from akai_fire_framework import on
+
         class MyApp(AkaiFireApp):
             APP_NAME = "My App"
 
             def on_init(self):
                 self.counter = 0
 
-            def on_pad_press(self, pad, velocity):
+            @on.pad()
+            def paint(self, event):
                 self.counter += 1
-                self.fire.set_pad_color(pad, 0, 127, 0)
+                self.fire.set_pad_color(event.pad, 0, 127, 0)
                 self.canvas.clear()
                 self.canvas.draw_text(f"Count: {self.counter}", 30, 30)
 
@@ -47,6 +51,8 @@ class AkaiFireApp:
     FPS: int = 30
     APP_NAME: str = "AKAI Fire App"
     VERSION: str = "1.0"
+    INPUT_QUEUE_SIZE: int = 1024
+    INPUTS_PER_FRAME: int = 64
 
     def __init__(self, fire=None):
         """
@@ -63,13 +69,21 @@ class AkaiFireApp:
         self._last_update_time = 0.0
         self._shutdown = False
         self._event_subscriptions = _EventSubscriptions()
+        self._input_router = None
+        self._ticking = False
+        self._quit_requested = False
 
         # User state must exist before decorators start MIDI polling.
         try:
             self.canvas = self.fire.get_canvas()
             self.on_init()
+            if type(self.INPUTS_PER_FRAME) is not int or self.INPUTS_PER_FRAME <= 0:
+                raise ValueError("INPUTS_PER_FRAME must be a positive integer")
+            self._input_router = _InputRouter(self, self.INPUT_QUEUE_SIZE)
             self._setup_event_handlers()
         except Exception:
+            if self._input_router is not None:
+                self._input_router.close()
             try:
                 self._event_subscriptions.close()
             finally:
@@ -84,24 +98,68 @@ class AkaiFireApp:
                 (
                     self.fire.on_pad(),
                     self.fire.remove_global_listener,
-                    lambda pad, velocity: (
-                        self.on_pad_press(pad, velocity) if velocity > 0 else None
-                    ),
+                    self._receive_pad,
                 ),
                 (
                     self.fire.on_button(),
                     partial(self.fire.remove_button_listener, "global"),
-                    lambda button, event: self.on_button_press(button, event),
+                    self._receive_button,
                 ),
                 (
                     self.fire.on_rotary_turn(),
                     partial(self.fire.remove_rotary_listener, "global"),
-                    lambda encoder, direction, velocity: self.on_encoder_turn(
-                        encoder, direction, velocity
-                    ),
+                    self._receive_encoder,
                 ),
             ]
         )
+
+    def _modifiers(self):
+        return self.fire.is_shift_pressed(), self.fire.is_alt_pressed()
+
+    def _legacy(self, name, *args):
+        method = getattr(self, name)
+        if not getattr(method, "__fire_bindings__", ()):
+            method(*args)
+
+    def _receive_pad(self, pad, velocity):
+        if velocity > 0:
+            self._input_router.enqueue(PadEvent(pad, velocity, *self._modifiers()))
+            self._legacy("on_pad_press", pad, velocity)
+
+    def _receive_button(self, button, action):
+        self._input_router.enqueue(ButtonEvent(button, action, *self._modifiers()))
+        self._legacy("on_button_press", button, action)
+
+    def _receive_encoder(self, encoder, direction, velocity):
+        delta = velocity if direction == "clockwise" else -velocity
+        self._input_router.enqueue(EncoderEvent(encoder, delta, *self._modifiers()))
+        self._legacy("on_encoder_turn", encoder, direction, velocity)
+
+    def tick(self, dt):
+        """Deliver queued declarations, update state and render one frame.
+
+        Call on the same foreground thread as run(). Tests may call tick()
+        directly after on_start(). Legacy hooks retain device-thread delivery.
+        """
+        if self._shutdown:
+            raise RuntimeError("Application has shut down")
+        if not math.isfinite(dt) or dt < 0:
+            raise ValueError("dt must be finite and non-negative")
+        if self._ticking:
+            raise RuntimeError("Application frame is already active")
+        self._ticking = True
+        try:
+            self._input_router.drain(
+                self.INPUTS_PER_FRAME, lambda: self._quit_requested
+            )
+            if self._quit_requested:
+                return
+            if not self._shutdown:
+                self.on_update(dt)
+            if not self._shutdown:
+                self.fire.render_to_display()
+        finally:
+            self._ticking = False
 
     # =========================================================================
     # Lifecycle Hooks (override in subclass)
@@ -183,6 +241,7 @@ class AkaiFireApp:
         if self.running:
             raise RuntimeError("Application is already running")
         self.running = True
+        self._quit_requested = False
         try:
             self._show_startup_screen()
             # The banner must not erase the application's initial display.
@@ -198,8 +257,7 @@ class AkaiFireApp:
 
                 # Update at configured FPS
                 if dt >= 1.0 / self.FPS:
-                    self.on_update(dt)
-                    self.fire.render_to_display()
+                    self.tick(dt)
                     self._last_update_time = current_time
 
                 # Process mock events if in mock mode
@@ -232,6 +290,8 @@ class AkaiFireApp:
             return
         self._shutdown = True
         self.running = False
+        if self._input_router is not None:
+            self._input_router.close()
         try:
             try:
                 self._event_subscriptions.close()
@@ -271,4 +331,5 @@ class AkaiFireApp:
 
     def quit(self):
         """Request the application to stop."""
+        self._quit_requested = True
         self.running = False

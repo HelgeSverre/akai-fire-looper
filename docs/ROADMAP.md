@@ -7,7 +7,7 @@ those APIs and demonstrate patterns for users to build on.
 ## Available building blocks
 
 - Driver and mocks share device callbacks, LED operations and canvas rendering.
-- The app framework owns lifecycle, input subscriptions, frame timing and shutdown.
+- The app framework owns lifecycle, declarative foreground input, modifier snapshots, frame timing and shutdown.
 - Optional modes, screen/grid helpers and transport state are available.
 - Headless mocks support simulated input and assertions about controller/MIDI output.
 - Interactive pygame and terminal mocks support development from a checkout.
@@ -15,11 +15,10 @@ those APIs and demonstrate patterns for users to build on.
 
 ## Library and framework priorities
 
-1. Foreground input dispatch with consistent ordering across hardware and mocks.
-2. Pad-release events with parity across controller implementations.
-3. Disconnect notifications and explicit application recovery hooks.
-4. A small ownership API for app-created resources and subscriptions.
-5. Broader physical-hardware validation of device behavior and mock parity.
+1. Pad-release events with parity across controller implementations.
+2. Disconnect notifications and explicit application recovery hooks.
+3. A small ownership API for app-created resources and subscriptions.
+4. Broader physical-hardware validation of device behavior and mock parity.
 
 ## Example-app follow-ups
 

@@ -19,59 +19,54 @@ Mixins add modes, screen layouts, grid helpers and transport state as needed. Th
 
 The base renders the canvas after each update and handles pygame events on the foreground thread. It removes the subscriptions it created. Removal errors are reported after every owned handler has been disabled/attempted; app stop and controller cleanup still run. If you pass `fire=...`, you own that controller and must close it yourself. Without an injected controller, the app owns and closes the connection. The app clears controller LEDs and renders a goodbye screen on shutdown, including when the controller was borrowed.
 
-Resources acquired inside `on_init()` need local rollback if initialization fails. `on_stop()` is not a constructor rollback hook. App-created raw `fire.on_*` subscriptions also need explicit removal; prefer the base event hooks for ordinary input.
+Resources acquired inside `on_init()` need local rollback if initialization fails. `on_stop()` is not a constructor rollback hook. App-created raw `fire.on_*` subscriptions also need explicit removal; prefer app decorators for ordinary input.
 
-## Input
+## Declarative input
 
 ```python
-from akai_fire_framework import AkaiFireApp
+from akai_fire.constants import BUTTON_STOP, ROTARY_SELECT
+from akai_fire_framework import AkaiFireApp, on
 
 
 class MyApp(AkaiFireApp):
-    def on_pad_press(self, pad, velocity):
-        # Only positive-velocity presses reach this hook.
-        self.fire.set_pad_color(pad, 0, velocity, 0)
+    @on.pad()
+    def paint(self, event):
+        self.fire.set_pad_color(event.pad, 0, event.velocity, 0)
 
-    def on_button_press(self, button_id, event):
-        if event == "press" and button_id == self.fire.BUTTON_STOP:
-            self.quit()
+    @on.button(BUTTON_STOP)
+    def stop(self, event):
+        self.quit()
 
-    def on_encoder_turn(self, encoder_id, direction, velocity):
-        delta = velocity if direction == "clockwise" else -velocity
-        print(encoder_id, delta)
+    @on.encoder(ROTARY_SELECT)
+    def turn(self, event):
+        print(event.delta, event.shift)
 ```
 
-Hardware callbacks normally run on the driver's executor, while `on_update()` runs on the foreground thread. Protect shared compound state with a lock or put events in your own queue. Setting `async_handlers=False` executes callbacks on the MIDI polling thread, **not** the frame thread. Mocks usually dispatch inline, so a passing mock test alone does not prove thread safety.
+These decorators attach metadata to instance methods. The framework binds them after `on_init()`; no connection or subscription is created at import time. Device callbacks enqueue frozen events. `tick(dt)` dispatches them on the foreground thread, calls `on_update(dt)`, then renders the OLED. `run()` uses that same tick path.
 
-The hardware driver currently exposes pad presses, not pad releases. Use bounded auditions when driving a synth, as in [the editor](../examples/apps/synth_editor/midi.py), rather than starting indefinitely held notes. Button press/release and encoder turns are available; rotary-touch callbacks are available through the driver.
+| Declaration | Filter | Event fields |
+| --- | --- | --- |
+| `@on.pad()` | Positive-velocity presses; all pads by default | `pad`, `velocity`, `shift`, `alt` |
+| `@on.button()` | Presses by default; `action="release"` or `action=None` for both edges | `button`, `action`, `shift`, `alt` |
+| `@on.encoder()` | All encoder turns by default | `encoder`, signed `delta`, `shift`, `alt` |
 
-For state that belongs to the frame thread, enqueue input and draw from `on_update()`. Capture modifier state inside the callback, where it belongs to that event:
+Pass one control ID or an iterable to select controls. All decorators accept `shift=True/False` and `alt=True/False`; omitted modifiers do not filter. Snapshots retain modifier state from the original input event. A selected-control handler still receives the same one-event signature. `PadEvent`, `ButtonEvent` and `EncoderEvent` are exported for type annotations.
 
-```python
-from queue import Empty, SimpleQueue
-from akai_fire_framework import AkaiFireApp
+All matching methods run. Stacked matching decorators on the same method call it only once per event. Discovery follows the Python MRO, with derived-class methods first and definition order within each class. An override replaces a base handler; an undecorated override removes its declaration. Each app has separate bindings and queued input.
 
+`INPUT_QUEUE_SIZE` defaults to 1024 matching events; `INPUTS_PER_FRAME` defaults to 64. Both must be positive integers. Input beyond capacity latches an error, raised by the next tick before dispatch; shutdown and create a new app after overflow. There is no silent dropping or automatic recovery. Exceptions from decorated handlers propagate just like `on_update()` exceptions; `run()` always shuts down in its `finally` block. A manual caller of `tick()` must use an app context manager or handle shutdown itself. `quit()` or `shutdown()` inside a handler prevents further handlers and update work in that frame.
 
-class PadLog(AkaiFireApp):
-    def on_init(self):
-        self.inputs = SimpleQueue()
-        self.last = "Press a pad"
+Use `tick(dt)` on the foreground thread; recursive frames are rejected. It accepts finite, nonnegative elapsed seconds. For deterministic tests, call `on_start()` once, simulate input, and call `tick(dt)`. Closing the app rejects late input, discards queued events and removes its subscriptions. Injected controllers remain borrowed.
 
-    def on_pad_press(self, pad, velocity):
-        self.inputs.put((pad, self.fire.is_shift_pressed()))
+The queue preserves callback arrival order. Inject `AkaiFire(max_workers=1)` when strict hardware input ordering matters; a multi-worker driver can reorder callbacks before they reach the queue. The Pixel Editor and Firestorm hardware launchers use one worker.
 
-    def on_update(self, dt):
-        for _ in range(64):  # Leave time to render during a burst of input.
-            try:
-                pad, shifted = self.inputs.get_nowait()
-            except Empty:
-                break
-            self.last = f"Pad {pad}" + (" + SHIFT" if shifted else "")
-        self.canvas.clear()
-        self.canvas.draw_text_fitted(self.last, 4, 24)
-```
+### Legacy hooks and raw decorators
 
-This queue transfers state safely to the frame thread; it does not reorder concurrently dispatched hardware callbacks. Inject a controller configured with `max_workers=1` if FIFO dispatch is required. For a model protected by a lock and rendered through two views, see [Snake](../examples/apps/snake/README.md).
+Existing `on_pad_press(pad, velocity)`, `on_button_press(button, action)` and `on_encoder_turn(encoder, direction, velocity)` overrides retain immediate delivery on the device callback thread. They are not foreground-safe merely because the app now supports decorators. Apps using these hooks must keep their own synchronization. If one of these method names is itself decorated, it uses only the declared event signature and queued path.
+
+Raw `@fire.on_pad()` and related driver decorators remain useful outside the app runtime. App-created raw subscriptions require explicit removal. Setting `async_handlers=False` runs raw callbacks on the MIDI polling thread, not the frame thread. Mixing legacy hooks and separate decorated methods can execute both for an event; prefer one style for each behavior.
+
+The driver exposes pad presses, not pad releases. Use short timed notes for a synthesizer. Button edges and encoder turns are available through app decorators; rotary touch remains a driver API.
 
 ## Optional building blocks
 
@@ -94,7 +89,8 @@ Mode handlers receive encoder names after mixin mapping, while the base app rece
 `EncoderMenu` implements turn to navigate, press to edit, turn to adjust, and press again to finish. Circuit uses it for Settings. Changes apply live; finishing an edit does not roll them back.
 
 ```python
-from akai_fire_framework import AkaiFireApp, EncoderMenu, MenuItem
+from akai_fire.constants import BUTTON_SELECT, ROTARY_SELECT
+from akai_fire_framework import AkaiFireApp, EncoderMenu, MenuItem, on
 
 
 class TempoMenu(AkaiFireApp):
@@ -110,13 +106,13 @@ class TempoMenu(AkaiFireApp):
     def adjust_tempo(self, delta):
         self.bpm = max(30, min(300, self.bpm + delta))
 
-    def on_encoder_turn(self, encoder_id, direction, velocity):
-        if encoder_id == self.fire.ROTARY_SELECT:
-            self.menu.turn(velocity if direction == "clockwise" else -velocity)
+    @on.encoder(ROTARY_SELECT)
+    def turn(self, event):
+        self.menu.turn(event.delta)
 
-    def on_button_press(self, button_id, event):
-        if button_id == self.fire.BUTTON_SELECT and event == "press":
-            self.menu.press()
+    @on.button(BUTTON_SELECT)
+    def press(self, event):
+        self.menu.press()
 
     def on_update(self, dt):
         label = self.menu.items[self.menu.selected_index].label
@@ -149,7 +145,9 @@ from akai_fire_testing import MockAkaiFire
 
 # MyApp is the class defined in the Input example above.
 with MockAkaiFire() as fire, MyApp(fire) as app:
+    app.on_start()
     fire.simulate_pad_press(3, 100)
+    app.tick(1 / 30)
     fire.assert_pad_color(3, (0, 100, 0))
     app.run(duration=0)
 ```
@@ -160,9 +158,8 @@ Use a separate fake instrument output for MIDI apps. Assert the emitted bytes, n
 
 For small controller tools, the foundation is enough. For larger applications, these are the most valuable missing capabilities:
 
-1. A foreground event queue with documented ordering and modifier snapshots. Today each app must handle cross-thread state itself.
-2. Public pad-release events with parity across hardware and mocks. This would enable held keyboards instead of timed auditions.
-3. Explicit disconnect/reconnect notifications and app recovery hooks. The driver can reconnect, but the app runtime has no recovery policy.
-4. A small owned-resource/subscription API for app-created workers and external MIDI. Current hooks cover cleanup, but acquisition rollback is manual.
+1. Public pad-release events with parity across hardware and mocks. This would enable held keyboards instead of timed auditions.
+2. Explicit disconnect/reconnect notifications and app recovery hooks. The driver can reconnect, but the app runtime has no recovery policy.
+3. A small owned-resource/subscription API for app-created workers and external MIDI. Current hooks cover cleanup, but acquisition rollback is manual.
 
 Configuration persistence, patch formats, musical clocks, MIDI routing, and synth profiles should stay with the applications until multiple real consumers justify a common module. Adding them to the base class now would make every simple app depend on music-specific policy.

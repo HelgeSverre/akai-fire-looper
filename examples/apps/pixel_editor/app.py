@@ -1,12 +1,23 @@
 """The tutorial app: one model, queued input, pads and a monochrome preview."""
 
-from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from queue import Empty, SimpleQueue
-from typing import Literal
 
-from akai_fire_framework import AkaiFireApp, EncoderMenu, MenuItem, ScreenMixin
+from akai_fire.constants import (
+    BUTTON_BROWSER,
+    BUTTON_GRID_LEFT,
+    BUTTON_GRID_RIGHT,
+    BUTTON_NOTE,
+    BUTTON_REC,
+    BUTTON_SELECT,
+    BUTTON_STOP,
+    ROTARY_FILTER,
+    ROTARY_PAN,
+    ROTARY_RESONANCE,
+    ROTARY_SELECT,
+    ROTARY_VOLUME,
+)
+from akai_fire_framework import AkaiFireApp, EncoderMenu, MenuItem, ScreenMixin, on
 
 from .model import BLACK, Picture
 
@@ -14,14 +25,6 @@ from .model import BLACK, Picture
 class View(Enum):
     DRAW = auto()
     SETTINGS = auto()
-
-
-@dataclass(frozen=True)
-class Input:
-    kind: Literal["pad", "button", "encoder"]
-    control: int
-    delta: int = 0
-    shifted: bool = False
 
 
 class PixelEditorApp(AkaiFireApp, ScreenMixin):
@@ -34,7 +37,6 @@ class PixelEditorApp(AkaiFireApp, ScreenMixin):
     def on_init(self):
         self.picture = Picture()
         self.view = View.DRAW
-        self.inputs: SimpleQueue[Input] = SimpleQueue()
         self.unsaved = False
         self.notice = ""
         self.notice_left = 0.0
@@ -50,18 +52,62 @@ class PixelEditorApp(AkaiFireApp, ScreenMixin):
             ]
         )
 
-    def on_pad_press(self, pad, velocity):
-        self.inputs.put(Input("pad", pad, shifted=self.fire.is_shift_pressed()))
+    @on.pad()
+    def paint(self, event):
+        if self.view == View.DRAW:
+            self.picture.paint(event.pad, erase=event.shift)
+            self.unsaved = True
+            self._dirty = True
 
-    def on_button_press(self, button_id, event):
-        if event == "press":
-            self.inputs.put(
-                Input("button", button_id, shifted=self.fire.is_shift_pressed())
-            )
+    @on.encoder((ROTARY_VOLUME, ROTARY_PAN, ROTARY_FILTER))
+    def mix_color(self, event):
+        channel = (ROTARY_VOLUME, ROTARY_PAN, ROTARY_FILTER).index(event.encoder)
+        before = self.picture.brush_color
+        self.picture.adjust_channel(channel, event.delta)
+        self.unsaved |= self.picture.brush_color != before
+        self._notify(self._rgb_label())
 
-    def on_encoder_turn(self, encoder_id, direction, velocity):
-        delta = velocity if direction == "clockwise" else -velocity
-        self.inputs.put(Input("encoder", encoder_id, delta=delta))
+    @on.encoder(ROTARY_RESONANCE)
+    def dim_picture(self, event):
+        self._adjust_brightness(event.delta)
+        self._notify(f"Brightness {self.picture.brightness}%")
+
+    @on.encoder(ROTARY_SELECT)
+    def turn_select(self, event):
+        if self.view == View.SETTINGS:
+            self.menu.turn(event.delta)
+        else:
+            self._adjust_color(event.delta)
+        self._dirty = True
+
+    @on.button(BUTTON_NOTE)
+    def show_picture(self, event):
+        self.menu.finish_editing()
+        self.view = View.DRAW
+        self._dirty = True
+
+    @on.button(BUTTON_SELECT)
+    def press_select(self, event):
+        if self.view == View.SETTINGS:
+            self.menu.press()
+        else:
+            self._toggle_view()
+        self._dirty = True
+
+    @on.button((BUTTON_GRID_LEFT, BUTTON_GRID_RIGHT))
+    def navigate(self, event):
+        delta = 1 if event.button == BUTTON_GRID_RIGHT else -1
+        if self.view == View.SETTINGS:
+            self.menu.move(delta, keep_editing=True)
+        else:
+            self._adjust_color(delta)
+        self._dirty = True
+
+    @on.button(BUTTON_STOP, shift=True)
+    def clear_picture(self, event):
+        self.picture.clear()
+        self.unsaved = True
+        self._notify("Picture cleared")
 
     def on_start(self):
         self.fire.clear_all()
@@ -73,64 +119,14 @@ class PixelEditorApp(AkaiFireApp, ScreenMixin):
             if not self.notice_left:
                 self.notice = ""
                 self._dirty = True
-        # Bound work per frame so an input burst cannot starve drawing.
-        for _ in range(64):
-            try:
-                event = self.inputs.get_nowait()
-            except Empty:
-                break
-            self._apply(event)
         if self._dirty:
             self._draw()
 
-    def _apply(self, event: Input):
-        fire = self.fire
-        if event.kind == "pad" and self.view == View.DRAW:
-            self.picture.paint(event.control, erase=event.shifted)
-            self.unsaved = True
-        elif event.kind == "encoder":
-            channels = (fire.ROTARY_VOLUME, fire.ROTARY_PAN, fire.ROTARY_FILTER)
-            if event.control in channels:
-                before = self.picture.brush_color
-                self.picture.adjust_channel(channels.index(event.control), event.delta)
-                self.unsaved |= self.picture.brush_color != before
-                self._notify(self._rgb_label())
-            elif event.control == fire.ROTARY_RESONANCE:
-                self._adjust_brightness(event.delta)
-                self._notify(f"Brightness {self.picture.brightness}%")
-            elif event.control == fire.ROTARY_SELECT:
-                if self.view == View.SETTINGS:
-                    self.menu.turn(event.delta)
-                else:
-                    self._adjust_color(event.delta)
-        elif event.kind == "button":
-            if event.control == fire.BUTTON_BROWSER:
-                self._toggle_view()
-            elif event.control == fire.BUTTON_NOTE:
-                self.menu.finish_editing()
-                self.view = View.DRAW
-            elif event.control == fire.BUTTON_SELECT:
-                if self.view == View.SETTINGS:
-                    self.menu.press()
-                else:
-                    self._toggle_view()
-            elif event.control in (fire.BUTTON_GRID_LEFT, fire.BUTTON_GRID_RIGHT):
-                delta = 1 if event.control == fire.BUTTON_GRID_RIGHT else -1
-                if self.view == View.SETTINGS:
-                    self.menu.move(delta, keep_editing=True)
-                else:
-                    self._adjust_color(delta)
-            elif event.control == fire.BUTTON_REC:
-                self._save()
-            elif event.control == fire.BUTTON_STOP and event.shifted:
-                self.picture.clear()
-                self.unsaved = True
-                self._notify("Picture cleared")
-        self._dirty = True
-
-    def _toggle_view(self):
+    @on.button(BUTTON_BROWSER)
+    def _toggle_view(self, event=None):
         self.menu.finish_editing()
         self.view = View.SETTINGS if self.view == View.DRAW else View.DRAW
+        self._dirty = True
 
     def _adjust_color(self, delta):
         before = (self.picture.brush, self.picture.custom_color)
@@ -138,11 +134,13 @@ class PixelEditorApp(AkaiFireApp, ScreenMixin):
         self.unsaved |= (self.picture.brush, self.picture.custom_color) != before
         self.notice = ""
         self.notice_left = 0.0
+        self._dirty = True
 
     def _adjust_brightness(self, delta):
         before = self.picture.brightness
         self.picture.brightness = max(10, min(100, before + 5 * delta))
         self.unsaved |= self.picture.brightness != before
+        self._dirty = True
 
     def _rgb_label(self):
         red, green, blue = self.picture.brush_color
@@ -151,8 +149,10 @@ class PixelEditorApp(AkaiFireApp, ScreenMixin):
     def _notify(self, message):
         self.notice = message
         self.notice_left = 2.0
+        self._dirty = True
 
-    def _save(self):
+    @on.button(BUTTON_REC)
+    def _save(self, event=None):
         try:
             self.picture.save(self.path)
         except OSError as exc:

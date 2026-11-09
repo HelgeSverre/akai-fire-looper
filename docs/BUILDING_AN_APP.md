@@ -50,42 +50,36 @@ Each pad press toggles a green light. The OLED counts the lit pads, and STOP exi
 
 <!-- source: examples/apps/pixel_editor/first_light.py:* -->
 ```python
-"""Tutorial checkpoint: queued pad toggles, one LED batch and an OLED count."""
-
-from queue import Empty, SimpleQueue
+"""Tutorial checkpoint: foreground pad handlers and a shared OLED count."""
 
 from akai_fire import get_akai_fire
-from akai_fire_framework import AkaiFireApp
+from akai_fire.constants import BUTTON_STOP
+from akai_fire_framework import AkaiFireApp, on
 
 
 class FirstLight(AkaiFireApp):
     def on_init(self):
-        self.presses: SimpleQueue[int] = SimpleQueue()
         self.lit: set[int] = set()
+        self.dirty = True
 
-    def on_pad_press(self, pad, velocity):
-        self.presses.put(pad)
+    @on.pad()
+    def toggle(self, event):
+        self.lit.symmetric_difference_update({event.pad})
+        self.dirty = True
 
-    def on_button_press(self, button, event):
-        if button == self.fire.BUTTON_STOP and event == "press":
-            self.quit()
+    @on.button(BUTTON_STOP)
+    def stop(self, event):
+        self.quit()
 
     def on_start(self):
         self.fire.clear_all()
 
     def on_update(self, dt):
-        changed = False
-        for _ in range(64):
-            try:
-                pad = self.presses.get_nowait()
-            except Empty:
-                break
-            self.lit.symmetric_difference_update({pad})
-            changed = True
-        if changed:
+        if self.dirty:
             self.fire.set_multiple_pad_colors(
                 [(pad, 0, 100 if pad in self.lit else 0, 0) for pad in range(64)]
             )
+            self.dirty = False
         self.canvas.draw_page(
             "First light", [f"Lit pads: {len(self.lit)}", "STOP to exit"]
         )
@@ -96,9 +90,9 @@ if __name__ == "__main__":
         app.run()
 ```
 
-The runtime creates `self.canvas`, calls `on_init()` and registers the app's callbacks. `run()` calls `on_start()`, then `on_update(dt)` at up to 30 frames per second. After each update it sends the canvas to the display and pumps mock input on the foreground thread.
+The runtime creates `self.canvas`, calls `on_init()` and registers the app's callbacks. `run()` calls `on_start()`, then `tick(dt)` at up to 30 frames per second. Each tick delivers queued decorated handlers before calling `on_update(dt)`. After each update it sends the canvas to the display and pumps mock input on the foreground thread.
 
-`on_pad_press()` only enqueues a pad index. `on_update()` owns the set of lit pads and the display. This matters because real hardware callbacks normally run on worker threads. Drawing from both a callback and the frame loop can produce partial or inconsistent screens.
+`@on.pad()` declares an instance handler. The framework captures input on the device thread and calls `toggle(event)` on the frame thread. The handler and `on_update()` can therefore share `lit` without an application queue or lock. This guarantee applies to the app decorators, not raw driver decorators or legacy hook methods.
 
 `set_multiple_pad_colors()` sends the completed pad state in one batch when it changes. There is no need to clear and repaint 64 pads individually. OLED rendering is already handled by the base runtime; the app should not start another render loop.
 
@@ -144,30 +138,40 @@ The OLED is monochrome. It displays occupied pixels as filled squares and empty 
 
 **Checkpoint:** in the finished app, paint one green pixel, change the brush to blue and paint another. Change Brightness in Settings. Both pads should dim together, while their stored colors and the OLED's occupied positions stay unchanged.
 
-## 4. Move input onto the frame thread
+## 4. Declare input handlers on the app
 
-The finished [app.py](../examples/apps/pixel_editor/app.py) keeps input callbacks short. An immutable `Input` record carries the event kind, control ID, signed encoder delta and SHIFT state.
+Import `on` from `akai_fire_framework`. Its decorators describe input filters at class definition time; they do not open a controller. The runtime binds each method to its app instance after `on_init()` and owns registration, queued delivery and removal.
 
-Capture modifiers when the callback runs:
+A pad handler receives a frozen `PadEvent` with `pad`, `velocity`, `shift` and `alt`:
 
-<!-- source: examples/apps/pixel_editor/app.py:PixelEditorApp.on_pad_press -->
+<!-- source: examples/apps/pixel_editor/app.py:PixelEditorApp.paint -->
 ```python
-def on_pad_press(self, pad, velocity):
-    self.inputs.put(Input("pad", pad, shifted=self.fire.is_shift_pressed()))
+@on.pad()
+def paint(self, event):
+    if self.view == View.DRAW:
+        self.picture.paint(event.pad, erase=event.shift)
+        self.unsaved = True
+        self._dirty = True
 ```
 
-Do not call `is_shift_pressed()` later in `on_update()` to interpret that press. SHIFT might already have been released. The driver provides a per-event modifier snapshot during the callback; the queued record preserves it until the frame consumes it.
+The framework snapshots modifiers inside the driver callback. `event.shift` still describes this pad press even if SHIFT was released before the next frame. Do not read `fire.is_shift_pressed()` later to reinterpret it.
 
-Encoder direction becomes one signed delta:
+Encoder events already contain a signed `delta`; clockwise is positive. The filter chooses SELECT, so this method needs no encoder-ID switch:
 
-<!-- source: examples/apps/pixel_editor/app.py:PixelEditorApp.on_encoder_turn -->
+<!-- source: examples/apps/pixel_editor/app.py:PixelEditorApp.turn_select -->
 ```python
-def on_encoder_turn(self, encoder_id, direction, velocity):
-    delta = velocity if direction == "clockwise" else -velocity
-    self.inputs.put(Input("encoder", encoder_id, delta=delta))
+@on.encoder(ROTARY_SELECT)
+def turn_select(self, event):
+    if self.view == View.SETTINGS:
+        self.menu.turn(event.delta)
+    else:
+        self._adjust_color(event.delta)
+    self._dirty = True
 ```
 
-The frame loop consumes a bounded number of records, applies them to the model/menu, and redraws when needed:
+Buttons use the same pattern. `@on.button(BUTTON_REC)` calls `_save(event)` on presses only; `@on.button(BUTTON_STOP, shift=True)` calls `clear_picture(event)` only while SHIFT is held. Decorated methods take one event argument after `self`. The full [app source](../examples/apps/pixel_editor/app.py) shows RGB knob and navigation handlers.
+
+`on_update()` now only expires notifications and draws:
 
 <!-- source: examples/apps/pixel_editor/app.py:PixelEditorApp.on_update -->
 ```python
@@ -177,31 +181,25 @@ def on_update(self, dt):
         if not self.notice_left:
             self.notice = ""
             self._dirty = True
-    # Bound work per frame so an input burst cannot starve drawing.
-    for _ in range(64):
-        try:
-            event = self.inputs.get_nowait()
-        except Empty:
-            break
-        self._apply(event)
     if self._dirty:
         self._draw()
 ```
 
 ```mermaid
 flowchart LR
-    Input[Input callbacks] --> Queue[Queued event snapshots]
-    Queue --> Frame[on_update]
-    Frame --> Model[Picture and menu state]
-    Model --> Pads[One pad batch]
-    Model --> OLED[OLED layout]
+    Input[Device input] --> Queue[Framework event snapshots]
+    Queue --> Handler[Decorated handlers in tick]
+    Handler --> Model[Picture and menu state]
+    Model --> Frame[on_update]
+    Frame --> Pads[One pad batch]
+    Frame --> OLED[OLED layout]
 ```
 
-The limit of 64 records keeps drawing responsive during a burst. It is a per-frame work limit, not a bounded queue capacity. This app does not start additional workers or acquire model locks: callbacks write only to the queue, and the frame thread owns mutable application state.
+The framework queues up to `INPUT_QUEUE_SIZE=1024` matching events and dispatches at most `INPUTS_PER_FRAME=64` per tick. If input exceeds capacity, the next tick raises an overflow error; `run()` shuts the app down cleanly instead of silently losing actions. Keep handlers short. Handler exceptions also propagate through `run()` cleanup. Shutdown rejects late input and discards queued events.
 
-A queue preserves insertion order; it cannot repair callbacks that reached it out of order. The hardware launcher therefore uses `max_workers=1`. If you inject your own hardware controller, give it the same setting. `async_handlers=False` runs callbacks on the MIDI polling thread, not on the display thread.
+A queue preserves callback arrival order; it cannot repair callbacks that reached it out of order. The hardware launcher therefore uses `max_workers=1`. Inject your own hardware controller with that setting when order matters. Legacy `on_pad_press`, `on_button_press` and `on_encoder_turn` hooks retain device-thread execution for compatibility. Prefer the app decorators for new UI applications.
 
-**Checkpoint:** hold SHIFT and tap a colored pad. It erases even if SHIFT is released before the next frame. The headless test later in this tutorial exercises that exact sequence without relying on mouse gestures.
+**Checkpoint:** hold SHIFT and tap a colored pad. It erases even if SHIFT is released before the next frame. The headless test later exercises that sequence.
 
 ## 5. Draw the two views
 
@@ -260,7 +258,6 @@ The app has two views, `DRAW` and `SETTINGS`. It creates the menu during `on_ini
 def on_init(self):
     self.picture = Picture()
     self.view = View.DRAW
-    self.inputs: SimpleQueue[Input] = SimpleQueue()
     self.unsaved = False
     self.notice = ""
     self.notice_left = 0.0
@@ -298,7 +295,7 @@ The four main knobs are direct shortcuts in **both** views:
 | FILTER | Blue level of the brush, 0–127 |
 | RESONANCE | Global brightness, 10–100% |
 
-RGB changes use the signed encoder delta, clamped to the channel range. The app queues these events just like SELECT input. `Picture.adjust_channel()` creates a new custom brush tuple; already-painted pixels remain unchanged. The OLED reports the channel values. Brightness affects every pad without changing stored colors. These shortcuts do not navigate or end a SELECT edit session.
+RGB changes use the signed encoder delta, clamped to the channel range. The framework queues these events just like SELECT input. `Picture.adjust_channel()` creates a new custom brush tuple; already-painted pixels remain unchanged. The OLED reports the channel values. Brightness affects every pad without changing stored colors. These shortcuts do not navigate or end a SELECT edit session.
 
 SELECT and GRID still choose presets in Draw, clearing the custom brush. When editing Color in Settings, SELECT does the same. A custom brush with all channels at zero paints black, which is erase. There is no separate custom-color slot to manage.
 
@@ -422,25 +419,25 @@ with TemporaryDirectory() as directory:
         fire.simulate_pad_press(17)
         # The frame has not consumed input yet.
         assert app.picture.pixels[17] == (0, 0, 0)
-        app.on_update(1 / 30)
+        app.tick(1 / 30)
         fire.assert_pad_color(17, (0, 95, 0))
 
         fire.simulate_button_press(fire.BUTTON_REC)
         fire.simulate_button_release(fire.BUTTON_REC)
-        app.on_update(1 / 30)
+        app.tick(1 / 30)
         assert path.exists()
         assert not app.unsaved
 
         fire.simulate_button_press(fire.BUTTON_SHIFT)
         fire.simulate_pad_press(17)
         fire.simulate_button_release(fire.BUTTON_SHIFT)
-        app.on_update(1 / 30)
+        app.tick(1 / 30)
         assert app.picture.pixels[17] == (0, 0, 0)
 
 print("Pixel editor checks passed")
 ```
 
-Run it with `uv run python check_pixel_editor.py`. Notice that simulated input is followed by `on_update()`: callbacks only queue events. Direct frame calls make these tests deterministic. They do not exercise real hardware callback scheduling or the OS MIDI connection.
+Run it with `uv run python check_pixel_editor.py`. Notice that simulated input is followed by `tick()`: device input only queues the decorated callbacks. A tick dispatches them, calls `on_update()` and renders the OLED. Direct frame calls make these tests deterministic. They do not exercise real hardware callback scheduling or the OS MIDI connection.
 
 To smoke-test the actual pygame entry point and its shutdown path:
 
@@ -465,4 +462,4 @@ This app is complete with two views and a small dispatcher. More mixins would ad
 
 Useful next exercises are adding undo, a second picture slot, or importing a small bitmap. Keep the same boundaries: input records describe user actions, the model owns picture behavior, and the views render that model. Test the behavior through simulated input before adding more hardware gestures.
 
-The remaining runtime limits are explicit: no public pad-release hook, no automatic app-level reconnect policy, and no shared foreground input queue. This example supplies its own queue; it does not silently extend the framework. The driver and LED APIs have [physical hardware evidence](HARDWARE_VERIFICATION.md), and a hardware walkthrough confirmed the original editor's painting, OLED views, menu interaction and saving. A later RGB walkthrough confirmed the four main knobs, readable numeric feedback, and exact save/load restoration. SHIFT+STOP clearing was not captured in that run.
+The remaining runtime limits are explicit: no public pad-release hook and no automatic app-level reconnect policy. The framework now owns foreground delivery for decorated handlers; legacy hooks still require application-managed synchronization. The driver and LED APIs have [physical hardware evidence](HARDWARE_VERIFICATION.md), and a hardware walkthrough confirmed the original editor's painting, OLED views, menu interaction and saving. A later RGB walkthrough confirmed the four main knobs, readable numeric feedback, and exact save/load restoration. SHIFT+STOP clearing was not captured in that run.
