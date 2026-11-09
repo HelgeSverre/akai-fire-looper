@@ -24,6 +24,7 @@ Checks performed on 9 November 2026 with a USB-connected AKAI Fire on macOS. Bot
 | Circuit Settings layout | The observer confirmed all menu labels, highlights and scrolling rows were visible. Occasional apparently missed counterclockwise SELECT steps were reported in Circuit. |
 | Isolated SELECT steps | A quiet probe recorded exactly ten clockwise raw CC 118 values of 1 and ten counterclockwise values of 127, each decoded once with velocity 1. The observer reported that the counter test worked. The Circuit-specific missed-step report is not reproduced or considered resolved by this isolated test. |
 | Circuit SELECT editing | After adding press-to-edit, the observer confirmed BPM edit entry, three clockwise and three counterclockwise increments, press-to-finish, and navigation to Swing and back worked well. The edit screen was readable, with no missed step reported in this check. GRID navigation currently finishes live editing; the framework also supports retaining edit mode when navigating to another editable value. |
+| Circuit STEP layout | After a guided pitch-entry and velocity-edit check, the observer confirmed all text was readable: header, notes, velocity/gate, probability/microtiming and the bottom edit-parameter line. This confirms readability; the response did not separately confirm each expected value change. |
 | Static OLED without refresh | A freshly sent image blanked after approximately eight seconds while the probe remained connected and sent no further display updates. |
 | Repeated identical OLED image | Sending the same nonblank frame every two seconds kept it visible for at least 30 seconds; the observer reported no problem. Packet hashes confirmed unchanged image data. |
 | Default driver keepalive | A separate probe called `render_to_display()` once. The driver then refreshed identical frames every two seconds, and the observer confirmed the screen stayed visible without a reported problem. |
@@ -38,13 +39,18 @@ The Python driver now enables keepalive by default. It resends its last submitte
 
 The [keepalive tests](../tests/test_oled_keepalive.py) exercise real driver code with fake MIDI ports: static frames, unsent canvas edits, deadlines after new renders, clearing, failed sends, shutdown during a send, reconnect and opt-out. Those tests establish software behavior; visual hardware checks remain separate.
 
-## Still to verify
+## Remaining driver-level hardware checks
 
-- SHIFT and ALT held together, remaining buttons, and inputs from every pad.
-- Full button color/brightness range and the remaining individual control-bank indicators.
-- Circuit playback and synth-editor output with a receiving instrument explicitly selected.
-- Detailed Circuit OLED readability in the remaining modes.
-- Live reconnect of an existing driver instance after physical unplug/replug.
+- Live reconnect of an existing driver instance after physical unplug/replug, including resumed input and OLED keepalive. The earlier recovery check opened a fresh driver after reconnecting.
+- Full button color/brightness range and the remaining individual control-bank indicators. Track LED values and USER 2 are confirmed; this does not establish every button/bank mapping.
+- All 64 pad input indices, remaining button press/release pairs, and SHIFT+ALT held together. Only corner-pad indices and the listed controls were checked systematically.
+- A sustained mixed-input/output run to check for stalls or missed events. The short post-batching Circuit session is useful evidence, but is not an extended load test.
+
+### Deferred application checks
+
+Circuit STEP copy/paste/clear is inconclusive: the observer was unsure of the result and chose to stop application testing. The captured output showed copy operations but did not establish a completed paste/clear sequence. No pass or confirmed defect is recorded. Detailed edited-value feedback, musical timing and further application workflows remain outside the completed hardware checks.
+
+Circuit playback and synth-editor output still need a receiving instrument explicitly selected. These are integration checks rather than tests of the Fire driver.
 
 No JT-4000 was connected during these checks, and no MIDI was sent to the other instrument ports.
 
