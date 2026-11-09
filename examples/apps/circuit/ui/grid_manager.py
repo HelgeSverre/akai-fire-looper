@@ -3,6 +3,7 @@ Grid manager for AKAI Fire 4×16 pad layout and visual feedback.
 Handles all pad color updates and visual sequencer display.
 """
 
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 from akai_fire import AkaiFire
@@ -60,6 +61,8 @@ class GridManager:
 
         # Grid state tracking
         self.pad_colors = [(0, 0, 0)] * self.TOTAL_PADS
+        self._frame_lock = threading.RLock()
+        self._drawing_frame = False
 
         # Step highlighting state
         self.last_current_step = -1
@@ -74,34 +77,51 @@ class GridManager:
         return (pad_index // self.COLS, pad_index % self.COLS)
 
     def set_pad_color(self, pad_index: int, color: Tuple[int, int, int]):
-        """Set a pad color and update the controller."""
-        if 0 <= pad_index < self.TOTAL_PADS:
-            self.pad_colors[pad_index] = color
-            r, g, b = color
-            self.fire.set_pad_color(pad_index, r, g, b)
+        """Stage a frame pixel, or immediately send standalone feedback."""
+        with self._frame_lock:
+            if 0 <= pad_index < self.TOTAL_PADS:
+                self.pad_colors[pad_index] = color
+                if not self._drawing_frame:
+                    self.fire.set_pad_color(pad_index, *color)
 
     def set_mode(self, mode: Mode):
         """Set the current display mode."""
-        self.current_mode = mode
-        self.clear_all_pads()
+        with self._frame_lock:
+            self.current_mode = mode
+            self.clear_all_pads()
 
     def clear_all_pads(self):
         """Clear all pad colors."""
-        for i in range(self.TOTAL_PADS):
-            self.set_pad_color(i, (0, 0, 0))
+        with self._frame_lock:
+            self.pad_colors = [(0, 0, 0)] * self.TOTAL_PADS
+            if not self._drawing_frame:
+                self._send_frame()
+
+    def _send_frame(self):
+        self.fire.set_multiple_pad_colors(
+            [(pad, *color) for pad, color in enumerate(self.pad_colors)]
+        )
 
     def update_grid(self, sequencer_status: Dict[str, Any], **kwargs):
         """Update the entire grid based on current mode and sequencer status."""
-        if self.current_mode == Mode.NOTE:
-            self._update_note_mode(sequencer_status, **kwargs)
-        elif self.current_mode == Mode.MIXER:
-            self._update_mixer_mode(sequencer_status, **kwargs)
-        elif self.current_mode == Mode.PATTERN:
-            self._update_pattern_mode(sequencer_status, **kwargs)
-        elif self.current_mode == Mode.STEP_EDIT:
-            self._update_step_edit_mode(sequencer_status, **kwargs)
-        elif self.current_mode == Mode.SETTINGS:
-            self._update_settings_mode(sequencer_status, **kwargs)
+        # A clear followed by individual pad writes produced dozens of SysEx
+        # packets per frame. Compose first so the Fire sees one complete update.
+        with self._frame_lock:
+            self._drawing_frame = True
+            try:
+                if self.current_mode == Mode.NOTE:
+                    self._update_note_mode(sequencer_status, **kwargs)
+                elif self.current_mode == Mode.MIXER:
+                    self._update_mixer_mode(sequencer_status, **kwargs)
+                elif self.current_mode == Mode.PATTERN:
+                    self._update_pattern_mode(sequencer_status, **kwargs)
+                elif self.current_mode == Mode.STEP_EDIT:
+                    self._update_step_edit_mode(sequencer_status, **kwargs)
+                elif self.current_mode == Mode.SETTINGS:
+                    self._update_settings_mode(sequencer_status, **kwargs)
+            finally:
+                self._drawing_frame = False
+            self._send_frame()
 
     def _update_note_mode(self, status: Dict[str, Any], **kwargs):
         """Update grid for Note Mode - sequencer display + track/pattern control + keyboard."""

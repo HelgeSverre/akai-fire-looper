@@ -19,6 +19,17 @@ CIRCUIT_MIDI_OUTPUT="Your instrument" CIRCUIT_MIDI_INPUT="Your keyboard" \
 
 Input is optional. The Fire port is reserved for the controller and rejected as an instrument port. Track channels start at 10 (drums), 1 (bass), 2 (lead), and 3 (pad); change them in Settings.
 
+## First try without an instrument
+
+Preview mode lets you edit and play patterns visually. Silence is expected: the Fire is a controller, and Circuit does not generate computer audio.
+
+1. Press STOP, then SOLO 1 and STEP. SOLO 1 is the small button beside the top pad row; it selects the first track.
+2. Tap the top-left pad to select step 1. On the second pad row, tap the third pad from the left to select **pitch**. Tap the leftmost pad on the third row to write a note at that step.
+3. On the top row, select pads 5, 9 and 13 in turn. After each selection, tap that same third-row pad to add another note. This makes four evenly spaced notes in a 16-step pattern.
+4. Press NOTE, then PLAY. The white playhead moves along the top row; the four programmed steps mark the pattern. Press STOP to stop playback. The pattern stays in memory.
+
+STEP edits individual events; NOTE provides a keyboard for playing and recording; DRUM opens the mixer; PERFORM opens pattern selection; BROWSER toggles Settings. Start with NOTE and STEP before exploring the other views. Rows are counted from the top and columns from the left.
+
 ## Make a pattern
 
 1. Press SOLO 1–4 to choose a track and NOTE for the scale keyboard.
@@ -64,4 +75,6 @@ uv run python -m examples.apps.circuit.test_pygame_smoke
 uv run python -m unittest discover
 ```
 
-The app reuses `AkaiFireApp` for display refresh and controller ownership. Its musical clock and note scheduler live in `core/`; UI modes live in `ui/modes/`. [spec.md](spec.md) is historical design material, not a promise that every proposed feature is implemented. Physical timing and synth integration still need hardware testing.
+The app reuses `AkaiFireApp` for display refresh and controller ownership. Its musical clock and note scheduler live in `core/`; UI modes live in `ui/modes/`. Pad frames are composed in memory and sent as one batch, avoiding bursts of individual clear-and-repaint messages.
+
+A [Fire hardware check on 9 November 2026](../../../docs/HARDWARE_VERIFICATION.md) exercised all five modes and PLAY/STOP for over two minutes after batching was added. The observer reported that most controls responded. Detailed screen readability, track selection, musical timing and synth integration still need focused hardware checks. [spec.md](spec.md) is historical design material, not a promise that every proposed feature is implemented.

@@ -37,4 +37,4 @@ A delayed frame advances at most one cell so the player can react after a pause 
 uv run python -m unittest tests.test_snake tests.test_oled_layouts
 ```
 
-Tests cover steering through the real event subscriptions, growth, collisions, pause/restart, winning, cleanup and agreement between pad colors and real canvas pixels. Physical button feel and timing still need a Fire hardware check.
+Tests cover steering through the real event subscriptions, growth, collisions, pause/restart, winning, cleanup and agreement between pad colors and real canvas pixels. A [Fire hardware check on 9 November 2026](../../../docs/HARDWARE_VERIFICATION.md) confirmed responsive steering, pause/resume, reset and matching pad/OLED views.
