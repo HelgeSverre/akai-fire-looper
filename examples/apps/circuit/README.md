@@ -95,6 +95,6 @@ uv run python -m examples.apps.circuit.test_pygame_smoke
 uv run python -m unittest discover
 ```
 
-The app reuses `AkaiFireApp` for display refresh and controller ownership. Its musical clock and note scheduler live in `core/`; UI modes live in `ui/modes/`. Pad frames are composed in memory and sent as one batch, avoiding bursts of individual clear-and-repaint messages.
+The app uses `AkaiFireApp` and `on` decorators for foreground controller input, display refresh and controller ownership. Pattern gestures use captured SHIFT state; a release handler cancels unfinished chains. Controller input is processed on UI frames, so Fire pad auditions/recording may incur a frame of latency (more under backlog). External MIDI input, the musical clock and note scheduler remain independent in `core/`, with their synchronization retained; UI modes live in `ui/modes/`. Pad frames are composed in memory and sent as one batch, avoiding bursts of individual clear-and-repaint messages.
 
 A [Fire hardware check on 9 November 2026](../../../docs/HARDWARE_VERIFICATION.md) exercised all five modes and PLAY/STOP for over two minutes after batching was added. Follow-up checks covered NOTE track selection, header spacing, Mixer labels/mute feedback, Settings scrolling and SELECT editing, and the revised pattern-chain gesture. Detailed STEP editing, musical timing and synth integration still need focused hardware checks. [spec.md](spec.md) is historical design material, not a promise that every proposed feature is implemented.

@@ -92,11 +92,13 @@ class ModeManager:
         """Register a mode handler instance."""
         self.mode_handlers[mode] = handler
 
-    def handle_pad_press(self, pad_index: int, velocity: int) -> bool:
+    def handle_pad_press(
+        self, pad_index: int, velocity: int, *, shifted: bool = False
+    ) -> bool:
         """Route input to the registered mode; handlers own its behavior."""
         handler = self.mode_handlers.get(self.current_mode)
-        return (
-            handler.handle_pad_press(pad_index, velocity)
-            if handler is not None
-            else False
-        )
+        if handler is None:
+            return False
+        if self.current_mode == Mode.PATTERN:
+            return handler.handle_pad_press(pad_index, velocity, shifted=shifted)
+        return handler.handle_pad_press(pad_index, velocity)

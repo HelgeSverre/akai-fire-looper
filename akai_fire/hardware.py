@@ -939,6 +939,7 @@ def get_akai_fire(
     use_mock: Optional[Union[bool, str]] = None,
     *,
     oled_keepalive: bool = True,
+    max_workers: int = 4,
     **kwargs,
 ) -> Union[AkaiFire, Any]:
     """Get an AKAI Fire instance (hardware or mock).
@@ -952,6 +953,7 @@ def get_akai_fire(
             - ``None`` — auto-detect: try hardware, fall back to the pygame mock.
         oled_keepalive: Enable hardware OLED idle refresh. Ignored by mocks,
             whose displays do not sleep.
+        max_workers: Hardware callback workers (default 4). Ignored by mocks.
         **kwargs: Additional arguments passed to the selected constructor.
 
     Returns:
@@ -974,11 +976,15 @@ def get_akai_fire(
             logger.error("Mock GUI not available")
             raise
     if use_mock is False:
-        return AkaiFire(oled_keepalive=oled_keepalive, **kwargs)
+        return AkaiFire(
+            oled_keepalive=oled_keepalive, max_workers=max_workers, **kwargs
+        )
 
     # Auto-detect
     try:
-        return AkaiFire(oled_keepalive=oled_keepalive, **kwargs)
+        return AkaiFire(
+            oled_keepalive=oled_keepalive, max_workers=max_workers, **kwargs
+        )
     except (MIDIConnectionError, Exception) as e:
         logger.info(f"Hardware not available ({e}), trying mock...")
         try:

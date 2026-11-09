@@ -197,7 +197,7 @@ flowchart LR
 
 The framework queues up to `INPUT_QUEUE_SIZE=1024` matching events and dispatches at most `INPUTS_PER_FRAME=64` per tick. If input exceeds capacity, the next tick raises an overflow error; `run()` shuts the app down cleanly instead of silently losing actions. Keep handlers short. Handler exceptions also propagate through `run()` cleanup. Shutdown rejects late input and discards queued events.
 
-A queue preserves callback arrival order; it cannot repair callbacks that reached it out of order. The hardware launcher therefore uses `max_workers=1`. Inject your own hardware controller with that setting when order matters. Legacy `on_pad_press`, `on_button_press` and `on_encoder_turn` hooks retain device-thread execution for compatibility. Prefer the app decorators for new UI applications.
+A queue preserves callback arrival order; it cannot repair callbacks that reached it out of order. The hardware launcher therefore uses `max_workers=1`; the base also chooses one worker when a decorated app creates its own controller. Inject your own hardware controller with that setting when order matters. Legacy `on_pad_press`, `on_button_press` and `on_encoder_turn` hooks retain device-thread execution for compatibility. Prefer the app decorators for new UI applications.
 
 **Checkpoint:** hold SHIFT and tap a colored pad. It erases even if SHIFT is released before the next frame. The headless test later exercises that sequence.
 
@@ -386,7 +386,7 @@ with get_akai_fire(use_mock="pygame") as fire, PixelEditorApp(fire) as app:
 
 Context managers exit right-to-left. The app first removes its subscriptions and clears output. The outer controller context then closes the connection. An injected controller is borrowed; the app does not close it itself. If an app instead calls `AkaiFireApp()` without an injected controller, the base creates and owns that connection.
 
-The real [launcher](../examples/apps/pixel_editor/__main__.py) adds the hardware and file options. It passes `max_workers=1` **only** to the hardware constructor. The factory forwards keyword arguments to the chosen backend; pygame does not accept this hardware option.
+The real [launcher](../examples/apps/pixel_editor/__main__.py) adds the hardware and file options. It passes `max_workers=1` to `get_akai_fire()`. The factory applies this option to hardware and ignores it for mocks, so backend selection needs no extra keyword-argument branch. Other constructor-specific options still pass through to the selected backend.
 
 No custom `on_stop()` is needed here: the app has no workers, instrument connections or open file handles to release. For apps that acquire these resources, release them in `on_stop()`, and roll back resources locally if acquisition fails inside `on_init()`. `on_stop()` is not called to undo a failed constructor.
 

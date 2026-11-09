@@ -128,6 +128,8 @@ class ModeManagerMixin:
     Mixin that adds mode management to an AkaiFireApp.
 
     Usage:
+        from akai_fire_framework import on
+
         class MyApp(AkaiFireApp, ModeManagerMixin):
             def on_init(self):
                 # Initialize mode manager
@@ -140,9 +142,10 @@ class ModeManagerMixin:
                 # Set initial mode
                 self.set_mode(Mode.MAIN)
 
-            def on_pad_press(self, pad, velocity):
+            @on.pad()
+            def route_pad(self, event):
                 # Dispatch to current mode
-                self.dispatch_pad_press(pad, velocity)
+                self.dispatch_pad_press(event.pad, event.velocity)
     """
 
     # Encoder ID to name mapping (matching hardware constants)

@@ -111,6 +111,23 @@ class _On:
 on = _On()
 
 
+def _declarations(app_type):
+    """Yield effective instance declarations in the same order used for delivery."""
+    seen = set()
+    for cls in app_type.__mro__:
+        for name, method in vars(cls).items():
+            if name in seen:
+                continue
+            seen.add(name)
+            if isinstance(method, (staticmethod, classmethod)) and getattr(
+                method.__func__, "__fire_bindings__", ()
+            ):
+                raise TypeError("App input decorators require an instance method")
+            bindings = getattr(method, "__fire_bindings__", ())
+            if bindings:
+                yield name, method, bindings
+
+
 class _InputRouter:
     """Own queued calls, instance binding, overflow and terminal fencing."""
 
@@ -118,21 +135,10 @@ class _InputRouter:
         if type(capacity) is not int or capacity <= 0:
             raise ValueError("INPUT_QUEUE_SIZE must be a positive integer")
         self._handlers = []
-        seen = set()
-        for cls in type(app).__mro__:
-            for name, method in vars(cls).items():
-                if name in seen:
-                    continue
-                seen.add(name)
-                if isinstance(method, (staticmethod, classmethod)) and getattr(
-                    method.__func__, "__fire_bindings__", ()
-                ):
-                    raise TypeError("App input decorators require an instance method")
-                bindings = getattr(method, "__fire_bindings__", ())
-                if bindings:
-                    bound = getattr(app, name)
-                    signature(bound).bind(object())
-                    self._handlers.append((bindings, bound))
+        for name, _, bindings in _declarations(type(app)):
+            bound = getattr(app, name)
+            signature(bound).bind(object())
+            self._handlers.append((bindings, bound))
         self._capacity = capacity
         self._queue = deque()
         self._lock = RLock()

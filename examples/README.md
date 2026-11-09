@@ -29,6 +29,8 @@ Names describe the device feature: `pads_*`, `oled_*`, `events_*`, `leds_*`, `mi
 | `apps.modal_demo` | Mode/transport/screen teaching demo. Settings menu demonstrates navigation, not persistent configuration. |
 | `apps.looper` | Clip-state teaching demo. Arm/record/play state and normalized event timing; no external MIDI input/output. |
 
+Maintained framework apps use `@on.pad`, `@on.button` and `@on.encoder` and process input on `tick()` frames. MIDI Scope is the intentional exception: its immediate callbacks measure callback-time activity. Procedural examples below retain the raw `@fire.on_*` API. The modal demo wires transport through decorators; the clip looper keeps its own REC transition. Neither also registers the raw transport helper.
+
 ## Pads and LEDs
 
 | Module | What it demonstrates |

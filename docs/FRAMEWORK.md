@@ -17,7 +17,7 @@ Mixins add modes, screen layouts, grid helpers and transport state as needed. Th
 
 `run(duration=2)` is a bounded run for a smoke test. `quit()` asks the loop to exit; `shutdown()` performs cleanup immediately. Shutdown is idempotent. An app cannot run again after shutdown. The optional startup banner is disabled by default; set `STARTUP_SECONDS` to enable it. The banner runs before `on_start()` so it cannot erase the app's first screen.
 
-The base renders the canvas after each update and handles pygame events on the foreground thread. It removes the subscriptions it created. Removal errors are reported after every owned handler has been disabled/attempted; app stop and controller cleanup still run. If you pass `fire=...`, you own that controller and must close it yourself. Without an injected controller, the app owns and closes the connection. The app clears controller LEDs and renders a goodbye screen on shutdown, including when the controller was borrowed.
+The base renders the canvas after each update and handles pygame events on the foreground thread. It removes the subscriptions it created. Removal errors are reported after every owned handler has been disabled/attempted; app stop and controller cleanup still run. If you pass `fire=...`, you own that controller and must close it yourself. Without an injected controller, the app owns and closes the connection. Apps with effective input declarations create hardware with one callback worker; legacy-only apps retain the driver default. An injected controller keeps the configuration chosen by its caller. The app clears controller LEDs and renders a goodbye screen on shutdown, including when the controller was borrowed.
 
 Resources acquired inside `on_init()` need local rollback if initialization fails. `on_stop()` is not a constructor rollback hook. App-created raw `fire.on_*` subscriptions also need explicit removal; prefer app decorators for ordinary input.
 
@@ -58,7 +58,7 @@ All matching methods run. Stacked matching decorators on the same method call it
 
 Use `tick(dt)` on the foreground thread; recursive frames are rejected. It accepts finite, nonnegative elapsed seconds. For deterministic tests, call `on_start()` once, simulate input, and call `tick(dt)`. Closing the app rejects late input, discards queued events and removes its subscriptions. Injected controllers remain borrowed.
 
-The queue preserves callback arrival order. Inject `AkaiFire(max_workers=1)` when strict hardware input ordering matters; a multi-worker driver can reorder callbacks before they reach the queue. The Pixel Editor and Firestorm hardware launchers use one worker.
+The queue preserves callback arrival order. Decorator-based apps that create their own controller use `max_workers=1` automatically; mock fallback ignores this hardware option. When injecting a controller, use `AkaiFire(max_workers=1)` or `get_akai_fire(max_workers=1)` for ordered delivery. A multi-worker injected driver can reorder callbacks before they reach the queue.
 
 ### Legacy hooks and raw decorators
 
@@ -80,7 +80,7 @@ The driver exposes pad presses, not pad releases. Use short timed notes for a sy
 
 `ScreenMixin.draw_header()` reserves four pixels on both horizontal edges by default. Override `HEADER_PADDING_X` on your app or screen class to change that inset. Header alignment and fitted canvas text use monochrome font measurements, matching the OLED's actual glyph spacing.
 
-`setup_transport_buttons()` installs standard PLAY/STOP/REC behavior and removes it with the app's subscriptions. If the app has custom record semantics, route those buttons once in `on_button_press()` instead of stacking another REC callback. The [clip-state demo](../examples/apps/looper/looper_app.py) shows that pattern.
+`setup_transport_buttons()` is the retained device-thread transport helper; it owns and removes its raw PLAY/STOP/REC subscriptions. New apps should use one `@on.button(...)` route per transport action, as the [modal demo](../examples/apps/modal_demo.py) does. Do not also call `setup_transport_buttons()` for those controls, or both paths will run. The [clip-state demo](../examples/apps/looper/looper_app.py) routes REC to its own clip/transport transition.
 
 Mode handlers receive encoder names after mixin mapping, while the base app receives numeric device constants. Mode switching does not provide rollback if a custom entry/exit hook fails. Keep hooks small and acquire resources outside mode transitions where possible.
 
@@ -136,7 +136,7 @@ menu.select(2, keep_editing=True)
 
 Call `finish_editing()` when leaving a screen. Items with `activate` execute on press; items with neither callback are read-only. An item cannot have both callbacks. Finishing an edit keeps its live changes; applications that need cancel/rollback must own a saved value and restore it explicitly.
 
-The menu serializes its own transitions, but callbacks run on the calling thread. Applications remain responsible for synchronizing their model and drawing, as described under Input. For a compound display snapshot, hold an app-owned lock around input and rendering, as Circuit does.
+The menu serializes its own transitions, but callbacks run on the calling thread. Applications remain responsible for synchronizing their model and drawing, as described under Input. Decorated handlers and drawing already share the frame thread. Keep locks where app-created workers also access state: Circuit retains its musical-clock, note-scheduler and step-handoff synchronization.
 
 ## Testing without hardware
 
@@ -163,3 +163,11 @@ For small controller tools, the foundation is enough. For larger applications, t
 3. A small owned-resource/subscription API for app-created workers and external MIDI. Current hooks cover cleanup, but acquisition rollback is manual.
 
 Configuration persistence, patch formats, musical clocks, MIDI routing, and synth profiles should stay with the applications until multiple real consumers justify a common module. Adding them to the base class now would make every simple app depend on music-specific policy.
+
+## Example input styles
+
+Pad Counter, Snake, the synth editor, the modal demo, the clip looper, Circuit, Pixel Editor and Firestorm use app decorators. Their input changes become visible on `tick()`/`run()` frames. Direct calls to `on_update()` only update/render app state; they do not drain queued input.
+
+MIDI Scope intentionally keeps immediate legacy hooks and a state lock. Its timestamps describe callback execution, before the UI frame queue. The flat `events_*`, pad, LED and MIDI examples teach the raw device API and keep `@fire.on_*` handlers. The `legacy/` experiments are not migrated or advertised as framework examples.
+
+Circuit's controller gestures now enter on the UI frame, including pad auditions and Fire-originated recording. Its external MIDI recording, musical clock and note scheduling remain independent. UI queueing can add up to a frame of latency under normal load and more during a backlog; it is not a sample-accurate input path.

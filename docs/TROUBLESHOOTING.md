@@ -74,3 +74,9 @@ uv run ruff format --check .
 ```
 
 The Circuit suite is included in the first command. Tests replace MIDI ports; a hardware connection should never be required. Full Ruff lint still has pre-existing style findings documented in [cleanup evidence](code-cleanup.md). Do not interpret that baseline as permission to ignore new undefined names or broken imports.
+
+## Simulated input does not change an app
+
+App decorators queue input. After `simulate_pad_press`, `simulate_button_press` or `simulate_rotary_turn`, call `app.tick(dt)` to deliver it and draw a frame; calling only `on_update(dt)` skips delivery. `run()` handles this automatically. MIDI Scope and raw-driver examples intentionally use immediate callbacks instead.
+
+A foreground input overflow means the app could not keep up. Keep handlers short and investigate slow file/MIDI work before increasing `INPUT_QUEUE_SIZE`. The error propagates through `run()` cleanup; it is not silently ignored.

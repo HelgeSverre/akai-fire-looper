@@ -58,7 +58,7 @@ Auditions are capped at four simultaneous notes. They end on frame updates after
 
 - `parameters.py`: immutable page/CC definitions sourced from the manual.
 - `midi.py`: port selection, channel routing, note deadlines, cleanup.
-- `app.py`: UI, event handling, local state and snapshots.
+- `app.py`: foreground `on` handlers, UI, local state and snapshots. SHIFT fine edits and channel navigation use the original event snapshot, even after release. Audition expiry and rendering share the frame thread; no UI state lock is needed.
 
 An injected `output=` is an exclusive controller session: the app leaves its port open but silences all tracked auditions on shutdown. Do not share it with another live player. The default app-created output is closed on shutdown.
 

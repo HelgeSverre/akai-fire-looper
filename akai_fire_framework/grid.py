@@ -18,9 +18,12 @@ class GridMixin:
     - Batch pad updates
 
     Usage:
+        from akai_fire_framework import on
+
         class MyApp(AkaiFireApp, GridMixin):
-            def on_pad_press(self, pad, velocity):
-                row, col = self.pad_position(pad)
+            @on.pad()
+            def handle_pad(self, event):
+                row, col = self.pad_position(event.pad)
                 if row == self.ROW_STEP:
                     self.toggle_step(col)
     """

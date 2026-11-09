@@ -53,12 +53,14 @@ class PatternMode:
             Mode.PATTERN, "selected_track", self.selected_track
         )
 
-    def handle_pad_press(self, pad_index: int, velocity: int) -> bool:
+    def handle_pad_press(
+        self, pad_index: int, velocity: int, *, shifted: bool = False
+    ) -> bool:
         row, col = self.mode_manager.grid.pad_position(pad_index)
         if not (0 <= row < len(self.sequencer.tracks) and 0 <= col < 8):
             return False
         self._select_track(row)
-        if self.mode_manager.grid.fire.is_shift_pressed():
+        if shifted:
             if row not in self.chain_starts:
                 self.chain_starts[row] = col
             else:

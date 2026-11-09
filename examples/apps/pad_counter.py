@@ -9,7 +9,8 @@ Usage:
     uv run python -m examples.apps.pad_counter
 """
 
-from akai_fire_framework import AkaiFireApp
+from akai_fire.constants import BUTTON_STOP
+from akai_fire_framework import AkaiFireApp, on
 
 
 class PadCounterApp(AkaiFireApp):
@@ -29,8 +30,10 @@ class PadCounterApp(AkaiFireApp):
         self.canvas.draw_text_fitted("Press any pad!", 15, 25)
         self.canvas.draw_text_fitted("Count: 0", 35, 45)
 
-    def on_pad_press(self, pad, velocity):
-        """Handle pad press - increment counter and light pad."""
+    @on.pad()
+    def count_pad(self, event):
+        """Increment the counter and light the selected pad on the frame thread."""
+        pad = event.pad
         self.count += 1
 
         # Clear previous pad
@@ -47,11 +50,9 @@ class PadCounterApp(AkaiFireApp):
         self.canvas.draw_text_fitted(f"Pad: {pad}", 40, 28)
         self.canvas.draw_text_fitted(f"Count: {self.count}", 35, 45)
 
-    def on_button_press(self, button_id, event):
-        """Handle button press - quit on STOP."""
-        if event == "press" and button_id == self.fire.BUTTON_STOP:
-            print("Stop pressed - quitting")
-            self.quit()
+    @on.button(BUTTON_STOP)
+    def stop(self, event):
+        self.quit()
 
 
 if __name__ == "__main__":

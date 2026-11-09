@@ -1,8 +1,14 @@
 """Two views of one SnakeGame: RGB pads and a monochrome OLED board."""
 
-import threading
-
-from akai_fire_framework import AkaiFireApp
+from akai_fire.constants import (
+    BUTTON_GRID_LEFT,
+    BUTTON_GRID_RIGHT,
+    BUTTON_PAT_DOWN,
+    BUTTON_PAT_UP,
+    BUTTON_PLAY,
+    BUTTON_STOP,
+)
+from akai_fire_framework import AkaiFireApp, on
 
 from .game import Direction, SnakeGame, State
 
@@ -16,7 +22,6 @@ class SnakeApp(AkaiFireApp):
 
     def on_init(self):
         self.game = SnakeGame()
-        self._state_lock = threading.RLock()
         self._elapsed = 0.0
         self._directions = {
             self.fire.BUTTON_PAT_UP: Direction.UP,
@@ -26,30 +31,30 @@ class SnakeApp(AkaiFireApp):
         }
         self._draw()
 
-    def on_button_press(self, button_id, event):
-        if event != "press":
-            return
-        with self._state_lock:
-            if button_id in self._directions:
-                self.game.turn(self._directions[button_id])
-            elif button_id == self.fire.BUTTON_PLAY:
-                self.game.toggle_pause()
-                self._elapsed = 0.0
-            elif button_id == self.fire.BUTTON_STOP:
-                self.game.reset()
-                self._elapsed = 0.0
+    @on.button((BUTTON_PAT_UP, BUTTON_PAT_DOWN, BUTTON_GRID_LEFT, BUTTON_GRID_RIGHT))
+    def steer(self, event):
+        self.game.turn(self._directions[event.button])
+
+    @on.button(BUTTON_PLAY)
+    def toggle_pause(self, event):
+        self.game.toggle_pause()
+        self._elapsed = 0.0
+
+    @on.button(BUTTON_STOP)
+    def reset(self, event):
+        self.game.reset()
+        self._elapsed = 0.0
 
     def on_update(self, dt):
-        with self._state_lock:
-            if self.game.state == State.RUNNING:
-                interval = max(0.12, 0.32 - self.game.score * 0.008)
-                # A stalled frame advances at most one cell, rather than
-                # replaying several missed moves before the player can steer.
-                self._elapsed += min(max(dt, 0), interval)
-                if self._elapsed >= interval:
-                    self._elapsed -= interval
-                    self.game.step()
-            self._draw()
+        if self.game.state == State.RUNNING:
+            interval = max(0.12, 0.32 - self.game.score * 0.008)
+            # A stalled frame advances at most one cell, rather than
+            # replaying several missed moves before the player can steer.
+            self._elapsed += min(max(dt, 0), interval)
+            if self._elapsed >= interval:
+                self._elapsed -= interval
+                self.game.step()
+        self._draw()
 
     def _draw(self):
         self._draw_pads()

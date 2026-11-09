@@ -27,6 +27,8 @@ Force a specific backend with `use_mock`:
 | `get_akai_fire(use_mock="tui")` | Terminal-UI mock (rich) |
 | `AkaiFire(port_name="...")` | Hardware directly, custom port name substring |
 
+`get_akai_fire(max_workers=1)` requests ordered hardware callbacks. The factory ignores `max_workers` for pygame/TUI, including automatic fallback; other extra arguments still go to the selected constructor. Direct `AkaiFire()` defaults to four workers. Decorator-based framework apps use one worker when they create their own controller.
+
 ### Custom port name
 
 The library matches ports whose name *contains* the given string (default `"FL STUDIO FIRE"`):
@@ -286,7 +288,7 @@ with AkaiFire(max_workers=1) as fire:
 # Alternatively, async_handlers=False runs callbacks on the MIDI polling thread.
 ```
 
-Keep handlers short; offload blocking I/O or expensive work. Multiple workers do not guarantee arrival-order execution. See the [framework guide](FRAMEWORK.md#input) for moving state changes to the frame thread.
+Keep handlers short; offload blocking I/O or expensive work. Multiple workers do not guarantee arrival-order execution. See the [framework guide](FRAMEWORK.md#declarative-input) for moving state changes to the frame thread.
 
 ## Mocks
 

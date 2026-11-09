@@ -231,7 +231,7 @@ class OledLayouts(unittest.TestCase):
             with app_class(fire) as app:
                 for button in (fire.BUTTON_NOTE, fire.BUTTON_BROWSER):
                     fire.simulate_button_press(button)
-                    app.on_update(0.04)
+                    app.tick(0.04)
                     self.assert_readable(fire.canvas)
 
     def test_oled_page_catalog(self):

@@ -329,9 +329,9 @@ class PixelEditorTests(unittest.TestCase):
         self.assertFalse(any(self.fire.button_listeners.values()))
         self.assertFalse(any(self.fire.rotary_listeners.values()))
 
-    def test_launcher_keeps_hardware_options_out_of_mock_constructor(self):
+    def test_launcher_selects_backend_and_serial_hardware_delivery(self):
         for args, expected in (
-            ([], {"use_mock": "pygame"}),
+            ([], {"use_mock": "pygame", "max_workers": 1}),
             (["--hardware"], {"use_mock": False, "max_workers": 1}),
         ):
             with (

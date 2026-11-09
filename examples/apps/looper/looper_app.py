@@ -22,6 +22,7 @@ Usage:
 
 from enum import Enum, auto
 
+from akai_fire.device import AkaiFireDevice
 from akai_fire_framework import (
     AkaiFireApp,
     GridMixin,
@@ -30,6 +31,7 @@ from akai_fire_framework import (
     ScreenMixin,
     TransportMixin,
     TransportState,
+    on,
 )
 
 from .clip import ClipGrid, ClipState
@@ -184,33 +186,43 @@ class LooperApp(AkaiFireApp, ModeManagerMixin, ScreenMixin, GridMixin, Transport
         self._update_pads()
         self._update_track_leds()
 
-    def on_button_press(self, button_id, event):
-        if event != "press":
-            return
-        if button_id == self.fire.BUTTON_PLAY:
-            self.toggle_play()
-        elif button_id == self.fire.BUTTON_STOP:
-            self.stop()
-        elif button_id == self.fire.BUTTON_REC:
-            self._handle_record()
-        elif button_id == self.fire.BUTTON_NOTE:
-            self.set_mode(Mode.MAIN)
-        elif button_id == self.fire.BUTTON_BROWSER:
-            self.set_mode(Mode.SETTINGS)
-        elif button_id in self.fire.SOLO_BUTTONS.values():
-            self.grid.selected_track = self.fire.get_solo_index(button_id) - 1
-            self._update_track_leds()
+    @on.button(AkaiFireDevice.BUTTON_PLAY)
+    def play_button(self, event):
+        self.toggle_play()
+
+    @on.button(AkaiFireDevice.BUTTON_STOP)
+    def stop_button(self, event):
+        self.stop()
+
+    @on.button(AkaiFireDevice.BUTTON_REC)
+    def record_button(self, event):
+        self._handle_record()
+
+    @on.button((AkaiFireDevice.BUTTON_NOTE, AkaiFireDevice.BUTTON_BROWSER))
+    def choose_mode(self, event):
+        self.set_mode(
+            Mode.MAIN if event.button == self.fire.BUTTON_NOTE else Mode.SETTINGS
+        )
+
+    @on.button(tuple(AkaiFireDevice.SOLO_BUTTONS.values()))
+    def choose_track(self, event):
+        self.grid.selected_track = self.fire.get_solo_index(event.button) - 1
+        self._update_track_leds()
 
     def on_stop(self):
         self.grid.stop_all()
 
-    def on_pad_press(self, pad: int, velocity: int):
-        """Dispatch pad press to current mode."""
-        self.dispatch_pad_press(pad, velocity)
+    @on.pad()
+    def route_pad(self, event):
+        self.dispatch_pad_press(event.pad, event.velocity)
 
-    def on_encoder_turn(self, encoder_id: int, direction: str, velocity: int):
-        """Dispatch encoder turn to current mode."""
-        self.dispatch_encoder_turn(encoder_id, direction, velocity)
+    @on.encoder()
+    def route_encoder(self, event):
+        self.dispatch_encoder_turn(
+            event.encoder,
+            "clockwise" if event.delta > 0 else "counterclockwise",
+            abs(event.delta),
+        )
 
     def on_update(self, dt: float):
         """Main update loop."""

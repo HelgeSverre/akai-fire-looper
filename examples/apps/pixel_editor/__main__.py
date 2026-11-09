@@ -27,11 +27,11 @@ def main(argv=None):
         help="Exit after this many seconds; useful for smoke tests",
     )
     args = parser.parse_args(argv)
-    # The factory forwards kwargs to the chosen backend. max_workers belongs
-    # only to hardware, whose single worker preserves callback order.
-    options = {"max_workers": 1} if args.hardware else {}
+    # The factory applies worker count to hardware and ignores it for mocks.
     with (
-        get_akai_fire(use_mock=False if args.hardware else "pygame", **options) as fire,
+        get_akai_fire(
+            use_mock=False if args.hardware else "pygame", max_workers=1
+        ) as fire,
         PixelEditorApp(fire, path=args.file) as app,
     ):
         app.run(duration=args.duration)

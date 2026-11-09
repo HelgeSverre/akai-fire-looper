@@ -23,7 +23,7 @@ STOP retains accumulated encoder values and the selected encoder. Capture contin
 
 The log keeps the most recent 512 events and the graph keeps 64 values. CSV columns are elapsed seconds, kind, control ID, and value. Export defaults to `midi-scope.csv`; set `MIDI_SCOPE_CSV` to change the path. Exports overwrite that file.
 
-This monitors controller events exposed by the driver. It is not a raw MIDI-byte sniffer and does not open an external instrument port. Timestamps are taken when the app callback runs; they include dispatch latency. The default driver uses four callback workers, so recorded order can differ from hardware arrival order. Hardware pad releases are not currently exposed. Tests cover capture, freeze, graph state, clear and CSV output.
+This monitors controller events exposed by the driver. It is not a raw MIDI-byte sniffer and does not open an external instrument port. This app intentionally retains immediate legacy hooks and a state lock instead of app decorators. Its diagnostic timestamps should not be shifted to the UI frame. Timestamps are taken when the app callback runs; they include dispatch latency. The default driver uses four callback workers, so recorded order can differ from hardware arrival order. Hardware pad releases are not currently exposed. Tests cover capture, freeze, graph state, clear and CSV output.
 
 ![Encoder trace rendered from the app canvas](../../docs/images/midi-scope.png)
 

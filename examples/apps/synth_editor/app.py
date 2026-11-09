@@ -3,14 +3,28 @@
 import json
 import os
 import tempfile
-import threading
 from collections import deque
 from itertools import pairwise
 from pathlib import Path
 
 from PIL import ImageFont
 
-from akai_fire_framework import AkaiFireApp
+from akai_fire.constants import (
+    BUTTON_BROWSER,
+    BUTTON_GRID_LEFT,
+    BUTTON_GRID_RIGHT,
+    BUTTON_NOTE,
+    BUTTON_PLAY,
+    BUTTON_REC,
+    BUTTON_SELECT,
+    BUTTON_STOP,
+    ROTARY_FILTER,
+    ROTARY_PAN,
+    ROTARY_RESONANCE,
+    ROTARY_SELECT,
+    ROTARY_VOLUME,
+)
+from akai_fire_framework import AkaiFireApp, on
 
 from .midi import SynthOutput
 from .parameters import PAGES, PARAMETERS
@@ -33,7 +47,6 @@ class SynthEditorApp(AkaiFireApp):
             raise
 
     def on_init(self):
-        self._state_lock = threading.RLock()
         self.page = self.selected = 0
         self.keyboard = False
         self.detail = False
@@ -58,36 +71,30 @@ class SynthEditorApp(AkaiFireApp):
         self.history.append(value)
         self.notice = f"CC {parameter.cc}: {value}"
 
-    def on_encoder_turn(self, encoder_id, direction, velocity):
-        encoders = [
-            self.fire.ROTARY_VOLUME,
-            self.fire.ROTARY_PAN,
-            self.fire.ROTARY_FILTER,
-            self.fire.ROTARY_RESONANCE,
-        ]
-        with self._state_lock:
-            if encoder_id == self.fire.ROTARY_SELECT:
-                self._change_page(1 if direction == "clockwise" else -1)
-            elif encoder_id in encoders:
-                index = encoders.index(encoder_id)
-                value = self.values[PAGES[self.page][1][index].cc]
-                # Unknown means no value has been sent, not a presumed synth default.
-                start = 64 if value is None else value
-                delta = 1 if self.fire.is_shift_pressed() else max(1, velocity)
-                self._set_value(
-                    index, start + (delta if direction == "clockwise" else -delta)
-                )
+    @on.encoder(ROTARY_SELECT)
+    def change_page(self, event):
+        self._change_page(1 if event.delta > 0 else -1)
 
-    def on_pad_press(self, pad, velocity):
-        with self._state_lock:
-            if self.keyboard:
-                # Four rows of chromatic notes, C2 through D#7, within MIDI range.
-                note = 36 + pad
-                self.output.audition(note, max(1, min(127, velocity)))
-                self.notice = f"Note {note} / 300ms"
-            else:
-                row, column = divmod(pad, 16)
-                self._set_value(row, round(column * 127 / 15))
+    @on.encoder((ROTARY_VOLUME, ROTARY_PAN, ROTARY_FILTER, ROTARY_RESONANCE))
+    def edit_parameter(self, event):
+        index = (ROTARY_VOLUME, ROTARY_PAN, ROTARY_FILTER, ROTARY_RESONANCE).index(
+            event.encoder
+        )
+        value = self.values[PAGES[self.page][1][index].cc]
+        # Unknown means no value has been sent, not a presumed synth default.
+        start = 64 if value is None else value
+        delta = (1 if event.delta > 0 else -1) if event.shift else event.delta
+        self._set_value(index, start + delta)
+
+    @on.pad()
+    def play_or_set_value(self, event):
+        if self.keyboard:
+            note = 36 + event.pad
+            self.output.audition(note, max(1, min(127, event.velocity)))
+            self.notice = f"Note {note} / 300ms"
+        else:
+            row, column = divmod(event.pad, 16)
+            self._set_value(row, round(column * 127 / 15))
 
     def _change_page(self, delta):
         self.page = (self.page + delta) % len(PAGES)
@@ -95,37 +102,42 @@ class SynthEditorApp(AkaiFireApp):
         self.history.clear()
         self.notice = PAGES[self.page][0]
 
-    def on_button_press(self, button_id, event):
-        if event != "press":
-            return
-        with self._state_lock:
-            if button_id in (self.fire.BUTTON_GRID_LEFT, self.fire.BUTTON_GRID_RIGHT):
-                delta = 1 if button_id == self.fire.BUTTON_GRID_RIGHT else -1
-                if self.fire.is_shift_pressed():
-                    self.output.set_channel(
-                        max(1, min(16, self.output.channel + delta))
-                    )
-                else:
-                    self._change_page(delta)
-            elif button_id == self.fire.BUTTON_NOTE:
-                self.keyboard = not self.keyboard
-            elif button_id == self.fire.BUTTON_BROWSER:
-                self.detail = not self.detail
-            elif button_id == self.fire.BUTTON_PLAY:
-                for note in (60, 64, 67):
-                    self.output.audition(note)
-            elif button_id == self.fire.BUTTON_STOP:
-                self.output.panic()
-                self.notice = "Notes stopped"
-            elif button_id in (self.fire.BUTTON_REC, self.fire.BUTTON_SELECT):
-                try:
-                    if button_id == self.fire.BUTTON_REC:
-                        self.save_snapshot()
-                    else:
-                        self.load_snapshot()
-                except (OSError, ValueError, TypeError) as exc:
-                    self.notice = "Snapshot error"
-                    print(f"Snapshot error: {exc}")
+    @on.button((BUTTON_GRID_LEFT, BUTTON_GRID_RIGHT))
+    def navigate(self, event):
+        delta = 1 if event.button == BUTTON_GRID_RIGHT else -1
+        if event.shift:
+            self.output.set_channel(max(1, min(16, self.output.channel + delta)))
+        else:
+            self._change_page(delta)
+
+    @on.button(BUTTON_NOTE)
+    def toggle_keyboard(self, event):
+        self.keyboard = not self.keyboard
+
+    @on.button(BUTTON_BROWSER)
+    def toggle_detail(self, event):
+        self.detail = not self.detail
+
+    @on.button(BUTTON_PLAY)
+    def audition_chord(self, event):
+        for note in (60, 64, 67):
+            self.output.audition(note)
+
+    @on.button(BUTTON_STOP)
+    def silence(self, event):
+        self.output.panic()
+        self.notice = "Notes stopped"
+
+    @on.button((BUTTON_REC, BUTTON_SELECT))
+    def snapshot(self, event):
+        try:
+            if event.button == BUTTON_REC:
+                self.save_snapshot()
+            else:
+                self.load_snapshot()
+        except (OSError, ValueError, TypeError) as exc:
+            self.notice = "Snapshot error"
+            print(f"Snapshot error: {exc}")
 
     def save_snapshot(self):
         payload = {
@@ -172,9 +184,8 @@ class SynthEditorApp(AkaiFireApp):
         self.notice = "Snapshot sent"
 
     def on_update(self, dt):
-        with self._state_lock:
-            self.output.update()
-            self._draw()
+        self.output.update()
+        self._draw()
 
     def _draw(self):
         canvas = self.canvas
@@ -245,11 +256,10 @@ class SynthEditorApp(AkaiFireApp):
         self.fire.set_multiple_pad_colors(colors)
 
     def on_stop(self):
-        with self._state_lock:
-            if self._owns_output:
-                self.output.close()
-            else:
-                self.output.panic()
+        if self._owns_output:
+            self.output.close()
+        else:
+            self.output.panic()
 
 
 def main():

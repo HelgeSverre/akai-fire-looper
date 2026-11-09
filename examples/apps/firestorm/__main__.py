@@ -21,9 +21,8 @@ def main(argv=None):
         "--seed", type=int, help="Seed the visual simulation for repeatable runs"
     )
     args = parser.parse_args(argv)
-    options = {"max_workers": 1} if args.hardware else {}
     with get_akai_fire(
-        use_mock=False if args.hardware else "pygame", **options
+        use_mock=False if args.hardware else "pygame", max_workers=1
     ) as fire:
         sound = Sound(enabled=not args.silent)
         try:

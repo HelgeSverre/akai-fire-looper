@@ -83,10 +83,9 @@ class DemoRunner:
                 self.running = False
                 return
 
-            # Use the app frame hook so previews expire and playhead state updates.
+            # Deliver queued controls before advancing previews and the display.
             now = time.monotonic()
-            self.app.on_update(now - previous)
-            self.fire.render_to_display()
+            self.app.tick(now - previous)
             previous = now
 
             time.sleep(0.016)  # ~60 FPS

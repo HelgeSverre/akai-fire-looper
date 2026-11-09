@@ -23,6 +23,7 @@ from akai_fire_framework import (
     ModeManagerMixin,
     ScreenMixin,
     TransportMixin,
+    on,
 )
 
 
@@ -137,26 +138,38 @@ class ModalDemoApp(
         self.register_mode(Mode.MAIN, MainMode(self))
         self.register_mode(Mode.SETTINGS, SettingsMode(self))
 
-        # Set up transport buttons
-        self.setup_transport_buttons()
-
         # Start in main mode
         self.set_mode(Mode.MAIN)
 
-    def on_button_press(self, button_id, event):
-        if event == "press":
-            if button_id == self.fire.BUTTON_NOTE:
-                self.set_mode(Mode.MAIN)
-            elif button_id == self.fire.BUTTON_BROWSER:
-                self.set_mode(Mode.SETTINGS)
+    @on.button(AkaiFireDevice.BUTTON_PLAY)
+    def play_button(self, event):
+        self.toggle_play()
 
-    def on_pad_press(self, pad, velocity):
-        """Dispatch pad press to current mode."""
-        self.dispatch_pad_press(pad, velocity)
+    @on.button(AkaiFireDevice.BUTTON_STOP)
+    def stop_button(self, event):
+        self.stop()
 
-    def on_encoder_turn(self, encoder_id, direction, velocity):
-        """Dispatch encoder turn to current mode."""
-        self.dispatch_encoder_turn(encoder_id, direction, velocity)
+    @on.button(AkaiFireDevice.BUTTON_REC)
+    def record_button(self, event):
+        self.toggle_record()
+
+    @on.button((AkaiFireDevice.BUTTON_NOTE, AkaiFireDevice.BUTTON_BROWSER))
+    def choose_mode(self, event):
+        self.set_mode(
+            Mode.MAIN if event.button == self.fire.BUTTON_NOTE else Mode.SETTINGS
+        )
+
+    @on.pad()
+    def route_pad(self, event):
+        self.dispatch_pad_press(event.pad, event.velocity)
+
+    @on.encoder()
+    def route_encoder(self, event):
+        self.dispatch_encoder_turn(
+            event.encoder,
+            "clockwise" if event.delta > 0 else "counterclockwise",
+            abs(event.delta),
+        )
 
     def on_update(self, dt):
         """Update display based on current mode."""

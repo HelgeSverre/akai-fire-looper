@@ -69,7 +69,7 @@ if __name__ == "__main__":
         app.run()
 ```
 
-The framework runs the display loop, processes mock input, and cleans up its handlers and connections on shutdown. Use `on_update(dt)` to update the display and `@on.encoder(...)` for knob input. See the [framework guide](docs/FRAMEWORK.md) for hooks, mixins, threading and resource ownership.
+The framework delivers decorated input on the frame thread, runs the display loop, processes mock input, and cleans up handlers and connections. Decorator-based apps use one hardware callback worker when creating their own controller. Use `on_update(dt)` to update the display and `@on.encoder(...)` for knob input. See the [framework guide](docs/FRAMEWORK.md) for hooks, mixins, threading and resource ownership.
 
 ## Use the library in another project
 

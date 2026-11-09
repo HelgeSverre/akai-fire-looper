@@ -100,6 +100,7 @@ class SnakeController(unittest.TestCase):
     def press(self, button):
         self.fire.simulate_button_press(button)
         self.fire.simulate_button_release(button)
+        self.app.tick(0)
 
     def test_pattern_and_grid_controls_pause_and_reset(self):
         for button, expected in (
@@ -109,14 +110,14 @@ class SnakeController(unittest.TestCase):
             (self.fire.BUTTON_GRID_RIGHT, (7, 2)),
         ):
             self.press(button)
-            self.app.on_update(0.32)
+            self.app.tick(0.32)
             self.assertEqual(self.app.game.snake[0], expected)
         self.press(self.fire.BUTTON_PLAY)
-        self.app.on_update(5)
+        self.app.tick(5)
         self.assertEqual(self.app.game.state, State.PAUSED)
         self.assertEqual(self.app.game.snake[0], (7, 2))
         self.press(self.fire.BUTTON_PLAY)
-        self.app.on_update(0.32)
+        self.app.tick(0.32)
         self.assertEqual(self.app.game.snake[0], (8, 2))
         self.press(self.fire.BUTTON_STOP)
         self.assertEqual(self.app.game.state, State.READY)
@@ -124,13 +125,13 @@ class SnakeController(unittest.TestCase):
 
     def test_stalled_frame_advances_only_one_cell(self):
         self.press(self.fire.BUTTON_PLAY)
-        self.app.on_update(20)
+        self.app.tick(20)
         self.assertEqual(self.app.game.snake[0], (8, 2))
 
     def test_both_views_follow_the_same_board_after_eating(self):
         self.app.game.food = (8, 2)
         self.press(self.fire.BUTTON_PLAY)
-        self.app.on_update(0.32)
+        self.app.tick(0.32)
         game = self.app.game
         for y in range(4):
             for x in range(16):

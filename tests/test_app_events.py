@@ -294,3 +294,53 @@ class AppEventsTests(unittest.TestCase):
                     cls(fire)
                 self.assertFalse(fire.pad_listeners["global"])
                 self.assertTrue(fire.is_connected())
+
+    def test_owned_decorator_apps_choose_serial_workers_without_changing_legacy_apps(
+        self,
+    ):
+        class Decorated(AkaiFireApp):
+            @on.pad()
+            def pad(self, event):
+                pass
+
+        class Removed(Decorated):
+            def pad(self, event):
+                pass
+
+        for cls, options in (
+            (Decorated, {"max_workers": 1}),
+            (AkaiFireApp, {}),
+            (Removed, {}),
+        ):
+            fire = MockAkaiFire()
+            with patch(
+                "akai_fire_framework.app.get_akai_fire", return_value=fire
+            ) as factory:
+                with cls() as app:
+                    self.assertTrue(app._owns_fire)
+                factory.assert_called_once_with(**options)
+            self.assertFalse(fire.is_connected())
+
+    def test_factory_applies_worker_count_only_to_hardware_including_fallback(self):
+        from akai_fire import get_akai_fire
+        from akai_fire.errors import MIDIConnectionError
+
+        with patch("akai_fire.hardware.AkaiFire") as hardware:
+            self.assertIs(
+                get_akai_fire(use_mock=False, max_workers=1), hardware.return_value
+            )
+            hardware.assert_called_once_with(oled_keepalive=True, max_workers=1)
+        with patch("mock_gui_pygame.MockAkaiFire") as mock:
+            self.assertIs(
+                get_akai_fire(use_mock="pygame", max_workers=1), mock.return_value
+            )
+            mock.assert_called_once_with()
+        with (
+            patch(
+                "akai_fire.hardware.AkaiFire",
+                side_effect=MIDIConnectionError("offline"),
+            ),
+            patch("mock_gui_pygame.MockAkaiFire") as mock,
+        ):
+            self.assertIs(get_akai_fire(max_workers=1), mock.return_value)
+            mock.assert_called_once_with()

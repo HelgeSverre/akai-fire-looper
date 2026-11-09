@@ -5,7 +5,7 @@ Provides the minimal foundation for any AKAI Fire app:
 - Hardware initialization (auto-detects mock vs real)
 - Main loop with configurable FPS
 - Lifecycle hooks (on_init, on_start, on_update, on_stop)
-- Event hooks (on_pad_press, on_button_press, on_encoder_turn)
+- Foreground input decorators; legacy device-thread hooks remain compatible
 - Context manager support
 """
 
@@ -15,7 +15,13 @@ from functools import partial
 
 from akai_fire import get_akai_fire
 from akai_fire_framework._subscriptions import _EventSubscriptions
-from akai_fire_framework.events import ButtonEvent, EncoderEvent, PadEvent, _InputRouter
+from akai_fire_framework.events import (
+    ButtonEvent,
+    EncoderEvent,
+    PadEvent,
+    _declarations,
+    _InputRouter,
+)
 
 
 class AkaiFireApp:
@@ -62,8 +68,13 @@ class AkaiFireApp:
             fire: Optional AkaiFire instance. If None, uses get_akai_fire()
                   which auto-detects hardware or falls back to mock.
         """
-        self.fire = fire if fire is not None else get_akai_fire()
-        self._owns_fire = fire is None  # Track if we need to close it
+        if fire is None:
+            options = {"max_workers": 1} if any(_declarations(type(self))) else {}
+            fire = get_akai_fire(**options)
+            self._owns_fire = True
+        else:
+            self._owns_fire = False
+        self.fire = fire
 
         self.running = False
         self._last_update_time = 0.0

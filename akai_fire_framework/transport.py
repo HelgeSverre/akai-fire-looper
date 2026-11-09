@@ -30,6 +30,9 @@ class TransportMixin:
     - Callback system for state changes
 
     Usage:
+        from akai_fire.constants import BUTTON_PLAY, BUTTON_STOP, BUTTON_REC
+        from akai_fire_framework import on
+
         class MyApp(AkaiFireApp, TransportMixin):
             def on_init(self):
                 self.init_transport()
@@ -37,16 +40,17 @@ class TransportMixin:
                 # Optional: add callback
                 self.add_transport_callback(self.on_transport_change)
 
-            def on_button_press(self, button_id, event):
-                if event != "press":
-                    return
+            @on.button(BUTTON_PLAY)
+            def play_button(self, event):
+                self.toggle_play()
 
-                if button_id == self.fire.BUTTON_PLAY:
-                    self.toggle_play()
-                elif button_id == self.fire.BUTTON_STOP:
-                    self.stop()
-                elif button_id == self.fire.BUTTON_REC:
-                    self.toggle_record()
+            @on.button(BUTTON_STOP)
+            def stop_button(self, event):
+                self.stop()
+
+            @on.button(BUTTON_REC)
+            def record_button(self, event):
+                self.toggle_record()
 
             def on_update(self, dt):
                 self.update_transport_leds()
@@ -216,7 +220,9 @@ class TransportMixin:
 
     def setup_transport_buttons(self):
         """
-        Set up default transport button handlers.
+        Set up legacy device-thread transport handlers.
+
+        Do not combine these with decorated handlers for the same buttons.
 
         Call this in on_init() if you want standard behavior.
         """

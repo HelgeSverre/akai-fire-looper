@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Decorator input in Pad Counter, Snake, synth editor, modal demo, clip looper and Circuit. Default owned controllers use one worker for declared input; the factory safely ignores worker count for mock backends. MIDI Scope retains callback-time diagnostics.
+
 - App-level `on.pad`, `on.button` and `on.encoder` declarations, frozen modifier snapshots, bounded foreground dispatch and deterministic `tick(dt)` frames. Pixel Editor and its tutorial now use this API; legacy hooks retain their callback-thread behavior.
 - Firestorm particle instrument with three scenes, shared pad/OLED simulation, direct knob control and optional synthesized computer audio.
 

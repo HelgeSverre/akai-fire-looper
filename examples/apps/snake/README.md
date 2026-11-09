@@ -28,7 +28,7 @@ Eat the orange-red food to grow and gain a point. The head is lime green, the bo
 ## How the views stay in sync
 
 - `game.py` owns the snake, food, direction, score and ready/running/paused/over/won state. It has no controller or drawing dependencies.
-- `app.py` maps buttons to game commands and advances the model from `on_update(dt)`. A lock coordinates hardware callbacks with the frame thread.
+- `app.py` uses `@on.button(...)` handlers and advances the model from `on_update(dt)`. Both run on the frame thread, so no app state lock is needed. Tests deliver simulated input through `tick()`.
 - Both renderers read that model. Cell `(x, y)` maps to pad `y * 16 + x` and the corresponding 8×10-pixel OLED cell. The OLED uses a hollow marker for the head and a small circle for food.
 
 A delayed frame advances at most one cell so the player can react after a pause in rendering. The game does not run a second movement thread.

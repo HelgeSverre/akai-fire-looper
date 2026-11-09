@@ -19,13 +19,15 @@ examples/apps/snake          game rules, pad and OLED views
 
 `AkaiFireDevice` owns callback registries, modifier snapshots, input dispatch, and common device operations. Hardware and mocks share these input APIs; output rendering, validation and cleanup have [documented differences](DEVICE.md#mocks). `hardware.py` owns MIDI ports, polling, the bounded callback executor, serialized output and pad-message caching. `Canvas` owns the 128×64 monochrome image; the hardware backend encodes it for the OLED.
 
-Callbacks are copied before dispatch so handlers can add/remove subscriptions. Exceptions are logged per handler. The default executor uses four workers, so completion can be concurrent. Configure one worker when FIFO ordering is needed. Modifier state is captured for each dispatch, not read later from an unrelated input event.
+Callbacks are copied before dispatch so handlers can add/remove subscriptions. Exceptions are logged per handler. The default executor uses four workers, so completion can be concurrent. Configure one worker when FIFO ordering is needed; decorator-based framework apps do this for owned controllers. Modifier state is captured for each dispatch, not read later from an unrelated input event.
 
 The hardware OLED needs periodic traffic to remain awake. With the default `oled_keepalive=True`, the first successful render starts a worker that resends the last encoded frame after two idle seconds. Explicit renders reset its deadline. Both paths use the same I/O lock, and the worker never reads the mutable canvas. Background send failures are logged and retried after the interval. Closing retires the worker and discards its frame before releasing the ports; reconnecting needs an explicit render to start a new worker. Mocks have no idle sleep or refresh worker.
 
 ## Application boundary
 
 `AkaiFireApp` creates or borrows a controller, calls initialization hooks, owns its default input subscriptions, runs a monotonic frame loop, and shuts down once. `_EventSubscriptions` is the shared private owner for framework and standard transport callbacks. A failed registration batch rolls back its own listeners. A borrowed controller survives app shutdown; owned hardware is closed even when an app stop hook fails.
+
+`events.py` owns declarative filters, effective-MRO discovery, immutable modifier snapshots and bounded foreground delivery. `tick()` drains those handlers before `on_update()` and OLED rendering. MIDI Scope intentionally retains legacy callback-thread hooks so its timestamps describe callback execution; its state lock remains necessary.
 
 The frame loop is an interface refresh loop. It is not a musical clock. Circuit owns its own clock and scheduled-note worker; the synth editor owns short audition deadlines; MIDI Scope has no instrument output. Snake owns its movement timer and game rules; both its pad and OLED renderers read the same board.
 
