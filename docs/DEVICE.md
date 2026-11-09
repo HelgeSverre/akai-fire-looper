@@ -77,7 +77,7 @@ Button values select brightness, not hue: `LED_OFF` is 0, all `LED_DULL_*` alias
 
 ### Track LEDs
 
-Tracks are numbered **1–4**. Their rectangular LEDs take values `0–4` (`RECTANGLE_LED_*` constants). The hardware setter returns `False` for an invalid track number:
+Tracks are numbered **1–4**. Their rectangular LEDs use MIDI CC `0x28–0x2B` and take values `0–4` (`RECTANGLE_LED_*` constants). The hardware setter returns `False` for an invalid track number:
 
 ```python
 fire.set_track_led(1, fire.RECTANGLE_LED_HIGH_GREEN)

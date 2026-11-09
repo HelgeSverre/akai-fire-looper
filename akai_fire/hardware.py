@@ -801,7 +801,8 @@ class AkaiFire(AkaiFireDevice):
             logger.warning(f"Invalid track number: {track_number}")
             return False
 
-        cc_map = {1: 0x65, 2: 0x66, 3: 0x67, 4: 0x68}
+        # The four rectangular indicators are CC 40-43 (0x28-0x2B).
+        cc_map = {1: 0x28, 2: 0x29, 3: 0x2A, 4: 0x2B}
         value = max(0, min(4, value))
         message = [self.CC, cc_map[track_number], value]
         return self._send_midi_safe(message)

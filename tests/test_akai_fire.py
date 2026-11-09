@@ -126,12 +126,18 @@ class TestAkaiFire(unittest.TestCase):
             self.fire.set_button_led(0x99, self.fire.LED_HIGH_GREEN)
 
     def test_track_leds(self):
-        """Test track LED control"""
-        self.fire.set_track_led(1, self.fire.RECTANGLE_LED_HIGH_GREEN)
-        # Should send control change message
-        self.assertEqual(len(self.mock_midi_out.messages), 1)
-        msg = self.mock_midi_out.messages[-1]
-        self.assertEqual(msg[0], 0xB0)  # Control change
+        """Track rectangles use CC 0x28..0x2B, not the pad SysEx command."""
+        for track, cc in enumerate((0x28, 0x29, 0x2A, 0x2B), start=1):
+            for value in range(5):
+                self.assertTrue(self.fire.set_track_led(track, value))
+                self.assertEqual(self.mock_midi_out.messages[-1], [0xB0, cc, value])
+
+    def test_clear_track_leds_addresses_each_rectangle(self):
+        self.assertTrue(self.fire.clear_all_track_leds())
+        self.assertEqual(
+            self.mock_midi_out.messages,
+            [[0xB0, cc, 0] for cc in (0x28, 0x29, 0x2A, 0x2B)],
+        )
 
     def test_clear_operations(self):
         """Test clear operations"""
