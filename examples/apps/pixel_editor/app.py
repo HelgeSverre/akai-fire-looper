@@ -8,7 +8,7 @@ from typing import Literal
 
 from akai_fire_framework import AkaiFireApp, EncoderMenu, MenuItem, ScreenMixin
 
-from .model import PALETTE, Picture
+from .model import BLACK, Picture
 
 
 class View(Enum):
@@ -88,11 +88,21 @@ class PixelEditorApp(AkaiFireApp, ScreenMixin):
         if event.kind == "pad" and self.view == View.DRAW:
             self.picture.paint(event.control, erase=event.shifted)
             self.unsaved = True
-        elif event.kind == "encoder" and event.control == fire.ROTARY_SELECT:
-            if self.view == View.SETTINGS:
-                self.menu.turn(event.delta)
-            else:
-                self._adjust_color(event.delta)
+        elif event.kind == "encoder":
+            channels = (fire.ROTARY_VOLUME, fire.ROTARY_PAN, fire.ROTARY_FILTER)
+            if event.control in channels:
+                before = self.picture.brush_color
+                self.picture.adjust_channel(channels.index(event.control), event.delta)
+                self.unsaved |= self.picture.brush_color != before
+                self._notify(self._rgb_label())
+            elif event.control == fire.ROTARY_RESONANCE:
+                self._adjust_brightness(event.delta)
+                self._notify(f"Brightness {self.picture.brightness}%")
+            elif event.control == fire.ROTARY_SELECT:
+                if self.view == View.SETTINGS:
+                    self.menu.turn(event.delta)
+                else:
+                    self._adjust_color(event.delta)
         elif event.kind == "button":
             if event.control == fire.BUTTON_BROWSER:
                 self._toggle_view()
@@ -123,14 +133,20 @@ class PixelEditorApp(AkaiFireApp, ScreenMixin):
         self.view = View.SETTINGS if self.view == View.DRAW else View.DRAW
 
     def _adjust_color(self, delta):
-        before = self.picture.brush
-        self.picture.brush = 1 + (before - 1 + delta) % (len(PALETTE) - 1)
-        self.unsaved |= self.picture.brush != before
+        before = (self.picture.brush, self.picture.custom_color)
+        self.picture.select_color(delta)
+        self.unsaved |= (self.picture.brush, self.picture.custom_color) != before
+        self.notice = ""
+        self.notice_left = 0.0
 
     def _adjust_brightness(self, delta):
         before = self.picture.brightness
         self.picture.brightness = max(10, min(100, before + 5 * delta))
         self.unsaved |= self.picture.brightness != before
+
+    def _rgb_label(self):
+        red, green, blue = self.picture.brush_color
+        return f"R{red} G{green} B{blue}"
 
     def _notify(self, message):
         self.notice = message
@@ -173,24 +189,25 @@ class PixelEditorApp(AkaiFireApp, ScreenMixin):
         if self.view == View.SETTINGS:
             self._draw_settings()
         else:
-            count = sum(color != 0 for color in self.picture.pixels)
+            count = sum(color != BLACK for color in self.picture.pixels)
             self.draw_header("PIXELS", f"{count}/64" + ("*" if self.unsaved else ""))
             for pad, color in enumerate(self.picture.pixels):
                 row, column = divmod(pad, 16)
                 x, y = 8 + column * 7, 20 + row * 7
-                if color:
+                if color != BLACK:
                     self.canvas.fill_rect(x, y, 5, 5)
                 else:
                     self.canvas.fill_rect(x + 2, y + 2, 1, 1)
-            footer = (
-                self.notice
-                or f"{PALETTE[self.picture.brush][0]} {self.picture.brightness}%"
+            footer = self.notice or (
+                f"{self._rgb_label()} {self.picture.brightness}%"
+                if self.picture.custom_color is not None
+                else f"{self.picture.brush_name} {self.picture.brightness}%"
             )
             self.canvas.draw_text_fitted(footer, 4, 51)
 
     def _draw_settings(self):
         values = [
-            PALETTE[self.picture.brush][0],
+            self.picture.brush_name,
             f"{self.picture.brightness}%",
             "",
             "",

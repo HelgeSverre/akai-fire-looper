@@ -106,9 +106,9 @@ The runtime creates `self.canvas`, calls `on_init()` and registers the app's cal
 
 ## 3. Give the picture a model
 
-The first program stores a set of lit pads. A color editor needs more state: 64 palette indices, a brush color and a brightness percentage. These belong in [model.py](../examples/apps/pixel_editor/model.py), where they can be tested without a controller.
+The first program stores a set of lit pads. A color editor needs more state: 64 RGB tuples, a brush color and a brightness percentage. These belong in [model.py](../examples/apps/pixel_editor/model.py), where they can be tested without a controller.
 
-`Picture` is a dataclass. Its defaults are an empty list of 64 pixels, green brush index 4, and brightness 75. Palette index 0 means off; indices 1–8 select red, orange, yellow, green, cyan, blue, purple and white.
+`Picture` is a dataclass. Its defaults are 64 black `(0, 0, 0)` pixels, green brush index 4, and brightness 75. Presets 1–8 select red, orange, yellow, green, cyan, blue, purple and white. `brush_color` resolves an optional custom RGB brush or the selected preset. Each painted pixel stores its own immutable RGB tuple, so changing the brush cannot recolor earlier pixels.
 
 The model owns the toggle/recolor rule:
 
@@ -117,10 +117,12 @@ The model owns the toggle/recolor rule:
 def paint(self, pad: int, *, erase: bool = False) -> None:
     if not 0 <= pad < 64:
         raise ValueError("Pad must be between 0 and 63")
-    self.pixels[pad] = 0 if erase or self.pixels[pad] == self.brush else self.brush
+    self.pixels[pad] = (
+        BLACK if erase or self.pixels[pad] == self.brush_color else self.brush_color
+    )
 ```
 
-A normal press paints the current brush, or erases a pixel already painted with that brush. `erase=True` clears a pixel regardless of its current color. `Picture.clear()` empties the picture while keeping the brush and brightness.
+A normal press copies the current RGB brush, or erases a pixel already painted with that color. An all-zero brush also erases. `erase=True` clears a pixel regardless of its current color. `Picture.clear()` empties the picture while keeping the brush and brightness.
 
 The RGB conversion is also model-owned:
 
@@ -130,13 +132,13 @@ def pad_colors(self) -> list[tuple[int, int, int, int]]:
     return [
         (
             pad,
-            *(round(channel * self.brightness / 100) for channel in PALETTE[color][1]),
+            *(round(channel * self.brightness / 100) for channel in color),
         )
         for pad, color in enumerate(self.pixels)
     ]
 ```
 
-The palette uses the Fire's RGB channel range of 0–127. Brightness scales those values; it does not rewrite the palette indices. For example, green at 75% produces `(0, 95, 0)`. Raising brightness later restores the original color without losing information through repeated scaling.
+The palette uses the Fire's RGB channel range of 0–127. Brightness scales those values; it does not rewrite the stored RGB tuples. For example, green at 75% produces `(0, 95, 0)`. Raising brightness later restores the original color without losing information through repeated scaling.
 
 The OLED is monochrome. It displays occupied pixels as filled squares and empty positions as small dots; the pads retain the full color picture. Neither view reads state back from the other.
 
@@ -222,18 +224,19 @@ def _draw(self):
     if self.view == View.SETTINGS:
         self._draw_settings()
     else:
-        count = sum(color != 0 for color in self.picture.pixels)
+        count = sum(color != BLACK for color in self.picture.pixels)
         self.draw_header("PIXELS", f"{count}/64" + ("*" if self.unsaved else ""))
         for pad, color in enumerate(self.picture.pixels):
             row, column = divmod(pad, 16)
             x, y = 8 + column * 7, 20 + row * 7
-            if color:
+            if color != BLACK:
                 self.canvas.fill_rect(x, y, 5, 5)
             else:
                 self.canvas.fill_rect(x + 2, y + 2, 1, 1)
-        footer = (
-            self.notice
-            or f"{PALETTE[self.picture.brush][0]} {self.picture.brightness}%"
+        footer = self.notice or (
+            f"{self._rgb_label()} {self.picture.brightness}%"
+            if self.picture.custom_color is not None
+            else f"{self.picture.brush_name} {self.picture.brightness}%"
         )
         self.canvas.draw_text_fitted(footer, 4, 51)
 ```
@@ -242,7 +245,7 @@ The picture grid starts at `(8, 20)`, below the 16-pixel header. Cells are seven
 
 On `Canvas`, color **0 is lit** and color **1 is unlit**. Drawing primitives default to lit pixels. Do not reverse the image to make a PNG look familiar: the same canvas must remain correct on the Fire. The pygame mock presents it as light pixels on a dark display.
 
-The count and `*` in the header describe the model; `*` means there are unsaved changes. The footer shows the brush and brightness, or a short save/load result. Notifications expire using the elapsed `dt` passed by the runtime, so input is never blocked by a sleep.
+The count and `*` in the header describe the model; `*` means there are unsaved changes. The footer shows the preset name or custom RGB levels with brightness, or a short control/save/load message. Notifications expire using the elapsed `dt` passed by the runtime, so input is never blocked by a sleep.
 
 `_dirty` prevents repeated pad batches for an unchanged picture. The base still sends the OLED after each `on_update()` call. If you use the device library without the app runtime, its default OLED keepalive preserves the last submitted image; it does not send unfinished canvas edits.
 
@@ -286,6 +289,21 @@ An `adjust` callback receives a signed delta. An `activate` callback performs an
 
 The GRID behavior is an explicit choice in `_apply()`: `menu.move(delta, keep_editing=True)`. Reaching Save ends editing without executing it, because Save is an action. Use `menu.move(delta)` instead if navigation should always finish the current edit.
 
+The four main knobs are direct shortcuts in **both** views:
+
+| Knob | Effect |
+| --- | --- |
+| VOLUME | Red level of the brush, 0–127 |
+| PAN | Green level of the brush, 0–127 |
+| FILTER | Blue level of the brush, 0–127 |
+| RESONANCE | Global brightness, 10–100% |
+
+RGB changes use the signed encoder delta, clamped to the channel range. The app queues these events just like SELECT input. `Picture.adjust_channel()` creates a new custom brush tuple; already-painted pixels remain unchanged. The OLED reports the channel values. Brightness affects every pad without changing stored colors. These shortcuts do not navigate or end a SELECT edit session.
+
+SELECT and GRID still choose presets in Draw, clearing the custom brush. When editing Color in Settings, SELECT does the same. A custom brush with all channels at zero paints black, which is erase. There is no separate custom-color slot to manage.
+
+**Checkpoint:** paint a green pixel, turn VOLUME up and PAN down, then paint the adjacent pixel. Only the second pixel should use the mixed color. Turn RESONANCE: both should dim together. Turn SELECT to return to a named preset.
+
 Color wraps around the palette. Brightness is clamped to 10–100% in five-point increments. The menu does not enforce either policy; the corresponding adjustment callbacks do. Navigation stops at the first/last item unless the menu is constructed with `wrap=True`.
 
 The app draws a three-row scrolling menu with `draw_menu()`, then a separate value page with `canvas.draw_page()` while editing. Both layouts reserve room for the header. Do not assume that a 64-pixel-tall screen can fit an arbitrary title plus four large menu rows.
@@ -296,7 +314,7 @@ The app draws a three-row scrolling menu with `draw_menu()`, then a separate val
 
 ## 7. Save and load without losing the current picture
 
-The file stores a version number, 64 palette indices, brush and brightness. Save is explicit; the app does not automatically load a file at startup or save when closing.
+Version 2 stores 64 RGB triples, the selected preset index, optional custom brush and brightness. Version-1 files from the original editor still load: their palette indices are converted to RGB tuples, preserving brightness and colors. New saves use version 2. Save is explicit; the app does not automatically load a file at startup or save when closing.
 
 To choose a different path:
 
@@ -312,9 +330,10 @@ A failed save must leave the previous file intact:
 ```python
 def save(self, path: Path) -> None:
     payload = {
-        "version": 1,
+        "version": 2,
         "pixels": self.pixels,
         "brush": self.brush,
+        "custom_color": self.custom_color,
         "brightness": self.brightness,
     }
     # A failed write must not truncate the previous picture. The temporary
@@ -335,7 +354,7 @@ def save(self, path: Path) -> None:
 
 This writes a temporary file in the destination directory and replaces the target only after writing finishes. It protects against truncation on a failed write; it is not a disk-durability guarantee or a multi-process locking scheme.
 
-`Picture.load()` validates the version, list length, every palette index, brush and brightness before returning a new model. It rejects booleans masquerading as integers and files with unsupported versions. The app installs that new model only after validation succeeds:
+`Picture.load()` validates the version, list length, every RGB triple (or legacy palette index), preset index, custom brush and brightness before returning a new model. It rejects booleans masquerading as integers and files with unsupported versions. The app installs that new model only after validation succeeds:
 
 <!-- source: examples/apps/pixel_editor/app.py:PixelEditorApp._load -->
 ```python
@@ -401,7 +420,8 @@ with TemporaryDirectory() as directory:
     with MockAkaiFire() as fire, PixelEditorApp(fire, path=path) as app:
         app.on_start()
         fire.simulate_pad_press(17)
-        assert app.picture.pixels[17] == 0  # The frame has not consumed input yet.
+        # The frame has not consumed input yet.
+        assert app.picture.pixels[17] == (0, 0, 0)
         app.on_update(1 / 30)
         fire.assert_pad_color(17, (0, 95, 0))
 
@@ -415,7 +435,7 @@ with TemporaryDirectory() as directory:
         fire.simulate_pad_press(17)
         fire.simulate_button_release(fire.BUTTON_SHIFT)
         app.on_update(1 / 30)
-        assert app.picture.pixels[17] == 0
+        assert app.picture.pixels[17] == (0, 0, 0)
 
 print("Pixel editor checks passed")
 ```
@@ -445,4 +465,4 @@ This app is complete with two views and a small dispatcher. More mixins would ad
 
 Useful next exercises are adding undo, a second picture slot, or importing a small bitmap. Keep the same boundaries: input records describe user actions, the model owns picture behavior, and the views render that model. Test the behavior through simulated input before adding more hardware gestures.
 
-The remaining runtime limits are explicit: no public pad-release hook, no automatic app-level reconnect policy, and no shared foreground input queue. This example supplies its own queue; it does not silently extend the framework. The driver and LED APIs have [physical hardware evidence](HARDWARE_VERIFICATION.md), but this new editor itself has only mock/test verification so far.
+The remaining runtime limits are explicit: no public pad-release hook, no automatic app-level reconnect policy, and no shared foreground input queue. This example supplies its own queue; it does not silently extend the framework. The driver and LED APIs have [physical hardware evidence](HARDWARE_VERIFICATION.md), and a hardware walkthrough confirmed the original editor's painting, OLED views, menu interaction and saving. A later RGB walkthrough confirmed the four main knobs, readable numeric feedback, and exact save/load restoration. SHIFT+STOP clearing was not captured in that run.

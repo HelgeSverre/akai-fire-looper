@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Pixel editor RGB brush levels on VOLUME/PAN/FILTER and global brightness on RESONANCE, with version-2 RGB snapshots and loading of original palette files.
+
 - End-to-end application tutorial with a runnable pixel editor, queued input, shared pad/OLED views, SELECT editing, JSON persistence and executable documentation checks.
 - JT-4000 MICRO CC editor with parameter pages, OLED graphs, short auditions and validated local snapshots.
 - MIDI Scope with input history, encoder traces, freeze/clear controls and CSV export.

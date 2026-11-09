@@ -20,6 +20,8 @@ The default is pygame, even with a connected Fire. `--hardware` requires the Fir
 | --- | --- | --- |
 | Pads | Paint current color; same-color tap erases | Ignored |
 | SHIFT + pad | Erase any color | Ignored |
+| VOLUME / PAN / FILTER | Adjust brush red / green / blue, 0–127 | Same direct adjustments; stay on the selected menu item |
+| RESONANCE | Adjust global brightness, 10–100% | Same direct adjustment |
 | SELECT turn | Choose brush color | Navigate, or change an edited value |
 | SELECT press | Open Settings | Enter/finish editing, or execute action |
 | GRID LEFT/RIGHT | Previous/next brush color | Previous/next item; keep editing if the destination is editable |
@@ -28,9 +30,9 @@ The default is pygame, even with a connected Fire. `--hardware` requires the Fir
 | REC | Save | Save |
 | SHIFT + STOP | Clear picture, preserving brush/brightness | Clear picture, preserving brush/brightness |
 
-Settings contains Color, Brightness, Save, Load, Back and Quit. Brightness changes apply to all pixels immediately; choosing a brush changes only future painting. An asterisk beside the OLED count means there are unsaved changes. Quit through Settings, close the mock window or press Ctrl+C.
+Settings contains Color, Brightness, Save, Load, Back and Quit. RGB knob changes create a custom brush without recoloring existing pixels. The OLED shows its channel levels and brightness. SELECT or GRID in Draw returns to presets; a black brush erases. Brightness changes apply to all pixels immediately; choosing a brush changes only future painting. An asterisk beside the OLED count means there are unsaved changes. Quit through Settings, close the mock window or press Ctrl+C.
 
-Save replaces `pixel-art.json` in the current directory unless `--file` specifies another path. Its parent directory must exist. There is no automatic loading or saving. Load replaces the current picture, including unsaved changes; save first if you want to preserve them. Invalid files leave the current picture intact. Save/load errors appear briefly on the OLED and print details in the terminal.
+Save replaces `pixel-art.json` in the current directory unless `--file` specifies another path. Its parent directory must exist. There is no automatic loading or saving. Load replaces the current picture, including unsaved changes; save first if you want to preserve them. Version 2 stores exact RGB colors, including the custom brush. Original version-1 palette files still load and are converted when saved. Invalid files leave the current picture intact. Save/load errors appear briefly on the OLED and print details in the terminal.
 
 ## Source and checks
 
@@ -46,4 +48,4 @@ uv run python -m unittest tests.test_pixel_editor tests.test_tutorial_docs
 uv run python -m examples.apps.pixel_editor --duration 2
 ```
 
-The first checkpoint is pygame-only and takes no command-line options. The full editor's `--duration` option exercises the normal loop and shutdown. Automated checks use mocks; this new app has not yet had its own physical Fire walkthrough. Pad releases, drag painting, undo, autosave and reconnect recovery are not implemented.
+The first checkpoint is pygame-only and takes no command-line options. The full editor's `--duration` option exercises the normal loop and shutdown. A hardware walkthrough confirmed the original painting/OLED, menu and save controls. A later RGB check confirmed all four main knobs, readable levels and exact save/load restoration. SHIFT+STOP clearing was not captured; it remains covered by automated tests. Automated checks also use mocks. Pad releases, drag painting, undo, autosave and reconnect recovery are not implemented.
